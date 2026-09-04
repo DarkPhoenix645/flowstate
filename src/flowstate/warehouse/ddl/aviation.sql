@@ -1,0 +1,1 @@
+-- Hive table: aviation.

@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+  <!--
+    Open spike: point the warehouse at HDFS so Hive tables are lake-backed.
+
+    hive.metastore.warehouse.dir = hdfs://namenode:9000/user/hive/warehouse
+    hive.metastore.uris = thrift://hive-metastore:9083
+  -->
+  <property>
+    <name>hive.metastore.warehouse.dir</name>
+    <value>/opt/hive/data/warehouse</value>
+  </property>
+  <property>
+    <name>hive.metastore.uris</name>
+    <value>thrift://hive-metastore:9083</value>
+  </property>
+  <property>
+    <name>javax.jdo.option.ConnectionURL</name>
+    <value>jdbc:derby:;databaseName=/opt/hive/data/metastore_db;create=true</value>
+  </property>
+</configuration>
