@@ -1,15 +1,16 @@
 # Agent / spec corpus
 
-Humans: skip this folder unless you need a decision or a contract. Onboarding is [../README.md](../README.md).
+Humans: skip this folder unless you need a contract, spike note, or CityPulse reading list. Onboarding: [../README.md](../README.md). Decisions: [../adr/](../adr/).
 
-Agents: treat these as source of truth for intent, schema, CityPulse, and spikes. Do not implement jobs until asked.
+Agents: contracts and open spikes live here. Locked architecture choices live in `docs/adr/` — do not restate them. Do not implement jobs until asked.
 
 | File | Contents |
 |---|---|
-| [citypulse.md](citypulse.md) | What the GitHub org actually is; ranked repos; what to read |
-| [concept-mapping.md](concept-mapping.md) | CityPulse → FlowState table |
-| [schema.md](schema.md) | Staged parquet + Kafka JSON columns |
-| [workstreams.md](workstreams.md) | Areas, paths, deliverables (no named owners) |
-| [spikes.md](spikes.md) | Six half-day spikes + risk notes |
-| [scaffold.md](scaffold.md) | Layout, toolchain choices, compose caveats |
-| [briefing.md](briefing.md) | Condensed original briefing |
+| [citypulse.md](citypulse.md) | Org facts, ranked repos, reading list (decision: [ADR-0001](../adr/0001-citypulse-reference-architecture-only.md)) |
+| [schema.md](schema.md) | Column dictionary (decision: [ADR-0005](../adr/0005-canonical-ride-schema.md)) |
+| [workstreams.md](workstreams.md) | Paths, files, done-when (stack: [ADR-0002](../adr/0002-lambda-pipeline-kafka-spark-hdfs-hive.md)) |
+| [spikes.md](spikes.md) | Open half-day spikes |
+| [scaffold.md](scaffold.md) | Layout, compose caveats, imports (runtime: [ADR-0003](../adr/0003-compose-cluster-host-uv.md), Make: [ADR-0004](../adr/0004-make-task-runner.md)) |
+| [briefing.md](briefing.md) | Team-meet dump → pointers only |
+
+Also under this folder (skills config, not FlowState specs): `issue-tracker.md`, `triage-labels.md`, `domain.md`.

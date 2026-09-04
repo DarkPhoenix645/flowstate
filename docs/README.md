@@ -11,6 +11,9 @@ Read these in order. ~20 minutes.
 
 Root [README.md](../README.md) is the one-pager; this folder is the rest.
 
-## `docs/agents/`
+## Decisions and agent specs
 
-Specs, CityPulse notes, schema contracts, spike writeups. **Useful to paste into an agent or to look up a decision. Not required reading to contribute.** Index: [agents/README.md](agents/README.md).
+| Path | Role |
+|---|---|
+| [adr/](adr/) | Accepted architecture choices (ADRs) |
+| [agents/](agents/) | Schema contract, spikes, CityPulse reading list, workstream file lists. Not required for human onboarding. Index: [agents/README.md](agents/README.md) |
