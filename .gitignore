@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# uv
+.python-version.bak
+
+# Env / secrets
+.env
+.env.local
+*.pem
+
+# Data lake (raw downloads + generated parquet)
+data/raw/
+data/staged/
+data/lake/
+data/stream-sink/
+
+# Spark / Hadoop local scratch
+metastore_db/
+derby.log
+spark-warehouse/
+
+# Java / Maven
+target/
+*.class
+*.jar
+!src/**/*.java
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Docker
+.docker/
+
+# graphify
+graphify-out/
