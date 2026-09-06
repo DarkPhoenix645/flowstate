@@ -6,6 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -48,6 +49,9 @@ class Settings(BaseSettings):
 
 
 def get_settings() -> Settings:
+    # Load .env into os.environ so non-FLOWSTATE keys (e.g. KAGGLE_API_TOKEN)
+    # are visible to kagglehub and other clients.
+    load_dotenv()
     return Settings()
 
 

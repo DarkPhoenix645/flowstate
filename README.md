@@ -12,7 +12,7 @@ HDFS, Kafka, Spark, Hive, and Superset run in **Docker Compose**. Host needs Doc
 2. Clone, then:
 
 ```bash
-cp .env.example .env   # fill KAGGLE_* when ingest is implemented
+cp .env.example .env   # fill KAGGLE_API_TOKEN when ingest is implemented
 make setup
 make test
 make up

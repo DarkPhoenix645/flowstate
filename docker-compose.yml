@@ -21,32 +21,42 @@ services:
     depends_on:
       - namenode
 
+  # CLUSTER_ID comes from infra/kafka/cluster.env (created by make up /
+  # infra/kafka/ensure_cluster_id.py). Do not hardcode it here.
   kafka:
-    image: bitnami/kafka:3.7.0
+    image: apache/kafka:4.2.1
+    hostname: kafka
     ports:
       - "9092:9092"
       - "9094:9094"
     environment:
-      KAFKA_CFG_NODE_ID: "0"
-      KAFKA_CFG_PROCESS_ROLES: controller,broker
-      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
-      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
-      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
-      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NODE_ID: "1"
+      CLUSTER_ID: ${CLUSTER_ID:?Run 'make up' first (mints infra/kafka/cluster.env)}
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
     volumes:
-      - kafka_data:/bitnami/kafka
+      - kafka_data:/var/lib/kafka/data
 
   spark:
-    image: bitnami/spark:3.5.1
+    image: apache/spark:3.5.6
     ports:
       - "8080:8080"
       - "7077:7077"
       - "4040:4040"
+    command:
+      ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
     environment:
-      SPARK_MODE: master
       PYTHONPATH: /opt/src
       FLOWSTATE_DATA_DIR: /opt/data
       FLOWSTATE_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -54,12 +64,18 @@ services:
     volumes:
       - ./data:/opt/data
       - ./src:/opt/src
+    depends_on:
+      - kafka
 
   spark-worker:
-    image: bitnami/spark:3.5.1
+    image: apache/spark:3.5.6
+    command:
+      [
+        "/opt/spark/bin/spark-class",
+        "org.apache.spark.deploy.worker.Worker",
+        "spark://spark:7077",
+      ]
     environment:
-      SPARK_MODE: worker
-      SPARK_MASTER_URL: spark://spark:7077
       PYTHONPATH: /opt/src
       FLOWSTATE_DATA_DIR: /opt/data
       FLOWSTATE_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -87,16 +103,18 @@ services:
       - "10000:10000"
       - "10002:10002"
     environment:
-      HIVE_METASTORE_URIS: thrift://hive-metastore:9083
       SERVICE_NAME: hiveserver2
+      SERVICE_OPTS: -Dhive.metastore.uris=thrift://hive-metastore:9083
     volumes:
       - ./infra/hive/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
       - ./src:/opt/src:ro
     depends_on:
       - hive-metastore
 
+  # apache/superset:6.1.0-py311 may not exist on all registries; pin a
+  # published tag. Override with SUPERSET_IMAGE if you need another build.
   superset:
-    image: apache/superset:4.0.2
+    image: ${SUPERSET_IMAGE:-apache/superset:4.1.1}
     ports:
       - "8088:8088"
     volumes:

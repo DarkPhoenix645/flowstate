@@ -1,4 +1,4 @@
-"""kagglehub downloaders for Uber/Ola ride-hailing CSVs (datasets #1, #2, #7)."""
+"""kagglehub downloaders for ride-hailing CSVs (datasets #1, #2, #7)."""
 
 from __future__ import annotations
 
@@ -10,5 +10,5 @@ def run(settings: Settings) -> None:
     dest.mkdir(parents=True, exist_ok=True)
     print(
         f"TODO: kagglehub download → standardized parquet at {dest} "
-        "(needs KAGGLE_USERNAME / KAGGLE_KEY)"
+        "(needs KAGGLE_API_TOKEN)"
     )

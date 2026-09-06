@@ -6,7 +6,7 @@ Human summary: [../team.md](../team.md). Stack decisions: [ADR-0002](../adr/0002
 
 Files: `kaggle_rides.py`, `bmrc_ridership.py`, `bmtc_gtfs.py`, `mmrda_ridership.py`, `dgca_aviation.py`, `amplify.py`. Dispatcher: `python -m flowstate.ingest --dataset all|kaggle|…`.
 
-Each `run(settings)` writes parquet under `settings.staged_dir / <name>/`. Credentials: `KAGGLE_USERNAME` / `KAGGLE_KEY` via kagglehub (ADR-0003).
+Each `run(settings)` writes parquet under `settings.staged_dir / <name>/`. Credentials: `KAGGLE_API_TOKEN` via kagglehub (ADR-0003).
 
 Amplify CLI: `amplify.py --rows N --seed S` with `N` in `{1e6, 1e7, 1e8}` — rationale in [ADR-0006](../adr/0006-amplify-for-scale-benchmarks.md).
 

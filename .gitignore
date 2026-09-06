@@ -23,6 +23,10 @@ htmlcov/
 .env.local
 *.pem
 
+# Local KRaft id (minted by make up; must stay stable with kafka_data volume)
+infra/kafka/cluster.id
+infra/kafka/cluster.env
+
 # Data lake (raw downloads + generated parquet)
 data/raw/
 data/staged/
