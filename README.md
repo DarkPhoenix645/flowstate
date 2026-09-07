@@ -6,7 +6,7 @@ Lambda-style pipeline: **ingest → HDFS lake → Spark/MapReduce batch → Hive
 
 ## Quickstart (Windows / macOS / Linux)
 
-HDFS, Kafka, Spark, Hive, and Superset run in **Docker Compose**. Host needs Docker, Git, uv, and Make — no host JDK.
+HDFS, Kafka, Spark, Hive, and Grafana run in **Docker Compose**. Host needs Docker, Git, uv, and Make — no host JDK.
 
 1. Install **Docker Desktop** (Windows: WSL2 backend), **Git**, **uv**. GNU Make ships on macOS/Linux; Windows: **Git Bash** or WSL.
 2. Clone, then:
@@ -30,7 +30,7 @@ Every command is a **Make target** — [docs/getting-started.md](docs/getting-st
 | `src/flowstate/batch/spark_jobs/` | Descriptive + diagnostic Spark jobs |
 | `src/flowstate/streaming/` | Kafka producer + rolling metrics |
 | `src/flowstate/warehouse/` | Hive DDL + load |
-| `dashboards/` | Superset export + Plotly/Streamlit |
+| `dashboards/` | Grafana export + Plotly/Streamlit |
 | `infra/` | Hadoop / Hive / Kafka compose extras |
 | `docs/` | Human onboarding |
 | `docs/agents/` | Spec dump for agents; skip unless you need a contract |

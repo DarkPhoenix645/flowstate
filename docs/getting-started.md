@@ -1,6 +1,6 @@
 # Getting started
 
-Identical on Windows (Git Bash or WSL), macOS, Linux. All heavy infra is Docker. Python on the host is `uv` + 3.11 (ingest, producer, tests). Spark, Hadoop, Hive, Kafka, Superset never run on the host.
+Identical on Windows (Git Bash or WSL), macOS, Linux. All heavy infra is Docker. Python on the host is `uv` + 3.11 (ingest, producer, tests). Spark, Hadoop, Hive, Kafka, Grafana never run on the host.
 
 ## Install once
 

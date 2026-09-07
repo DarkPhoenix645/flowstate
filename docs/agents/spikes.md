@@ -15,7 +15,7 @@ Related decisions (already accepted — spikes prove or refine them):
    Turn the node pattern into the streaming design-doc skeleton (annotated → aggregated → event).
 
 2. **City-Dashboard README** (analytics / dashboards)  
-   Replicate historical vs live in Superset: Hive-backed tabs + streaming-sink live tab.
+   Replicate historical vs live in Grafana: Hive-backed views + streaming-sink live views.
 
 3. **Hive-on-Docker + HDFS warehouse** (data & lake)  
    `beeline` querying HDFS-backed tables in Compose. `infra/hive/hive-site.xml` uses a local Derby warehouse on purpose. Target: `hive.metastore.warehouse.dir = hdfs://namenode:9000/user/hive/warehouse`.

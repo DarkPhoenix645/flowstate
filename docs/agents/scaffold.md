@@ -14,7 +14,7 @@ flowstate/
 ├── docs/                 # humans + adr/ + agents/
 ├── infra/hadoop|kafka|hive
 ├── src/flowstate/{ingest,batch,streaming,warehouse,benchmarks}
-├── dashboards/{superset,explore}
+├── dashboards/{grafana,explore}
 ├── tests/
 └── data/                 # gitignored bodies; README only
 ```

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. Dashboard technology is Grafana only (ADR-0009).
 
 ## Context
 
@@ -21,7 +21,7 @@ Implement a Lambda-style pipeline. CityPulse → FlowState mapping (normative fo
 | Event detection nodes | One streaming job per metric (surge, active rides, cancellations) |
 | GDI / historical store | HDFS data lake + Hive, partitioned by `city` / `vehicle_type` |
 | Resource manager | YARN in the Hadoop Compose images |
-| City Dashboard | Superset / Grafana over Hive (batch) + streaming sink (live) |
+| City Dashboard | Grafana over Hive (batch) + streaming sink (live) (ADR-0009) |
 | KAT analytics | Spark batch diagnostics (heatmaps, cancellation root cause, cross-modal) |
 
 Stack summary:
@@ -34,7 +34,7 @@ Stack summary:
 | Lake | HDFS |
 | Warehouse | Hive |
 | Live metrics | Spark Structured Streaming |
-| Dashboards | Superset (+ explore) |
+| Dashboards | Grafana (+ explore sandbox) |
 
 ## Consequences
 
@@ -44,4 +44,4 @@ Stack summary:
 
 ## Sources
 
-`docs/architecture.md`, `docs/agents/citypulse.md`, `docs/agents/workstreams.md`
+`docs/architecture.md`, `docs/agents/citypulse.md`, `docs/agents/workstreams.md`, [ADR-0009](0009-grafana-city-dashboard.md)

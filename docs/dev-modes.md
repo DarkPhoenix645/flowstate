@@ -1,6 +1,6 @@
 # Runtime
 
-Spark, Hadoop, Hive, Kafka, and Superset run **only** in Docker Compose. Do not install Hadoop/Spark/JDK on the host.
+Spark, Hadoop, Hive, Kafka, and Grafana run **only** in Docker Compose. Do not install Hadoop/Spark/JDK on the host.
 
 | Piece | Where it runs | How |
 |---|---|---|
@@ -33,7 +33,7 @@ Spark services set `FLOWSTATE_DATA_DIR=/opt/data` and `FLOWSTATE_KAFKA_BOOTSTRAP
 | spark-worker | — | Spark worker |
 | hive-metastore | 9083 | Derby for now |
 | hiveserver2 | 10000, 10002 | beeline / JDBC |
-| superset | 8088 | dashboards |
+| grafana | 3000 | dashboards |
 
 Tags are pinned in `docker-compose.yml`. Hive↔HDFS is a spike, not done: `infra/hive/hive-site.xml` still uses a local warehouse path on purpose.
 
