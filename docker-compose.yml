@@ -111,17 +111,21 @@ services:
     depends_on:
       - hive-metastore
 
-  # apache/superset:6.1.0-py311 may not exist on all registries; pin a
-  # published tag. Override with SUPERSET_IMAGE if you need another build.
-  superset:
-    image: ${SUPERSET_IMAGE:-apache/superset:4.1.1}
+  grafana:
+    image: grafana/grafana:13.2.0
     ports:
-      - "8088:8088"
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
-      - ./dashboards/superset:/app/superset_home
+      - grafana_data:/var/lib/grafana
+      - ./dashboards/grafana:/var/lib/grafana/dashboards
 
 volumes:
   namenode_data:
   datanode_data:
   kafka_data:
   hive_metastore:
+  grafana_data:

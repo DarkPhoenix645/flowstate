@@ -12,3 +12,4 @@ Accepted choices for FlowState. Read these before you change stack, schema, or r
 | [0006](0006-amplify-for-scale-benchmarks.md) | Amplify for scale benchmarks |
 | [0007](0007-mapreduce-spark-benchmark-pair.md) | MapReduce baseline beside Spark |
 | [0008](0008-speed-layer-streaming-shape.md) | Speed layer shape |
+| [0009](0009-grafana-city-dashboard.md) | Grafana for City Dashboard |

@@ -34,4 +34,4 @@ Decision: [ADR-0008](../adr/0008-speed-layer-streaming-shape.md).
 
 ## Warehouse & UI
 
-`warehouse/ddl/*.sql`, `warehouse/load.py`, `dashboards/superset/`, `dashboards/explore/`. Partitions: ADR-0005.
+`warehouse/ddl/*.sql`, `warehouse/load.py`, `dashboards/grafana/`, `dashboards/explore/`. Partitions: ADR-0005. Dashboards: ADR-0009.

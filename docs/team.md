@@ -21,7 +21,7 @@ Areas to staff. Paths are fixed; do not fork layouts.
 - Descriptive: demand heatmaps, booking-value by vehicle, metro trends, GTFS, DGCA share.
 - Diagnostic: cancellation root-cause, cross-modal correlation, aviation seasonality.
 - One file, one `main()`, config-driven paths. Submit with `make hotspots` (Compose Spark), not host `spark-submit`.
-- Spike: City-Dashboard historical vs live split (for later Superset tabs).
+- Spike: City-Dashboard historical vs live split (for later Grafana views).
 
 ## Speed layer — `src/flowstate/streaming/`
 
@@ -32,7 +32,7 @@ Areas to staff. Paths are fixed; do not fork layouts.
 
 ## Warehouse & dashboards — `warehouse/`, `dashboards/`
 
-Hive `PARTITIONED BY (city, vehicle_type)`, load scripts, Superset JDBC to HiveServer2 + live tab from stream sink, report with benchmark plot + CityPulse citation.
+Hive `PARTITIONED BY (city, vehicle_type)`, load scripts, Grafana over HiveServer2 for batch views plus live views from the stream sink, report with benchmark plot + CityPulse citation.
 
 ## Milestones
 
@@ -41,7 +41,7 @@ Hive `PARTITIONED BY (city, vehicle_type)`, load scripts, Superset JDBC to HiveS
 | Env setup | Repo usable; `make setup && make test` green; CI matrix; ingest stub runs; `make up` healthy |
 | Batch MVP | Lake in HDFS; 2 Spark jobs + 1 MR on the stack; first benchmark row |
 | Streaming | Producer ≥1k events/s; rolling metrics on replay; live output visible |
-| Benchmarks + UI | 1M/10M/100M table + charts; Hive from Superset; dashboard; report draft |
+| Benchmarks + UI | 1M/10M/100M table + charts; Hive from Grafana; dashboard; report draft |
 
 ## Spikes (~half day each)
 

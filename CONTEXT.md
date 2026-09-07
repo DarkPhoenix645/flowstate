@@ -1,6 +1,6 @@
 # CONTEXT
 
-FlowState is a Lambda pipeline on Indian urban mobility data. CityPulse (EU FP7) is the architecture reference. The stack is Kafka, Spark, HDFS, and Hive.
+FlowState is a Lambda pipeline on Indian urban mobility data. CityPulse (EU FP7) is the architecture reference. The stack is Kafka, Spark, HDFS, Hive, and Grafana.
 
 Agents: read this glossary before you invent synonyms. Read ADRs under `docs/adr/` before you change a locked choice. Spec detail lives in `docs/agents/`.
 

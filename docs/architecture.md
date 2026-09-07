@@ -13,7 +13,7 @@ flowchart LR
   mr --> bench["Benchmark 1M / 10M / 100M"]
   spark --> bench
   spark --> hive["Hive OLAP (city, vehicle_type)"]
-  hive --> dash["Superset / Grafana"]
+  hive --> dash["Grafana"]
   replay["Kafka producer (replay + amplify)"] --> kafka["rides.raw"]
   kafka --> sss["Structured Streaming windows"]
   sss --> sink["Live metrics sink"]
