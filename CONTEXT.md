@@ -8,13 +8,15 @@ Agents: read this glossary before you invent synonyms. Read ADRs under `docs/adr
 
 | Term | Meaning | Avoid |
 |------|---------|--------|
-| ride event | One mobility record that matches the canonical ride schema | “row”, “message”, “trip record” as competing names for the same contract |
+| ride event | One mobility record that matches the canonical ride schema. `mode` is ride_hail, metro, bus, or aviation | Per-mode private Kafka contracts for the Bengaluru resampler stream |
 | canonical ride schema | Shared columns in `src/flowstate/schema.py` / `docs/agents/schema.md` | Per-loader private schemas for Kafka |
 | staged parquet | Ingest output under `data/staged/<dataset>/` before lake load | “raw dump”, “CSV lake” |
 | data lake | Mobility data on HDFS (Compose namenode); host `data/` is a mount/staging aid | Treating only local `./data` as the lake |
-| amplify | Resample seed rides to 1M / 10M / 100M while keeping hour-of-day and cancel rates | “generate fake random rides” without seed fidelity |
+| amplify | `make amplify` / `N` multimodal events on the lake from the resampler | A second random generator beside the RNN |
+| resampler | RNN that draws Bengaluru events for all four modes onto the lake and Kafka, with cross-modal correlation | Taxi-only generator; separate batch vs stream samplers; training on NCR taxis |
+| Bengaluru alignment window | Shared clock for Namma Metro, Bengaluru aviation, and emitted Bengaluru ride events: from 2024-10-26 | Joining Jan/Jul 2024 Bengaluru bookings or NCR taxis to metro days as if they overlap |
 | batch layer | Spark batch jobs + MapReduce baseline over the lake | Calling streaming windows “batch” |
-| speed layer | Kafka replay + Spark Structured Streaming rolling metrics | Host-local Spark streaming |
+| speed layer | Kafka emit + Spark Structured Streaming rolling metrics | Host-local Spark streaming; “replay” as the only emit path |
 | warehouse | Hive tables over the lake, partitioned by `city` and `vehicle_type` | Ad-hoc SQL without partitions |
 | CityPulse | EU FP7 reference system (AMQP / RDF / Java). Cite boundaries; do not run their repos | “CityPulse fork”, “port CityPulse code” |
 | workstream | Fixed path area (`ingest/`, `batch/`, …), not a named owner | Forking layouts per person |

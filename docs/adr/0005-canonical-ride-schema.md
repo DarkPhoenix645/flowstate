@@ -18,7 +18,7 @@ Rules:
 
 - Extra source columns may sit beside these in staged files.
 - Kafka events use this column set.
-- Amplify keeps hour-of-day mix and cancellation rates from the seed.
+- Amplify keeps hour-of-day mix and cancellation rates from the taxi seed. Multimodal emit rules: [ADR-0010](0010-bengaluru-rnn-stream-resampler.md).
 - Hive tables use `PARTITIONED BY (city, vehicle_type)`. Those fields stay in the file schema for local parquet as well.
 - `ride_event_schema.py` is the single JSON schema for producer and consumer.
 

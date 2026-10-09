@@ -4,9 +4,9 @@ Areas to staff. Paths are fixed; do not fork layouts.
 
 ## Data & lake — `src/flowstate/ingest/`
 
-- kagglehub for ride-hailing CSVs; BMRCL HTML; data.gov.in XLSX; GTFS zip.
+- kagglehub for ride-hailing CSVs; Namma Metro daily ridership CSV; GTFS zip.
 - Each loader writes **standardized parquet** under `data/staged/` (schema: [agents/schema.md](agents/schema.md)).
-- `amplify.py`: synthetic 1M / 10M / 100M, seed-faithful (hour-of-day, cancel rates).
+- `amplify.py`: write 1M / 10M / 100M Bengaluru multimodal events from the RNN resampler (ADR-0010).
 - Done when: `make ingest && make amplify` materializes the lake. Document veracity per dataset.
 - Spike: Hive-on-HDFS warehouse dir (early).
 
@@ -25,7 +25,7 @@ Areas to staff. Paths are fixed; do not fork layouts.
 
 ## Speed layer — `src/flowstate/streaming/`
 
-- `producer.py`: replay staged rides into `rides.raw`, `--events-per-sec`, event-time interpolation.
+- `producer.py`: emit the same resampler into `rides.raw`, `--events-per-sec`.
 - `rolling_metrics.py`: 1-min tumbling + 5-min sliding, `watermark("timestamp", "10 minutes")` → active rides / zone, cancel rate, surge flag. Console + parquet sink. Submit on Compose Spark (`make stream-consume`).
 - `ride_event_schema.py`: one JSON schema for producer and consumer.
 - Spike: Event-Detector "one metric node per job"; watermarks / late data on replay.

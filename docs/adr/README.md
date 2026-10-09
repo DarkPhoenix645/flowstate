@@ -13,3 +13,4 @@ Accepted choices for FlowState. Read these before you change stack, schema, or r
 | [0007](0007-mapreduce-spark-benchmark-pair.md) | MapReduce baseline beside Spark |
 | [0008](0008-speed-layer-streaming-shape.md) | Speed layer shape |
 | [0009](0009-grafana-city-dashboard.md) | Grafana for City Dashboard |
+| [0010](0010-bengaluru-rnn-stream-resampler.md) | Bengaluru multimodal RNN resampler (batch + Kafka) |

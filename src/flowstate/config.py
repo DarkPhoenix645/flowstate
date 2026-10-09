@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -18,9 +19,37 @@ class Settings(BaseSettings):
     )
 
     data_dir: Path = Path("data")
+    datasets_dir: Path = Path("flowstate-datasets")
     kafka_bootstrap_servers: str = "localhost:9094"
     spark_master: str = "spark://spark:7077"
     hdfs_namenode: str = "hdfs://namenode:9000"
+
+    def opensky_clients(self) -> list[tuple[int, str, str]]:
+        """Up to 4 OpenSky client pairs.
+
+        Pair 1: FLOWSTATE_OPENSKY_CLIENT_ID and
+        FLOWSTATE_OPENSKY_CLIENT_SECRET.
+        Pairs 2-4: the same names with a _2, _3, or _4 suffix.
+        Unprefixed OPENSKY_CLIENT_ID is ignored.
+        """
+        pairs: list[tuple[int, str, str]] = []
+        for index in range(1, 5):
+            suffix = "" if index == 1 else f"_{index}"
+            client_id = os.environ.get(
+                f"FLOWSTATE_OPENSKY_CLIENT_ID{suffix}", ""
+            ).strip()
+            secret = os.environ.get(
+                f"FLOWSTATE_OPENSKY_CLIENT_SECRET{suffix}", ""
+            ).strip()
+            if client_id and secret:
+                pairs.append((index, client_id, secret))
+            elif client_id or secret:
+                raise RuntimeError(
+                    f"OpenSky pair {index} is incomplete. Set both "
+                    f"FLOWSTATE_OPENSKY_CLIENT_ID{suffix} and "
+                    f"FLOWSTATE_OPENSKY_CLIENT_SECRET{suffix}, or neither."
+                )
+        return pairs
 
     @property
     def raw_dir(self) -> Path:

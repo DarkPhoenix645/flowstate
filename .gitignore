@@ -33,6 +33,12 @@ data/staged/
 data/lake/
 data/stream-sink/
 
+# Local source extracts (Kaggle is downloaded at ingest; do not commit)
+flowstate-datasets/
+
+# Local exploration and the unanswered resampler questionnaire
+.scratch/
+
 # Spark / Hadoop local scratch
 metastore_db/
 derby.log

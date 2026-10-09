@@ -12,7 +12,7 @@ Watermark and late-data policy on replay is still a spike. The structural choice
 
 ## Decision
 
-- Producer on the host (`producer.py`) replays staged rides into `rides.raw` with `--events-per-sec` and event-time interpolation.
+- Producer on the host (`producer.py`) writes Kafka with `--events-per-sec`. Event time, `mode`, and mix come from the Bengaluru multimodal RNN resampler (ADR-0010), the same generator as `make amplify`. Working default topic is `rides.raw` (T4 option 1) until T4 supersedes it.
 - Consumers run on Compose Spark (`rolling_metrics.py` and follow-on jobs).
 - Prefer **one streaming job per metric** (surge, active rides, cancellations), following the Event-Detector node pattern.
 - Default windows in the scaffold: 1-minute tumbling, 5-minute sliding, watermark 10 minutes on `timestamp`.

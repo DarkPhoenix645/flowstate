@@ -1,6 +1,6 @@
 .PHONY: help setup ingest amplify hotspots up down down-v \
 	ensure-kafka-cluster-id \
-	stream-produce stream-consume hive-ddl mr-package test lint
+	stream-produce stream-consume hive-ddl mr-package test lint \
 
 PYTHON ?= uv run python
 ROWS ?= 1000000
@@ -15,7 +15,7 @@ SPARK_SUBMIT = $(COMPOSE) exec -e PYTHONPATH=/opt/src spark \
 help:
 	@echo "FlowState targets:"
 	@echo "  make setup              uv lock/sync + config check"
-	@echo "  make ingest             download/stage datasets (DATASET=all)"
+	@echo "  make ingest             DATASET=all|ridehail|metro|bus|aviation|events|manifest|validate"
 	@echo "  make amplify            synthetic scale (ROWS=1000000)"
 	@echo "  make up                 mint Kafka CLUSTER_ID if needed, start stack"
 	@echo "  make down               stop stack (keeps volumes + CLUSTER_ID)"
@@ -33,7 +33,7 @@ setup:
 	$(PYTHON) -m flowstate.config --check
 
 ingest:
-	$(PYTHON) -m flowstate.ingest --dataset $(DATASET)
+	PYTHONUNBUFFERED=1 $(PYTHON) -m flowstate.ingest --dataset $(DATASET)
 
 amplify:
 	$(PYTHON) -m flowstate.ingest.amplify --rows $(ROWS)
@@ -81,3 +81,4 @@ test:
 
 lint:
 	uv run ruff check .
+
