@@ -5,7 +5,7 @@ FlowState is a Lambda pipeline on Indian urban mobility data. CityPulse (EU FP7,
 ```mermaid
 flowchart LR
   src1["Kaggle Uber/Ola CSVs"] --> ing["Ingest (uv, Python)"]
-  src2["BMRCL/MMRDA ridership"] --> ing
+  src2["Namma Metro ridership"] --> ing
   src3["BMTC GTFS + DGCA"] --> ing
   ing --> hdfs["HDFS Data Lake (Docker)"]
   hdfs --> mr["Hadoop MapReduce baseline"]
@@ -14,7 +14,7 @@ flowchart LR
   spark --> bench
   spark --> hive["Hive OLAP (city, vehicle_type)"]
   hive --> dash["Grafana"]
-  replay["Kafka producer (replay + amplify)"] --> kafka["rides.raw"]
+  replay["Kafka producer (RNN resampler)"] --> kafka["rides.raw"]
   kafka --> sss["Structured Streaming windows"]
   sss --> sink["Live metrics sink"]
   sink --> dash

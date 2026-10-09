@@ -33,7 +33,7 @@ make down-v         # DESTRUCTIVE: compose down -v + remint CLUSTER_ID
 | Target                    | What                                                                         | State   |
 | ------------------------- | ---------------------------------------------------------------------------- | ------- |
 | `make setup`              | `uv lock`, `uv sync --all-groups`, create `data/*` dirs, print config        | WORKING |
-| `make ingest`             | `DATASET=all` (or `kaggle` / `bmrc` / `bmtc` / `mmrda` / `dgca`)             | TODO    |
+| `make ingest`             | `DATASET=all` (or `ridehail` / `metro` / `bus` / `aviation` / `events` / `manifest` / `validate`) | WORKING |
 | `make amplify`            | `ROWS=1000000` (also 10M / 100M later)                                       | TODO    |
 | `make up`                 | Mint `infra/kafka/cluster.env` if needed, then start Compose                 | WORKING |
 | `make down`               | Stop stack; **keeps** volumes and CLUSTER_ID                                 | WORKING |
