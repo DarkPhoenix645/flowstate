@@ -11,6 +11,7 @@ Accepted choices for FlowState. Read these before you change stack, schema, or r
 | [0005](0005-canonical-ride-schema.md) | Canonical ride schema and Hive partitions |
 | [0006](0006-amplify-for-scale-benchmarks.md) | Amplify for scale benchmarks |
 | [0007](0007-mapreduce-spark-benchmark-pair.md) | MapReduce baseline beside Spark |
-| [0008](0008-speed-layer-streaming-shape.md) | Speed layer shape |
+| [0008](0008-speed-layer-streaming-shape.md) | Speed layer shape (topic contract, scenario engine) |
 | [0009](0009-grafana-city-dashboard.md) | Grafana for City Dashboard |
-| [0010](0010-bengaluru-rnn-stream-resampler.md) | Bengaluru multimodal RNN resampler (batch + Kafka) |
+| [0010](0010-bengaluru-calibrated-resampler.md) | Bengaluru calibrated multimodal resampler |
+| [0011](0011-bengaluru-source-table-v2.md) | Bengaluru source table v2 |

@@ -88,6 +88,8 @@ def sha256(path: Path) -> str:
 
 
 def file_record(path: Path, retrieved_at: str | None = None) -> dict:
+    if not path.exists():
+        return {"path": str(path.relative_to(ROOT)), "note": "missing"}
     st = path.stat()
     stamp = retrieved_at or datetime.fromtimestamp(st.st_mtime, UTC).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
@@ -113,8 +115,10 @@ def download(url: str, dest: Path) -> str:
     return stamp
 
 
-def metro_check() -> dict:
+def metro_check() -> dict | None:
     path = DATA / "namma-metro" / "NammaMetro_Ridership_Processed.csv"
+    if not path.exists():
+        return None
     df = pd.read_csv(path)
     df["d"] = pd.to_datetime(df["Record Date"], format="mixed", dayfirst=True)
     commute_ok = (df["Commute"] == df["Smart Cards"] + df["NCMC"]).all()
@@ -139,8 +143,10 @@ def metro_check() -> dict:
     }
 
 
-def dates_check() -> dict:
+def dates_check() -> dict | None:
     path = DATA / "significant-dates" / "significant_dates.csv"
+    if not path.exists():
+        return None
     df = pd.read_csv(path)
     return {
         "rows": int(len(df)),
@@ -155,8 +161,10 @@ def dates_check() -> dict:
     }
 
 
-def dgca_check() -> dict:
+def dgca_check() -> dict | None:
     path = DATA / "aviation" / "domestic" / "city.csv"
+    if not path.exists():
+        return None
     df = pd.read_csv(path, usecols=["Year", "Month", "City1", "City2"])
     blr = df[(df.City1 == "BENGALURU") | (df.City2 == "BENGALURU")]
     ym = blr.Year.astype(str) + "-" + blr.Month.astype(str).str.zfill(2)
@@ -189,21 +197,29 @@ def build(fetch: bool) -> None:
 
     log.info("checking metro total formulas")
     metro = metro_check()
-    log.info(
-        "metro formulas commute=%s casual=%s total=%s",
-        metro["formula_commute_eq_smartcards_plus_ncmc"],
-        metro["formula_casual_eq_tokens_qr_group"],
-        metro["formula_total_eq_commute_plus_casual"],
-    )
+    if metro is None:
+        log.info("metro file missing; formula check skipped")
+    else:
+        log.info(
+            "metro formulas commute=%s casual=%s total=%s",
+            metro["formula_commute_eq_smartcards_plus_ncmc"],
+            metro["formula_casual_eq_tokens_qr_group"],
+            metro["formula_total_eq_commute_plus_casual"],
+        )
     log.info("checking significant dates")
     holidays = dates_check()
-    log.info(
-        "significant dates rows=%s duplicate_dates=%s",
-        holidays["rows"],
-        holidays["duplicate_dates"],
-    )
+    if holidays is None:
+        log.info("significant-dates file missing; check skipped")
+    else:
+        log.info(
+            "significant dates rows=%s duplicate_dates=%s",
+            holidays["rows"],
+            holidays["duplicate_dates"],
+        )
     log.info("checking DGCA Bengaluru slice")
     dgca = dgca_check()
+    if dgca is None:
+        log.info("DGCA city.csv missing; check skipped")
 
     def rec(path: Path) -> dict:
         rel = str(path.relative_to(ROOT))
@@ -365,7 +381,14 @@ def build(fetch: bool) -> None:
                 "upstream": "https://github.com/Vonter/india-aviation-traffic",
                 "immutable_version": "local copy, commit not pinned",
                 "grain": "year-month x city pair",
-                "transformation": dgca["formula"],
+                "transformation": (
+                    dgca["formula"]
+                    if dgca
+                    else (
+                        "Keep rows where City1 or City2 is BENGALURU. "
+                        "Do not expand a month into days."
+                    )
+                ),
                 "checks": dgca,
                 "role": "Layer 1 monthly aviation",
                 "file": rec(DATA / "aviation" / "domestic" / "city.csv"),
@@ -498,7 +521,12 @@ def _reason_rti() -> str | None:
 
 
 def _reason_metro() -> str | None:
+    path = DATA / "namma-metro" / "NammaMetro_Ridership_Processed.csv"
+    if not path.exists():
+        return f"missing {path.name}"
     info = metro_check()
+    if info is None:
+        return f"missing {path.name}"
     if not info["formula_total_eq_commute_plus_casual"]:
         return "Total != Commute + Casual"
     if not info["formula_commute_eq_smartcards_plus_ncmc"]:
@@ -509,7 +537,12 @@ def _reason_metro() -> str | None:
 
 
 def _reason_dgca() -> str | None:
+    path = DATA / "aviation" / "domestic" / "city.csv"
+    if not path.exists():
+        return f"missing {path.name}"
     info = dgca_check()
+    if info is None:
+        return f"missing {path.name}"
     if info["bengaluru_pair_rows"] < 1:
         return "no BENGALURU rows in domestic/city.csv"
     if info["bengaluru_month_max"] < "2026-04":
@@ -529,7 +562,12 @@ def _reason_bmtc() -> str | None:
 
 
 def _reason_dates() -> str | None:
+    path = DATA / "significant-dates" / "significant_dates.csv"
+    if not path.exists():
+        return f"missing {path.name}"
     info = dates_check()
+    if info is None:
+        return f"missing {path.name}"
     if info["rows"] != 137:
         return f"expected 137 rows, found {info['rows']}"
     if info["duplicate_dates"]:

@@ -36,7 +36,7 @@ data/stream-sink/
 # Local source extracts (Kaggle is downloaded at ingest; do not commit)
 flowstate-datasets/
 
-# Local exploration and the unanswered resampler questionnaire
+# Local exploration
 .scratch/
 
 # Spark / Hadoop local scratch

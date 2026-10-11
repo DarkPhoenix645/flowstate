@@ -21,7 +21,9 @@ import json
 import logging
 import subprocess
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -103,26 +105,83 @@ def load_commits(series: str, refresh: bool) -> list[tuple[str, str]]:
     return rows
 
 
-def fetch_one(series: str, sha: str) -> Path | None:
+@dataclass(frozen=True)
+class Fetch:
+    path: Path | None
+    seconds: float
+    nbytes: int
+    kind: str  # cache, download, empty, failed
+
+
+def _upstream_empty(series: str, sha: str) -> bool:
+    spec = SERIES[series]
+    url = (
+        f"https://api.github.com/repos/{REPO}/contents/"
+        f"{spec['git_path']}?ref={sha}"
+    )
+    try:
+        r = requests.get(
+            url,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "flowstate-ingest",
+            },
+            timeout=30,
+        )
+    except requests.RequestException as exc:
+        log.warning("size check %s failed: %s", sha[:10], exc)
+        return False
+    if r.status_code != 200:
+        return False
+    return int(r.json().get("size") or 0) == 0
+
+
+def fetch_one(series: str, sha: str) -> Fetch:
     spec = SERIES[series]
     dest = cache_dir(series) / f"{sha}.json"
     if dest.exists() and dest.stat().st_size > 0:
         log.debug("cache hit %s", sha[:10])
-        return dest
+        return Fetch(dest, 0.0, dest.stat().st_size, "cache")
     url = f"https://raw.githubusercontent.com/{REPO}/{sha}/{spec['git_path']}"
-    for attempt in range(1, 5):
+    headers = {"User-Agent": "flowstate-ingest"}
+    spent = 0.0
+    for attempt in range(1, 6):
+        t0 = time.perf_counter()
         try:
             log.info("downloading %s attempt %s", sha[:10], attempt)
-            r = requests.get(url, timeout=180)
+            r = requests.get(url, timeout=60, headers=headers)
+            spent += time.perf_counter() - t0
             if r.status_code == 200 and r.text.startswith("["):
                 dest.write_text(r.text)
-                log.info("saved %s (%s bytes)", sha[:10], dest.stat().st_size)
-                return dest
-            log.warning("bad response %s status %s", sha[:10], r.status_code)
+                log.info(
+                    "saved %s (%s bytes, %.2fs)",
+                    sha[:10],
+                    dest.stat().st_size,
+                    spent,
+                )
+                return Fetch(dest, spent, dest.stat().st_size, "download")
+            if r.status_code == 200:
+                log.info(
+                    "skip %s: upstream body is not a JSON array (%s bytes)",
+                    sha[:10],
+                    len(r.content),
+                )
+                return Fetch(None, spent, 0, "empty")
+            log.warning(
+                "bad response %s status %s", sha[:10], r.status_code
+            )
         except requests.RequestException as exc:
+            spent += time.perf_counter() - t0
             log.warning("download error %s: %s", sha[:10], exc)
+        if _upstream_empty(series, sha):
+            log.info("skip %s: upstream file size is 0", sha[:10])
+            return Fetch(None, spent, 0, "empty")
+        delay = min(2**attempt, 30)
+        log.info("retry %s in %ss", sha[:10], delay)
+        time.sleep(delay)
+        spent += delay
     log.error("gave up on %s", sha[:10])
-    return None
+    return Fetch(None, spent, 0, "failed")
 
 
 def coverage(commits: list[tuple[str, str]], observed: pd.Series) -> dict:
@@ -256,16 +315,31 @@ def stitch(series: str, refresh: bool, workers: int) -> None:
     commits = load_commits(series, refresh)
     log.info("%s commits to apply, oldest first", len(commits))
     failed = 0
+    empty = 0
+    downloads = 0
+    cache_hits = 0
+    download_s = 0.0
+    download_bytes = 0
     before = 0
     acc: pd.DataFrame | None = None
     pending: list[pd.DataFrame] = []
+    wall0 = time.perf_counter()
     with ThreadPoolExecutor(workers) as pool:
         futures = [pool.submit(fetch_one, series, sha) for sha, _ in commits]
         for i, fut in enumerate(futures, 1):
-            path = fut.result()
-            if path is None:
-                failed += 1
+            fetched = fut.result()
+            if fetched.kind == "download":
+                downloads += 1
+                download_s += fetched.seconds
+                download_bytes += fetched.nbytes
+            elif fetched.kind == "cache":
+                cache_hits += 1
+            elif fetched.kind == "empty":
+                empty += 1
             else:
+                failed += 1
+            path = fetched.path
+            if path is not None:
                 rows = json.loads(path.read_text())
                 if series == "city":
                     rows = [r for r in rows if r.get("city_code") == "BLR"]
@@ -293,7 +367,14 @@ def stitch(series: str, refresh: bool, workers: int) -> None:
                     failed,
                     rows_now,
                 )
-    log.info("snapshots done, failed %s", failed)
+    wall_s = time.perf_counter() - wall0
+    log.info(
+        "snapshots done, failed %s, empty %s, downloads %s, cache %s",
+        failed,
+        empty,
+        downloads,
+        cache_hits,
+    )
     df = acc if acc is not None else pd.DataFrame()
     out = out_dir() / spec["out_name"]
     df.to_csv(out, index=False)
@@ -311,12 +392,43 @@ def stitch(series: str, refresh: bool, workers: int) -> None:
             "rows_before_dedupe": before,
             "rows_after_dedupe": len(df),
             "failed_snapshots": failed,
+            "empty_snapshots": empty,
+            "timing": {
+                "wall_s": round(wall_s, 3),
+                "download_s": round(download_s, 3),
+                "downloads": downloads,
+                "cache_hits": cache_hits,
+                "bytes_downloaded": download_bytes,
+                "seconds_per_download": (
+                    round(download_s / downloads, 3) if downloads else None
+                ),
+                "seconds_per_output_row": (
+                    round(wall_s / len(df), 6) if len(df) else None
+                ),
+            },
             "output": str(out.relative_to(ROOT)),
             "script": "flowstate.ingest.namma_yatri",
         }
     )
     man_path = out.with_suffix(".coverage.json")
     man_path.write_text(json.dumps(manifest, indent=2))
+    timing = manifest["timing"]
+    log.info(
+        "TIMING series=%s wall_s=%s download_s=%s downloads=%s "
+        "cache_hits=%s empty=%s failed=%s bytes=%s "
+        "s_per_download=%s rows=%s s_per_output_row=%s",
+        series,
+        timing["wall_s"],
+        timing["download_s"],
+        timing["downloads"],
+        timing["cache_hits"],
+        empty,
+        failed,
+        timing["bytes_downloaded"],
+        timing["seconds_per_download"],
+        len(df),
+        timing["seconds_per_output_row"],
+    )
     log.info("wrote %s (%s rows)", out, len(df))
     log.info(
         "commits %s on %s dates; calendar span %s; missing commit dates %s",
@@ -357,12 +469,17 @@ def run(settings: object) -> None:
     )
     dest.parent.mkdir(parents=True, exist_ok=True)
     log.info("GET %s", NY_GZIP_URL)
+    t0 = time.perf_counter()
     response = requests.get(NY_GZIP_URL, timeout=180)
     response.raise_for_status()
     dest.write_bytes(response.content)
-    log.info("saved %s (%s bytes)", dest.name, dest.stat().st_size)
-    stitch("city", False, 8)
-    stitch("ward", False, 8)
+    log.info(
+        "TIMING series=city_day wall_s=%.3f bytes=%s",
+        time.perf_counter() - t0,
+        dest.stat().st_size,
+    )
+    stitch("city", False, 2)
+    stitch("ward", False, 2)
 
 
 if __name__ == "__main__":

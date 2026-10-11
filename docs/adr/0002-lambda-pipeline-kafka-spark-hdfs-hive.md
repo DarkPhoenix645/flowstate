@@ -16,7 +16,7 @@ Implement a Lambda-style pipeline. CityPulse → FlowState mapping (normative fo
 
 | CityPulse concept | FlowState equivalent |
 |---|---|
-| Data bus (AMQP) | Kafka topics `rides.raw`, `rides.enriched` |
+| Data bus (AMQP) | Kafka topic set and event envelope in [ADR-0008](0008-speed-layer-streaming-shape.md) |
 | Aggregated / annotated streams | Spark Structured Streaming rolling windows |
 | Event detection nodes | One streaming job per metric (surge, active rides, cancellations) |
 | GDI / historical store | HDFS data lake + Hive, partitioned by `city` / `vehicle_type` |

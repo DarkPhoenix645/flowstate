@@ -27,6 +27,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -384,11 +385,18 @@ def fetch(settings: object) -> dict:
 
 def run(settings: object) -> None:
     """Fetch the alignment window. Exit 2 if every client is out of credits."""
+    t0 = time.perf_counter()
     try:
-        fetch(settings)
+        status = fetch(settings)
     except OpenSkyCreditsExhausted as exc:
         log.error(str(exc))
         raise SystemExit(2) from exc
+    log.info(
+        "TIMING series=opensky wall_s=%.3f windows=%s rows=%s",
+        time.perf_counter() - t0,
+        status.get("windows_cached"),
+        status.get("rows"),
+    )
 
 
 def main() -> None:

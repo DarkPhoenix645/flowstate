@@ -19,11 +19,6 @@ cp .env.example .env
 make setup          # uv lock + sync --all-groups + config --check
 make test
 make up             # mints Kafka CLUSTER_ID once, then starts the stack
-```
-
-Kaggle credentials (`KAGGLE_API_TOKEN` from account API settings) are only needed once ingest downloaders exist.
-
-```bash
 make down           # stop; keep volumes + CLUSTER_ID
 make down-v         # DESTRUCTIVE: compose down -v + remint CLUSTER_ID
 ```
@@ -39,7 +34,7 @@ make down-v         # DESTRUCTIVE: compose down -v + remint CLUSTER_ID
 | `make down`               | Stop stack; **keeps** volumes and CLUSTER_ID                                 | WORKING |
 | `make down-v`             | Stop stack, **delete volumes** (`docker compose down -v`), remint CLUSTER_ID | WORKING |
 | `make hotspots`           | Spark demand job **inside** the `spark` service                              | TODO    |
-| `make stream-produce`     | `TOPIC=rides.raw RATE=500` (host → Kafka `:9094`)                            | TODO    |
+| `make stream-produce`     | `TOPIC=flowstate.ridehail.activity.v1 RATE=500` (host → Kafka `:9094`). Topic set: [ADR-0008](adr/0008-speed-layer-streaming-shape.md). | TODO    |
 | `make stream-consume`     | rolling metrics **inside** Compose Spark                                     | TODO    |
 | `make hive-ddl`           | beeline against `rides.sql` (needs stack up + Hive↔HDFS spike done)          | TODO    |
 | `make mr-package`         | Maven package in Docker (no host Java)                                       | TODO    |
@@ -48,9 +43,9 @@ make down-v         # DESTRUCTIVE: compose down -v + remint CLUSTER_ID
 Examples:
 
 ```bash
-make ingest DATASET=kaggle
+make ingest DATASET=ridehail
 make amplify ROWS=10000
-make stream-produce TOPIC=rides.raw RATE=100
+make stream-produce TOPIC=flowstate.ridehail.activity.v1 RATE=100
 ```
 
 ## Python extras

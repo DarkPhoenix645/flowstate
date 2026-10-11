@@ -11,7 +11,6 @@ from flowstate.ingest import (
     bmrcl_rti,
     bmtc_gtfs,
     dgca_aviation,
-    kaggle_rides,
     manifest,
     namma_ridership,
     namma_yatri,
@@ -27,14 +26,13 @@ logging.basicConfig(
 )
 
 # One modality is one or more loaders. `all` is every modality.
-# `kaggle` stays available and is not part of `all`: those seeds are generated.
 MODALITIES: dict[str, list] = {
     "ridehail": [namma_yatri.run],
     "metro": [namma_ridership.run, bmrcl_rti.run],
     "bus": [bmtc_gtfs.run],
     "aviation": [dgca_aviation.run, opensky_arrivals.run],
+    "opensky": [opensky_arrivals.run],
     "events": [significant_dates.run],
-    "kaggle": [kaggle_rides.run],
 }
 
 
@@ -63,7 +61,12 @@ def run_all(dataset: str) -> None:
             try:
                 loader(settings)
             except SystemExit as exc:
-                code = int(exc.code or 1)
+                if isinstance(exc.code, int) and exc.code != 0:
+                    code = exc.code
+                else:
+                    if exc.code:
+                        print(exc.code, file=sys.stderr)
+                    code = 1
                 break
         if code:
             break
@@ -78,8 +81,8 @@ def main() -> None:
         "--dataset",
         default="all",
         help=(
-            "all | ridehail | metro | bus | aviation | events | "
-            "manifest | validate | kaggle"
+            "all | ridehail | metro | bus | aviation | opensky | "
+            "events | manifest | validate"
         ),
     )
     args = parser.parse_args()

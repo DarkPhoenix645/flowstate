@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 import requests
 
@@ -41,10 +42,19 @@ RTI_URLS = {
 def run(settings: Settings) -> None:
     dest_dir = settings.datasets_dir / "bmrcl-rti"
     dest_dir.mkdir(parents=True, exist_ok=True)
+    t0 = time.perf_counter()
+    total = 0
     for name, url in RTI_URLS.items():
         log.info("GET %s", name)
         response = requests.get(url, timeout=180)
         response.raise_for_status()
         dest = dest_dir / name
         dest.write_bytes(response.content)
+        total += dest.stat().st_size
         log.info("saved %s (%s bytes)", name, dest.stat().st_size)
+    log.info(
+        "TIMING series=bmrcl_rti wall_s=%.3f bytes=%s files=%s",
+        time.perf_counter() - t0,
+        total,
+        len(RTI_URLS),
+    )

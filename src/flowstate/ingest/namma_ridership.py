@@ -1,12 +1,21 @@
-"""Namma Metro daily ridership. Local tracker CSV, checked not re-downloaded."""
+"""Namma Metro daily ridership from the public tracker repository."""
 
 from __future__ import annotations
 
 import logging
+import time
+
+import requests
 
 from flowstate.config import Settings
 
 log = logging.getLogger("ingest.namma")
+
+URL = (
+    "https://raw.githubusercontent.com/thecont1/"
+    "namma-metro-ridership-tracker/main/"
+    "NammaMetro_Ridership_Processed.csv"
+)
 
 
 def run(settings: Settings) -> None:
@@ -15,9 +24,14 @@ def run(settings: Settings) -> None:
         / "namma-metro"
         / "NammaMetro_Ridership_Processed.csv"
     )
-    if not path.exists():
-        raise SystemExit(f"ingest:metro missing {path}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    log.info("GET %s", URL)
+    t0 = time.perf_counter()
+    response = requests.get(URL, timeout=180)
+    response.raise_for_status()
+    path.write_bytes(response.content)
     log.info(
-        "metro daily file present at %s. Parquet staging is not implemented.",
-        path,
+        "TIMING series=metro_daily wall_s=%.3f bytes=%s",
+        time.perf_counter() - t0,
+        path.stat().st_size,
     )
