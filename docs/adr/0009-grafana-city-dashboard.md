@@ -8,7 +8,7 @@ Accepted
 
 ADR-0002 listed Apache Superset (with Grafana as an option) for the City Dashboard. The speed layer writes a live stream-sink. Apache Superset does not support streamed data sources for visualizations.
 
-The questionnaire locked Grafana only.
+The City Dashboard is Grafana only.
 
 ## Decision
 

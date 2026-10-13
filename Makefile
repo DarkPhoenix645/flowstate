@@ -1,10 +1,10 @@
 .PHONY: help setup ingest amplify hotspots up down down-v \
 	ensure-kafka-cluster-id \
-	stream-produce stream-consume hive-ddl mr-package test lint
+	stream-produce stream-consume hive-ddl mr-package test lint \
 
 PYTHON ?= uv run python
 ROWS ?= 1000000
-TOPIC ?= rides.raw
+TOPIC ?= flowstate.ridehail.activity.v1
 RATE ?= 500
 DATASET ?= all
 SPARK_MASTER ?= spark://spark:7077
@@ -15,13 +15,13 @@ SPARK_SUBMIT = $(COMPOSE) exec -e PYTHONPATH=/opt/src spark \
 help:
 	@echo "FlowState targets:"
 	@echo "  make setup              uv lock/sync + config check"
-	@echo "  make ingest             download/stage datasets (DATASET=all)"
+	@echo "  make ingest             DATASET=all|ridehail|metro|bus|aviation|opensky|events|manifest|validate"
 	@echo "  make amplify            synthetic scale (ROWS=1000000)"
 	@echo "  make up                 mint Kafka CLUSTER_ID if needed, start stack"
 	@echo "  make down               stop stack (keeps volumes + CLUSTER_ID)"
 	@echo "  make down-v             stop stack, DELETE volumes, remint CLUSTER_ID"
 	@echo "  make hotspots           Spark demand job (in compose)"
-	@echo "  make stream-produce     Kafka replay (TOPIC, RATE)"
+	@echo "  make stream-produce     Kafka publish (TOPIC, RATE)"
 	@echo "  make stream-consume     Structured Streaming (in compose)"
 	@echo "  make hive-ddl           apply warehouse DDL via beeline"
 	@echo "  make mr-package         Maven package MapReduce jar (Docker)"
@@ -33,7 +33,7 @@ setup:
 	$(PYTHON) -m flowstate.config --check
 
 ingest:
-	$(PYTHON) -m flowstate.ingest --dataset $(DATASET)
+	PYTHONUNBUFFERED=1 $(PYTHON) -m flowstate.ingest --dataset $(DATASET)
 
 amplify:
 	$(PYTHON) -m flowstate.ingest.amplify --rows $(ROWS)
@@ -81,3 +81,4 @@ test:
 
 lint:
 	uv run ruff check .
+

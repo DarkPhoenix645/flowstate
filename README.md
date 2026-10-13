@@ -12,7 +12,7 @@ HDFS, Kafka, Spark, Hive, and Grafana run in **Docker Compose**. Host needs Dock
 2. Clone, then:
 
 ```bash
-cp .env.example .env   # fill KAGGLE_API_TOKEN when ingest is implemented
+cp .env.example .env
 make setup
 make test
 make up

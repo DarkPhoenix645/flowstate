@@ -4,11 +4,11 @@ Human summary: [../team.md](../team.md). Stack decisions: [ADR-0002](../adr/0002
 
 ## Data & lake `ingest/`
 
-Files: `kaggle_rides.py`, `bmrc_ridership.py`, `bmtc_gtfs.py`, `mmrda_ridership.py`, `dgca_aviation.py`, `amplify.py`. Dispatcher: `python -m flowstate.ingest --dataset all|kaggle|…`.
+Files: `namma_yatri.py`, `namma_ridership.py`, `bmrcl_rti.py`, `bmtc_gtfs.py`, `dgca_aviation.py`, `opensky_flights.py`, `significant_dates.py`, `manifest.py`. Dispatcher: `python -m flowstate.ingest --dataset all|ridehail|metro|bus|aviation|events|manifest|validate`.
 
-Each `run(settings)` writes parquet under `settings.staged_dir / <name>/`. Credentials: `KAGGLE_API_TOKEN` via kagglehub (ADR-0003).
+Each downloader/validator owns its ADR-0011 source and refreshes `flowstate-datasets/provenance/manifest.json`. Staged parquet per source is the T12–T14 scope. Source registry and windows: [../data-sources.md](../data-sources.md). Rejected sources: [../rejected-sources.md](../rejected-sources.md).
 
-Amplify CLI: `amplify.py --rows N --seed S` with `N` in `{1e6, 1e7, 1e8}` — rationale in [ADR-0006](../adr/0006-amplify-for-scale-benchmarks.md).
+Amplify CLI: `amplify.py --rows N --seed S` with `N` in `{1e6, 1e7, 1e8}`. Multimodal events come from the calibrated resampler ([ADR-0010](../adr/0010-bengaluru-calibrated-resampler.md)). Scale targets: [ADR-0006](../adr/0006-amplify-for-scale-benchmarks.md).
 
 Done when `make ingest && make amplify` fills the lake. Per-dataset veracity notes (missing values, mixed formats).
 
@@ -28,9 +28,9 @@ One job per file, `main()`, paths from `flowstate.config.Settings`. Files: `dema
 
 ## Speed layer `streaming/`
 
-Decision: [ADR-0008](../adr/0008-speed-layer-streaming-shape.md).
+Decision: [ADR-0008](../adr/0008-speed-layer-streaming-shape.md) (topic contract, scenario engine), [ADR-0010](../adr/0010-bengaluru-calibrated-resampler.md).
 
-`producer.py --topic --events-per-sec` on the host. `rolling_metrics.py` on Compose Spark. Metrics in scaffold: active rides/zone, cancel rate, surge (demand z-score vs batch baseline).
+`producer.py` on the host: conditionally stimulable, emits the `flowstate.*.v1` topics with the provenance envelope. Event time, `mode`, and mix come from the same resampler as amplify. `rolling_metrics.py` on Compose Spark. Metrics in scaffold: active rides/zone, cancel rate, surge. Surge framing is scenario-based: a flight-injection demo changes a configured synthetic airport-access response marked `assumption_driven` unless a held-out test validates it.
 
 ## Warehouse & UI
 
