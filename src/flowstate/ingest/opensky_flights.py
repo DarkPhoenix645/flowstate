@@ -79,8 +79,12 @@ class OpenSkyFetchBusy(RuntimeError):
 @contextmanager
 def fetch_lock():
     """One fetch process. A second one exits before any HTTP."""
-    OPENSKY_DIR.mkdir(parents=True, exist_ok=True)
-    handle = (OPENSKY_DIR / ".fetch.lock").open("a+b")
+    path = _lock_path()
+    try:
+        _ensure_lock_byte(path)
+        handle = path.open("r+b")
+    except PermissionError as exc:
+        raise _busy() from exc
     try:
         _try_lock(handle)
     except OpenSkyFetchBusy:
@@ -93,32 +97,43 @@ def fetch_lock():
         handle.close()
 
 
+def _lock_path() -> Path:
+    OPENSKY_DIR.mkdir(parents=True, exist_ok=True)
+    return OPENSKY_DIR / ".fetch.lock"
+
+
+def _ensure_lock_byte(path: Path) -> None:
+    """Windows cannot read a byte another process has locked."""
+    if path.exists() and path.stat().st_size > 0:
+        return
+    with path.open("ab") as prep:
+        if prep.seek(0, os.SEEK_END) == 0:
+            prep.write(b"\0")
+            prep.flush()
+
+
+def _busy() -> OpenSkyFetchBusy:
+    return OpenSkyFetchBusy(
+        "OpenSky fetch already running. Refusing to start a second one."
+    )
+
+
 def _try_lock(handle) -> None:
     if sys.platform == "win32":
         import msvcrt
 
         handle.seek(0)
-        if not handle.read(1):
-            handle.write(b"\0")
-            handle.flush()
-        handle.seek(0)
         try:
             msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
         except OSError as exc:
-            raise OpenSkyFetchBusy(
-                "OpenSky fetch already running. "
-                "Refusing to start a second one."
-            ) from exc
+            raise _busy() from exc
         return
     import fcntl
 
     try:
         fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError as exc:
-        raise OpenSkyFetchBusy(
-            "OpenSky fetch already running. "
-            "Refusing to start a second one."
-        ) from exc
+        raise _busy() from exc
 
 
 def _unlock(handle) -> None:
