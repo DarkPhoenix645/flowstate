@@ -25,10 +25,10 @@ Dedupe key is (icao24, firstSeen) per direction.
 from __future__ import annotations
 
 import datetime as dt
-import fcntl
 import json
 import logging
 import os
+import sys
 import threading
 import time
 from collections import deque
@@ -80,20 +80,57 @@ class OpenSkyFetchBusy(RuntimeError):
 def fetch_lock():
     """One fetch process. A second one exits before any HTTP."""
     OPENSKY_DIR.mkdir(parents=True, exist_ok=True)
-    handle = (OPENSKY_DIR / ".fetch.lock").open("a+")
+    handle = (OPENSKY_DIR / ".fetch.lock").open("a+b")
     try:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
+        _try_lock(handle)
+    except OpenSkyFetchBusy:
         handle.close()
-        raise OpenSkyFetchBusy(
-            "OpenSky fetch already running. "
-            "Refusing to start a second one."
-        )
+        raise
     try:
         yield
     finally:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        _unlock(handle)
         handle.close()
+
+
+def _try_lock(handle) -> None:
+    if sys.platform == "win32":
+        import msvcrt
+
+        handle.seek(0)
+        if not handle.read(1):
+            handle.write(b"\0")
+            handle.flush()
+        handle.seek(0)
+        try:
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        except OSError as exc:
+            raise OpenSkyFetchBusy(
+                "OpenSky fetch already running. "
+                "Refusing to start a second one."
+            ) from exc
+        return
+    import fcntl
+
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as exc:
+        raise OpenSkyFetchBusy(
+            "OpenSky fetch already running. "
+            "Refusing to start a second one."
+        ) from exc
+
+
+def _unlock(handle) -> None:
+    if sys.platform == "win32":
+        import msvcrt
+
+        handle.seek(0)
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        return
+    import fcntl
+
+    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 @dataclass
