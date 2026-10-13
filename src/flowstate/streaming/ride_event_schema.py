@@ -1,8 +1,6 @@
-"""JSON event schema shared by producer and consumer."""
+"""Kafka envelope for the producer and the consumer.
 
-from flowstate.schema import RIDE_COLUMNS
-
-# Spark StructType goes here once Structured Streaming is wired.
-# Keep field names identical to RIDE_COLUMNS.
-
-__all__ = ["RIDE_COLUMNS"]
+ADR-0008. This module is not the staged-parquet column set.
+That contract is ``flowstate.schema`` (``RIDE_COLUMNS``, the JSON schema,
+and the Spark StructType). The envelope is filled in with the producer.
+"""
