@@ -25,15 +25,15 @@ class Settings(BaseSettings):
     hdfs_namenode: str = "hdfs://namenode:9000"
 
     def opensky_clients(self) -> list[tuple[int, str, str]]:
-        """Up to 4 OpenSky client pairs.
+        """Up to 10 OpenSky client pairs.
 
         Pair 1: FLOWSTATE_OPENSKY_CLIENT_ID and
         FLOWSTATE_OPENSKY_CLIENT_SECRET.
-        Pairs 2-4: the same names with a _2, _3, or _4 suffix.
+        Pairs 2-10: the same names with a _2 .. _10 suffix.
         Unprefixed OPENSKY_CLIENT_ID is ignored.
         """
         pairs: list[tuple[int, str, str]] = []
-        for index in range(1, 5):
+        for index in range(1, 11):
             suffix = "" if index == 1 else f"_{index}"
             client_id = os.environ.get(
                 f"FLOWSTATE_OPENSKY_CLIENT_ID{suffix}", ""

@@ -14,7 +14,7 @@ from flowstate.ingest import (
     manifest,
     namma_ridership,
     namma_yatri,
-    opensky_arrivals,
+    opensky_flights,
     significant_dates,
 )
 
@@ -30,8 +30,8 @@ MODALITIES: dict[str, list] = {
     "ridehail": [namma_yatri.run],
     "metro": [namma_ridership.run, bmrcl_rti.run],
     "bus": [bmtc_gtfs.run],
-    "aviation": [dgca_aviation.run, opensky_arrivals.run],
-    "opensky": [opensky_arrivals.run],
+    "aviation": [dgca_aviation.run, opensky_flights.run],
+    "opensky": [opensky_flights.run],
     "events": [significant_dates.run],
 }
 

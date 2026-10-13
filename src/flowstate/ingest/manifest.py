@@ -42,6 +42,9 @@ OUT = DATA / "provenance" / "manifest.json"
 CSV_OPENSKY = (
     DATA / "opensky" / "VOBL_arrivals_2024-10-26_2026-04-15.csv"
 )
+CSV_OPENSKY_DEPARTURES = (
+    DATA / "opensky" / "VOBL_departures_2024-10-26_2026-04-15.csv"
+)
 
 NY_GZIP_URL = (
     "https://d11gklsvr97l1g.cloudfront.net/open/json-data/"
@@ -338,7 +341,7 @@ def build(fetch: bool) -> None:
                 ),
                 "grain": "one arrival event",
                 "transformation": (
-                    "scripts/opensky_arrivals.py. airport=VOBL. "
+                    "flowstate.ingest.opensky_flights. airport=VOBL. "
                     "Window 2024-10-26 00:00 IST through "
                     "2026-04-15 23:59 IST. "
                     "Each query spans at most 2 UTC calendar days. "
@@ -352,6 +355,37 @@ def build(fetch: bool) -> None:
                 "role": "aviation events for the alignment window",
                 "file": rec(CSV_OPENSKY)
                 if CSV_OPENSKY.exists()
+                else {
+                    "path": None,
+                    "note": "alignment extract not written yet",
+                },
+            },
+            {
+                "dataset_id": "opensky_vobl_departures",
+                "producer": "The OpenSky Network",
+                "url": "https://opensky-network.org/api/flights/departure",
+                "immutable_version": "API query, not a versioned file",
+                "citation": (
+                    "Schaefer, Strohmeier, Lenders, Martinovic, Wilhelm. "
+                    "Bringing Up OpenSky. IPSN 2014, pp. 83-94. "
+                    "https://opensky-network.org"
+                ),
+                "grain": "one departure event",
+                "transformation": (
+                    "flowstate.ingest.opensky_flights. airport=VOBL. "
+                    "GET /flights/departure. "
+                    "Window 2024-10-26 00:00 IST through "
+                    "2026-04-15 23:59 IST. "
+                    "Each query spans at most 2 UTC calendar days. "
+                    "HTTP 404 means no flights. "
+                    "Dedupe key is (icao24, firstSeen). "
+                    "firstSeen is stored as departure_time_proxy_utc. "
+                    "estArrivalAirport may be null. The row is kept. "
+                    "A sparse window is a gap, not a zero-flight day."
+                ),
+                "role": "aviation departure events for the alignment window",
+                "file": rec(CSV_OPENSKY_DEPARTURES)
+                if CSV_OPENSKY_DEPARTURES.exists()
                 else {
                     "path": None,
                     "note": "alignment extract not written yet",
@@ -430,16 +464,49 @@ def build(fetch: bool) -> None:
 
 
 def _opensky_mod():
-    from flowstate.ingest import opensky_arrivals
+    from flowstate.ingest import opensky_flights
 
-    return opensky_arrivals
+    return opensky_flights
+
+
+def _opensky_checks(sky: dict) -> dict:
+    return {
+        k: sky.get(k)
+        for k in (
+            "windows_required",
+            "windows_cached",
+            "complete",
+            "credits_if_uncached",
+            "credits_exhausted",
+        )
+    }
+
+
+def _sky(direction: str) -> dict:
+    sky = _opensky_mod().coverage(direction)
+    path = DATA / "opensky" / f"status_{direction}.json"
+    if path.exists():
+        saved = json.loads(path.read_text())
+        sky["credits_exhausted"] = bool(saved.get("credits_exhausted"))
+    return sky
+
+
+def _opensky_reason(direction: str, sky: dict) -> str | None:
+    if sky.get("complete"):
+        return None
+    text = (
+        f"OpenSky {direction} window incomplete: "
+        f"{sky.get('windows_cached')}/{sky.get('windows_required')} "
+        "windows on disk."
+    )
+    if sky.get("credits_exhausted"):
+        text += " Credit limit expended."
+    return text
 
 
 def _stamp_validity(datasets: list[dict]) -> None:
-    sky = _opensky_mod().coverage()
-    status_path = DATA / "opensky" / "status.json"
-    if status_path.exists():
-        sky.update(json.loads(status_path.read_text()))
+    sky = _sky("arrival")
+    sky_dep = _sky("departure")
     reasons = {
         "namma_yatri_city_day": _reason_city_day(),
         "namma_yatri_city_hour": _reason_file(
@@ -451,18 +518,8 @@ def _stamp_validity(datasets: list[dict]) -> None:
             DATA / "namma-yatri/stitched/blr_ward_hourly.coverage.json",
         ),
         "bmrcl_rti": _reason_rti(),
-        "opensky_vobl_arrivals": None
-        if sky.get("complete")
-        else (
-            "OpenSky alignment window incomplete: "
-            f"{sky.get('windows_cached')}/{sky.get('windows_required')} "
-            "windows on disk. "
-            + (
-                "Credit limit expended. " + str(sky.get("error", ""))
-                if sky.get("credits_exhausted")
-                else "Run make ingest DATASET=aviation."
-            )
-        ),
+        "opensky_vobl_arrivals": _opensky_reason("arrival", sky),
+        "opensky_vobl_departures": _opensky_reason("departure", sky_dep),
         "namma_metro_daily": _reason_metro(),
         "dgca_domestic_city": _reason_dgca(),
         "bmtc_gtfs": _reason_bmtc(),
@@ -473,16 +530,9 @@ def _stamp_validity(datasets: list[dict]) -> None:
         ds["valid"] = reason is None
         ds["invalid_reason"] = reason
         if ds["dataset_id"] == "opensky_vobl_arrivals":
-            ds["checks"] = {
-                k: sky.get(k)
-                for k in (
-                    "windows_required",
-                    "windows_cached",
-                    "complete",
-                    "credits_if_uncached",
-                    "credits_exhausted",
-                )
-            }
+            ds["checks"] = _opensky_checks(sky)
+        if ds["dataset_id"] == "opensky_vobl_departures":
+            ds["checks"] = _opensky_checks(sky_dep)
 
 
 def _reason_file(csv: Path, coverage: Path) -> str | None:

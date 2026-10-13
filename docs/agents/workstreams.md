@@ -4,7 +4,7 @@ Human summary: [../team.md](../team.md). Stack decisions: [ADR-0002](../adr/0002
 
 ## Data & lake `ingest/`
 
-Files: `namma_yatri.py`, `namma_ridership.py`, `bmrcl_rti.py`, `bmtc_gtfs.py`, `dgca_aviation.py`, `opensky_arrivals.py`, `significant_dates.py`, `manifest.py`. Dispatcher: `python -m flowstate.ingest --dataset all|ridehail|metro|bus|aviation|events|manifest|validate`.
+Files: `namma_yatri.py`, `namma_ridership.py`, `bmrcl_rti.py`, `bmtc_gtfs.py`, `dgca_aviation.py`, `opensky_flights.py`, `significant_dates.py`, `manifest.py`. Dispatcher: `python -m flowstate.ingest --dataset all|ridehail|metro|bus|aviation|events|manifest|validate`.
 
 Each downloader/validator owns its ADR-0011 source and refreshes `flowstate-datasets/provenance/manifest.json`. Staged parquet per source is the T12–T14 scope. Source registry and windows: [../data-sources.md](../data-sources.md). Rejected sources: [../rejected-sources.md](../rejected-sources.md).
 

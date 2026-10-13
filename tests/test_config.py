@@ -11,6 +11,18 @@ _OPENSKY_KEYS = [
     "FLOWSTATE_OPENSKY_CLIENT_SECRET_3",
     "FLOWSTATE_OPENSKY_CLIENT_ID_4",
     "FLOWSTATE_OPENSKY_CLIENT_SECRET_4",
+    "FLOWSTATE_OPENSKY_CLIENT_ID_5",
+    "FLOWSTATE_OPENSKY_CLIENT_SECRET_5",
+    "FLOWSTATE_OPENSKY_CLIENT_ID_6",
+    "FLOWSTATE_OPENSKY_CLIENT_SECRET_6",
+    "FLOWSTATE_OPENSKY_CLIENT_ID_7",
+    "FLOWSTATE_OPENSKY_CLIENT_SECRET_7",
+    "FLOWSTATE_OPENSKY_CLIENT_ID_8",
+    "FLOWSTATE_OPENSKY_CLIENT_SECRET_8",
+    "FLOWSTATE_OPENSKY_CLIENT_ID_9",
+    "FLOWSTATE_OPENSKY_CLIENT_SECRET_9",
+    "FLOWSTATE_OPENSKY_CLIENT_ID_10",
+    "FLOWSTATE_OPENSKY_CLIENT_SECRET_10",
     "OPENSKY_CLIENT_ID",
     "OPENSKY_CLIENT_SECRET",
     "OPENSKY_CLIENT_ID_1",
@@ -46,6 +58,13 @@ def test_opensky_unprefixed_names_are_ignored(monkeypatch):
     monkeypatch.setenv("OPENSKY_CLIENT_ID", "legacy")
     monkeypatch.setenv("OPENSKY_CLIENT_SECRET", "legacy-secret")
     assert Settings().opensky_clients() == []
+
+
+def test_opensky_pair_10_is_accepted(monkeypatch):
+    _clear_opensky(monkeypatch)
+    monkeypatch.setenv("FLOWSTATE_OPENSKY_CLIENT_ID_10", "ten")
+    monkeypatch.setenv("FLOWSTATE_OPENSKY_CLIENT_SECRET_10", "s10")
+    assert Settings().opensky_clients() == [(10, "ten", "s10")]
 
 
 def test_opensky_incomplete_pair_raises(monkeypatch):
