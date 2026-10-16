@@ -49,8 +49,8 @@ The accepted v1 source registry. "Conditional" means adopted for a defined role 
 
 | Dataset | Grain and coverage | V1 role and treatment |
 | --- | --- | --- |
-| Namma Yatri cumulative city trends | city × day; 2022-09-01 → 2026-04-15; 1,323 BLR dates | Primary auto clock. Filter BLR + `Normal`; `done_ride` for totals. Operator-published aggregate, not independently audited. |
-| Namma Metro daily tracker | day; 438 rows; 343 in-window (identity resolved 2026-10-11; rows dated after 2026-07-15 excluded) | Conditional daily metro target/baseline. Missing dates stay missing. |
+| Namma Yatri cumulative city trends | city × day; 2022-09-01 → 2026-04-15; 1,322 BLR Normal rows. 2026-02-14 is missing (recheck 2026-10-14) | Primary auto clock. Filter BLR + `Normal`; `done_ride` for totals. Operator-published aggregate, not independently audited. |
+| Namma Metro daily tracker | day; 438 rows; 2024-10-26 → 2026-07-15; 373 in-window (recheck 2026-10-14). No row is dated after 2026-07-15 | Conditional daily metro target/baseline. Missing dates stay missing. |
 | BMRCL RTI August station-hour | station × day × 24 buckets; 2025-08-01 → 08-18; 1,356 rows | Observed hourly profile. Account for Yellow Line opening 2025-08-11 (station count 69 → 83). |
 | BMRCL RTI August entry-exit origin-destination (OD) | station-pair × hour; 27,517 × 85 | OD shape prior only after schema/conservation checks. Not row-per-passenger trips. |
 | BMRCL RTI September station-hour | station × day, Entry + Exit sheets; 2025-09-01 → 09-30; 2,491 rows/sheet | Observed hour-grain validation window. Entry/Exit separate. |
@@ -293,7 +293,7 @@ Every normalized dataset and model bundle carries: `dataset_id`/version (schema,
 
 | Risk | Why it matters | Control |
 | --- | --- | --- |
-| Sparse metro coverage | 343 shared daily dates; count may shift after cleanup | Paired valid dates only; propagate missingness; CIs; baseline-first |
+| Sparse metro coverage | 372 shared daily dates on the 2026-10-14 files; count may shift if either file is replaced | Paired valid dates only; propagate missingness; CIs; baseline-first |
 | Short hourly metro test | Aug 1–18 + Sep with network expansion mid-window | Exploratory hour level; matched stations; regime indicators |
 | Thin ride-hail hourly slice | ~1% of volume, near-zero correlation | Shape only; uncertain vehicle share; never multiply to city scale |
 | No airport metro connection in period | Cannot observe KIA-station metro arrivals | Airport-station claims and direct response disabled by default |

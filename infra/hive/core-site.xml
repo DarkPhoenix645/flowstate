@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<configuration>
+  <!-- HiveServer2 demands scratch-dir mode 0733. The default umask turns that into 0755. -->
+  <property>
+    <name>fs.permissions.umask-mode</name>
+    <value>000</value>
+  </property>
+</configuration>
