@@ -350,6 +350,8 @@ def build(fetch: bool) -> None:
                     "No filter on callsign or origin. "
                     "lastSeen is stored as arrival_time_proxy_utc "
                     "(estimated arrival, not verified touchdown). "
+                    "IST date/hour bins are derived. "
+                    "Per-window status is 200, 404, failed, or quota. "
                     "Clients rotate. Under 30 credits, the client is spent."
                 ),
                 "role": "aviation events for the alignment window",
@@ -381,7 +383,9 @@ def build(fetch: bool) -> None:
                     "Dedupe key is (icao24, firstSeen). "
                     "firstSeen is stored as departure_time_proxy_utc. "
                     "estArrivalAirport may be null. The row is kept. "
-                    "A sparse window is a gap, not a zero-flight day."
+                    "A sparse window is flagged and kept; it is not "
+                    "a zero-flight day. IST date/hour bins are derived. "
+                    "Per-window status is 200, 404, failed, or quota."
                 ),
                 "role": "aviation departure events for the alignment window",
                 "file": rec(CSV_OPENSKY_DEPARTURES)
@@ -478,6 +482,9 @@ def _opensky_checks(sky: dict) -> dict:
             "complete",
             "credits_if_uncached",
             "credits_exhausted",
+            "status_counts",
+            "gaps",
+            "sparse_windows",
         )
     }
 
@@ -492,13 +499,9 @@ def _sky(direction: str) -> dict:
 
 
 def _opensky_reason(direction: str, sky: dict) -> str | None:
-    if sky.get("complete"):
+    text = _opensky_mod().invalid_reason(direction)
+    if text is None:
         return None
-    text = (
-        f"OpenSky {direction} window incomplete: "
-        f"{sky.get('windows_cached')}/{sky.get('windows_required')} "
-        "windows on disk."
-    )
     if sky.get("credits_exhausted"):
         text += " Credit limit expended."
     return text

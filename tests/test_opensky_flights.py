@@ -1,4 +1,5 @@
 import datetime as dt
+import json
 import os
 import subprocess
 import sys
@@ -167,3 +168,139 @@ def test_second_process_refuses_the_lock(tmp_path, monkeypatch):
     assert proc.returncode == 3, proc.stderr
     with sky.fetch_lock():
         pass
+
+
+def test_empty_fetch_is_404_and_complete(monkeypatch, tmp_path):
+    _patch(monkeypatch, tmp_path)
+
+    def fetch_fn(client, direction, start, end):
+        return []
+
+    sky.run_pool(_clients(), fetch_fn)
+    start, end = _windows()[0]
+    record = json.loads(
+        sky.window_status_path("arrival", start, end).read_text()
+    )
+    assert record["status"] == "404"
+    assert record["event_count"] == 0
+    assert sky.window_file("arrival", start, end) is not None
+    assert sky.coverage("arrival")["complete"] is True
+    assert sky.coverage("departure")["complete"] is True
+    assert sky.coverage("arrival")["gaps"] == []
+
+
+def test_failed_window_is_an_explicit_gap(monkeypatch, tmp_path):
+    _patch(monkeypatch, tmp_path)
+    monkeypatch.setattr(sky, "MAX_ATTEMPTS", 1)
+
+    def fetch_fn(client, direction, start, end):
+        raise RuntimeError("boom")
+
+    with pytest.raises(RuntimeError, match="gaps"):
+        sky.run_pool(_clients(), fetch_fn)
+    start, end = _windows()[0]
+    record = json.loads(
+        sky.window_status_path("arrival", start, end).read_text()
+    )
+    assert record["status"] == "failed"
+    assert sky.window_file("arrival", start, end) is None
+    report = sky.coverage_report("arrival")
+    assert report["complete"] is False
+    assert report["gaps"][0]["status"] == "failed"
+    reason = sky.invalid_reason("arrival")
+    assert reason is not None
+    assert "failed" in reason
+
+
+def test_quota_stop_stamps_unfetched_windows(monkeypatch, tmp_path):
+    _patch(monkeypatch, tmp_path)
+    for index, (start, end) in enumerate(_windows()):
+        sky._write_window(
+            sky.cache_path("arrival", start, end), [_flight(index)]
+        )
+        if index < 3:
+            sky._write_window(
+                sky.cache_path("departure", start, end), [_flight(index)]
+            )
+
+    def fetch_fn(client, direction, start, end):
+        raise OpenSkyCreditsExhausted(client.label())
+
+    with pytest.raises(OpenSkyCreditsExhausted):
+        sky.run_pool(_clients(), fetch_fn)
+    start, end = _windows()[-1]
+    record = json.loads(
+        sky.window_status_path("departure", start, end).read_text()
+    )
+    assert record["status"] == "quota"
+    reason = sky.invalid_reason("departure")
+    assert reason is not None
+    assert "quota" in reason
+    assert sky.coverage("arrival")["complete"] is True
+    assert sky.coverage("departure")["complete"] is False
+
+
+def test_sparse_departure_is_flagged_not_zeroed(monkeypatch, tmp_path):
+    _patch(monkeypatch, tmp_path)
+    first_start = _windows()[0][0]
+
+    def fetch_fn(client, direction, start, end):
+        offset = int(start.timestamp())
+        if direction == "arrival":
+            return [_flight(offset + i) for i in range(20)]
+        if start == first_start:
+            return [_flight(offset + i) for i in range(79)]
+        return [_flight(offset + i) for i in range(330)]
+
+    sky.run_pool(_clients(), fetch_fn)
+    report = sky.coverage_report("departure")
+    assert report["complete"] is True
+    assert len(report["sparse_windows"]) == 1
+    assert report["sparse_windows"][0]["event_count"] == 79
+    lines = sky.csv_path("departure").read_text().splitlines()
+    assert len(lines) == 1 + 79 + 330 * 3
+
+
+def test_ist_bins_midnight_and_month_boundary():
+    midnight = int(
+        dt.datetime(2024, 10, 25, 18, 30, tzinfo=UTC).timestamp()
+    )
+    assert sky.ist_bins(midnight) == ("2024-10-26", 0)
+    month = int(dt.datetime(2024, 10, 31, 18, 30, tzinfo=UTC).timestamp())
+    assert sky.ist_bins(month) == ("2024-11-01", 0)
+    assert sky.ist_bins(None) == (None, None)
+
+
+def test_canonical_csv_keeps_utc_and_adds_ist(monkeypatch, tmp_path):
+    _patch(monkeypatch, tmp_path)
+    epoch = int(dt.datetime(2024, 10, 25, 19, 0, tzinfo=UTC).timestamp())
+
+    def fetch_fn(client, direction, start, end):
+        row = _flight(int(start.timestamp()))
+        row["firstSeen"] = epoch
+        row["lastSeen"] = epoch
+        return [row]
+
+    sky.run_pool(_clients(), fetch_fn)
+    header = sky.csv_path("arrival").read_text().splitlines()[0]
+    assert "arrival_time_proxy_utc" in header
+    assert "ist_date" in header
+    assert "ist_hour" in header
+    body = sky.csv_path("arrival").read_text()
+    assert "2024-10-26" in body
+    quality = json.loads(sky.quality_path("arrival").read_text())
+    assert quality["time_kind"] == "arrival_time_proxy"
+    assert quality["rows"] == 1
+    assert quality["duplicates"] == 3
+
+
+def test_duplicate_icao_firstseen_is_logged(monkeypatch, tmp_path):
+    _patch(monkeypatch, tmp_path)
+    start, end = _windows()[0]
+    flight = _flight(0)
+    sky._write_window(
+        sky.cache_path("arrival", start, end), [flight, flight]
+    )
+    quality = sky.write_csv("arrival")
+    assert quality["duplicates"] == 1
+    assert quality["rows"] == 1

@@ -20,6 +20,11 @@ Arrival event time is lastSeen, stored as arrival_time_proxy_utc.
 Departure event time is firstSeen on the departure endpoint, stored as
 departure_time_proxy_utc. estArrivalAirport may be null. The row is kept.
 Dedupe key is (icao24, firstSeen) per direction.
+
+Per-window status is 200, 404 (no flights), failed, or quota. Those are
+distinct. A sparse departure window (low count, not empty) is still 200
+and is flagged; it is not written as zero flights. Canonical CSVs keep
+the UTC proxy fields and add IST date/hour bins. T33 reads those CSVs.
 """
 
 from __future__ import annotations
@@ -64,8 +69,23 @@ END = dt.datetime(2026, 4, 15, 23, 59, 59, tzinfo=IST).astimezone(UTC)
 OPENSKY_DIR = ROOT / "flowstate-datasets" / "opensky"
 CACHE = OPENSKY_DIR / "windows"
 LEGACY_CACHE = ROOT / ".scratch" / "dl" / "opensky"
+# 2-UTC-day departure windows at mid/recent dates are ~330-375 events
+# (docs/data-sources.md, checked 2026-10-11). Below this floor is sparse,
+# not a zero-flight day.
+DEPARTURE_SPARSE_BELOW = 150
+OK_WINDOW_STATUSES = frozenset({"200", "404", "cached"})
 
 Window = tuple[str, dt.datetime, dt.datetime]
+
+
+@dataclass
+class WindowFetch:
+    """One OpenSky window response. Tests may return a bare list instead."""
+
+    flights: list[dict]
+    status: str = "200"
+    http_status: int | None = 200
+    retry_count: int = 0
 
 
 class OpenSkyCreditsExhausted(RuntimeError):
@@ -314,7 +334,7 @@ def fetch_window(
     direction: str,
     start: dt.datetime,
     end: dt.datetime,
-) -> list[dict]:
+) -> WindowFetch:
     response = requests.get(
         ENDPOINTS[direction],
         params={
@@ -340,7 +360,7 @@ def fetch_window(
             end.strftime("%Y-%m-%d %H:%M"),
             client.remaining,
         )
-        return []
+        return WindowFetch(flights=[], status="404", http_status=404)
     if response.status_code != 200:
         raise RuntimeError(
             f"OpenSky HTTP {response.status_code} for {client.label()} "
@@ -365,7 +385,7 @@ def fetch_window(
         len(flights),
         client.remaining,
     )
-    return flights
+    return WindowFetch(flights=flights, status="200", http_status=200)
 
 
 def _write_window(path: Path, flights: list) -> None:
@@ -375,9 +395,135 @@ def _write_window(path: Path, flights: list) -> None:
     os.replace(partial, path)
 
 
-def coverage(direction: str = "arrival") -> dict:
+def window_status_path(
+    direction: str, start: dt.datetime, end: dt.datetime
+) -> Path:
+    data = cache_path(direction, start, end)
+    return data.with_name(data.name.replace(".json", ".status.json"))
+
+
+def coverage_manifest_path(direction: str) -> Path:
+    return OPENSKY_DIR / f"coverage_{direction}.json"
+
+
+def quality_path(direction: str) -> Path:
+    return OPENSKY_DIR / f"quality_{direction}.json"
+
+
+def coerce_fetch(raw: WindowFetch | list[dict]) -> WindowFetch:
+    if isinstance(raw, WindowFetch):
+        return raw
+    if not raw:
+        return WindowFetch(flights=[], status="404", http_status=404)
+    return WindowFetch(flights=raw, status="200", http_status=200)
+
+
+def ist_bins(epoch: int | None) -> tuple[str | None, int | None]:
+    """Calendar date and hour in IST from a Unix UTC epoch."""
+    if epoch is None:
+        return None, None
+    instant = dt.datetime.fromtimestamp(int(epoch), UTC).astimezone(IST)
+    return instant.date().isoformat(), instant.hour
+
+
+def _is_sparse_departure(status: str, event_count: int) -> bool:
+    return status == "200" and 0 < event_count < DEPARTURE_SPARSE_BELOW
+
+
+def write_window_status(
+    direction: str,
+    start: dt.datetime,
+    end: dt.datetime,
+    *,
+    status: str,
+    event_count: int,
+    http_status: int | None = None,
+    retry_count: int = 0,
+    fetched_at: str | None = None,
+) -> dict:
+    sparse = direction == "departure" and _is_sparse_departure(
+        status, event_count
+    )
+    record = {
+        "direction": direction,
+        "start_utc": start.isoformat(),
+        "end_utc": end.isoformat(),
+        "status": status,
+        "http_status": http_status,
+        "event_count": event_count,
+        "retry_count": retry_count,
+        "fetched_at": fetched_at or dt.datetime.now(UTC).isoformat(),
+        "sparse": sparse,
+    }
+    path = window_status_path(direction, start, end)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(record, indent=2))
+    return record
+
+
+def read_window_status(
+    direction: str, start: dt.datetime, end: dt.datetime
+) -> dict:
+    path = window_status_path(direction, start, end)
+    if path.is_file() and path.stat().st_size > 0:
+        return json.loads(path.read_text())
+    data = window_file(direction, start, end)
+    if data is None:
+        return {
+            "direction": direction,
+            "start_utc": start.isoformat(),
+            "end_utc": end.isoformat(),
+            "status": "unknown",
+            "http_status": None,
+            "event_count": 0,
+            "retry_count": 0,
+            "fetched_at": None,
+            "sparse": False,
+        }
+    flights = json.loads(data.read_text())
+    count = len(flights)
+    status = "404" if count == 0 else "cached"
+    return {
+        "direction": direction,
+        "start_utc": start.isoformat(),
+        "end_utc": end.isoformat(),
+        "status": status,
+        "http_status": None,
+        "event_count": count,
+        "retry_count": 0,
+        "fetched_at": None,
+        "sparse": direction == "departure"
+        and _is_sparse_departure("200", count),
+    }
+
+
+def stamp_unfetched(status: str) -> None:
+    """Mark windows with no payload and no failed sidecar."""
+    for direction in DIRECTIONS:
+        for start, end in windows():
+            if window_file(direction, start, end) is not None:
+                continue
+            existing = window_status_path(direction, start, end)
+            if existing.is_file() and existing.stat().st_size > 0:
+                saved = json.loads(existing.read_text())
+                if saved.get("status") == "failed":
+                    continue
+            write_window_status(
+                direction,
+                start,
+                end,
+                status=status,
+                event_count=0,
+                http_status=None,
+            )
+
+
+def coverage_report(direction: str = "arrival") -> dict:
     needed = windows()
     cached = 0
+    gaps: list[dict] = []
+    sparse_windows: list[dict] = []
+    status_counts: dict[str, int] = {}
     for start, end in needed:
         if window_file(direction, start, end) is not None:
             cached += 1
@@ -385,16 +531,75 @@ def coverage(direction: str = "arrival") -> dict:
             start, end, cache_path(direction, start, end)
         ):
             cached += 1
+        record = read_window_status(direction, start, end)
+        kind = str(record.get("status") or "unknown")
+        status_counts[kind] = status_counts.get(kind, 0) + 1
+        if kind not in OK_WINDOW_STATUSES:
+            gaps.append(
+                {
+                    "start_utc": record["start_utc"],
+                    "end_utc": record["end_utc"],
+                    "status": kind,
+                    "event_count": record.get("event_count", 0),
+                }
+            )
+        if direction == "departure" and record.get("sparse"):
+            sparse_windows.append(
+                {
+                    "start_utc": record["start_utc"],
+                    "end_utc": record["end_utc"],
+                    "status": kind,
+                    "event_count": record.get("event_count", 0),
+                }
+            )
     return {
         "direction": direction,
         "windows_required": len(needed),
         "windows_cached": cached,
-        "complete": cached == len(needed),
+        "complete": len(gaps) == 0,
         "credits_per_window": CREDITS_PER_WINDOW,
         "credits_if_uncached": (len(needed) - cached) * CREDITS_PER_WINDOW,
         "window_start_utc": START.isoformat(),
         "window_end_utc": END.isoformat(),
+        "status_counts": status_counts,
+        "gaps": gaps,
+        "sparse_windows": sparse_windows,
+        "sparse_below": (
+            DEPARTURE_SPARSE_BELOW if direction == "departure" else None
+        ),
     }
+
+
+def coverage(direction: str = "arrival") -> dict:
+    report = coverage_report(direction)
+    return {
+        "direction": report["direction"],
+        "windows_required": report["windows_required"],
+        "windows_cached": report["windows_cached"],
+        "complete": report["complete"],
+        "credits_per_window": report["credits_per_window"],
+        "credits_if_uncached": report["credits_if_uncached"],
+        "window_start_utc": report["window_start_utc"],
+        "window_end_utc": report["window_end_utc"],
+        "status_counts": report["status_counts"],
+        "gaps": report["gaps"],
+        "sparse_windows": report["sparse_windows"],
+    }
+
+
+def invalid_reason(direction: str) -> str | None:
+    report = coverage_report(direction)
+    if report["complete"]:
+        return None
+    gaps = report["gaps"]
+    shown = gaps[:8]
+    bits = [f"{item['status']} {item['start_utc'][:10]}" for item in shown]
+    extra = f" (+{len(gaps) - 8} more)" if len(gaps) > 8 else ""
+    return (
+        f"OpenSky {direction} window incomplete: "
+        f"{report['windows_cached']}/{report['windows_required']} "
+        f"windows on disk. Gaps: {', '.join(bits)}{extra}"
+    )
 
 
 def _status_path(direction: str) -> Path:
@@ -413,17 +618,38 @@ def csv_path(direction: str) -> Path:
     return OPENSKY_DIR / f"VOBL_{kind}_2024-10-26_2026-04-15.csv"
 
 
-def write_csv(direction: str) -> int:
+def write_csv(direction: str) -> dict:
     import csv
 
     merged: dict[tuple[str, int], dict] = {}
+    duplicates = 0
+    nulls = {
+        "icao24": 0,
+        "firstSeen": 0,
+        "estArrivalAirport": 0,
+        "estDepartureAirport": 0,
+    }
     for start, end in windows():
         path = window_file(direction, start, end)
         if path is None:
             continue
         for flight in json.loads(path.read_text()):
-            key = (flight.get("icao24", ""), int(flight.get("firstSeen") or 0))
+            if not flight.get("icao24"):
+                nulls["icao24"] += 1
+            if flight.get("firstSeen") in (None, ""):
+                nulls["firstSeen"] += 1
+            if not flight.get("estArrivalAirport"):
+                nulls["estArrivalAirport"] += 1
+            if not flight.get("estDepartureAirport"):
+                nulls["estDepartureAirport"] += 1
+            key = (
+                flight.get("icao24") or "",
+                int(flight.get("firstSeen") or 0),
+            )
+            if key in merged:
+                duplicates += 1
             merged[key] = flight
+    proxy = "lastSeen" if direction == "arrival" else "firstSeen"
     if direction == "arrival":
         rows = sorted(merged.values(), key=lambda f: f.get("lastSeen") or 0)
         fieldnames = [
@@ -433,6 +659,8 @@ def write_csv(direction: str) -> int:
             "arrival_time_proxy_utc",
             "est_departure_airport",
             "est_arrival_airport",
+            "ist_date",
+            "ist_hour",
         ]
     else:
         rows = sorted(merged.values(), key=lambda f: f.get("firstSeen") or 0)
@@ -443,6 +671,8 @@ def write_csv(direction: str) -> int:
             "last_seen_utc",
             "est_departure_airport",
             "est_arrival_airport",
+            "ist_date",
+            "ist_hour",
         ]
     dest = csv_path(direction)
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -451,11 +681,14 @@ def write_csv(direction: str) -> int:
         writer.writeheader()
         for flight in rows:
             callsign = (flight.get("callsign") or "").strip()
+            date_bin, hour_bin = ist_bins(flight.get(proxy))
             base = {
                 "icao24": flight.get("icao24"),
                 "callsign": callsign,
                 "est_departure_airport": flight.get("estDepartureAirport"),
                 "est_arrival_airport": flight.get("estArrivalAirport"),
+                "ist_date": date_bin,
+                "ist_hour": hour_bin,
             }
             if direction == "arrival":
                 base["first_seen_utc"] = flight.get("firstSeen")
@@ -464,8 +697,22 @@ def write_csv(direction: str) -> int:
                 base["departure_time_proxy_utc"] = flight.get("firstSeen")
                 base["last_seen_utc"] = flight.get("lastSeen")
             writer.writerow(base)
+    quality = {
+        "direction": direction,
+        "rows": len(rows),
+        "duplicates": duplicates,
+        "nulls": nulls,
+        "dedupe_key": ["icao24", "firstSeen"],
+        "proxy_field": proxy,
+        "time_kind": (
+            "arrival_time_proxy"
+            if direction == "arrival"
+            else "departure_time_proxy"
+        ),
+    }
+    quality_path(direction).write_text(json.dumps(quality, indent=2))
     log.info("wrote %s (%s unique %s)", dest.name, len(rows), direction)
-    return len(rows)
+    return quality
 
 
 def _build_pending() -> deque[Window]:
@@ -486,12 +733,20 @@ def _build_pending() -> deque[Window]:
 
 
 def _finalize(exhausted: bool) -> dict[str, dict]:
+    if exhausted:
+        stamp_unfetched("quota")
     out: dict[str, dict] = {}
     for direction in DIRECTIONS:
-        status = coverage(direction)
+        quality = write_csv(direction)
+        status = coverage_report(direction)
         status["credits_exhausted"] = exhausted
-        status["rows"] = write_csv(direction)
+        status["rows"] = quality["rows"]
+        status["duplicates"] = quality["duplicates"]
+        status["nulls"] = quality["nulls"]
         _write_status(direction, status)
+        coverage_manifest_path(direction).write_text(
+            json.dumps(status, indent=2)
+        )
         out[direction] = status
     return out
 
@@ -543,7 +798,7 @@ def run_pool(clients: list[Client], fetch_fn) -> dict[str, dict]:
                 release(item, requeue=False)
                 continue
             try:
-                flights = fetch_fn(client, direction, start, end)
+                raw = fetch_fn(client, direction, start, end)
             except OpenSkyCreditsExhausted:
                 client.exhausted = True
                 release(item, requeue=True)
@@ -559,6 +814,14 @@ def run_pool(clients: list[Client], fetch_fn) -> dict[str, dict]:
                 key = item
                 attempts[key] = attempts.get(key, 0) + 1
                 if attempts[key] >= MAX_ATTEMPTS:
+                    write_window_status(
+                        direction,
+                        start,
+                        end,
+                        status="failed",
+                        event_count=0,
+                        retry_count=attempts[key],
+                    )
                     with cond:
                         inflight.discard(item)
                         failed.add(item)
@@ -567,7 +830,17 @@ def run_pool(clients: list[Client], fetch_fn) -> dict[str, dict]:
                 release(item, requeue=True)
                 time.sleep(1)
                 continue
-            _write_window(cache_path(direction, start, end), flights)
+            result = coerce_fetch(raw)
+            _write_window(dest, result.flights)
+            write_window_status(
+                direction,
+                start,
+                end,
+                status=result.status,
+                event_count=len(result.flights),
+                http_status=result.http_status,
+                retry_count=attempts.get(item, 0),
+            )
             release(item, requeue=False)
             if client.exhausted or (
                 client.remaining is not None
@@ -607,10 +880,16 @@ def run_pool(clients: list[Client], fetch_fn) -> dict[str, dict]:
             f"client. A window costs {CREDITS_PER_WINDOW} credits."
         )
     if failed or pending or inflight:
+        messages = [
+            reason
+            for reason in (
+                invalid_reason("arrival"),
+                invalid_reason("departure"),
+            )
+            if reason
+        ]
         raise RuntimeError(
-            "OpenSky fetch finished with "
-            f"{len(failed)} failed windows and "
-            f"{len(pending) + len(inflight)} still pending."
+            "OpenSky fetch finished with gaps. " + "; ".join(messages)
         )
     return statuses
 
