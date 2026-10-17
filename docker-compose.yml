@@ -98,7 +98,11 @@ services:
     volumes:
       - ./infra/hive/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
       - ./infra/hive/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./infra/hive/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
       - hive_metastore:/opt/hive/data
+    depends_on:
+      - namenode
+      - datanode
     restart: on-failure
 
   hiveserver2:
@@ -117,9 +121,12 @@ services:
     volumes:
       - ./infra/hive/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
       - ./infra/hive/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./infra/hive/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
       - ./src:/opt/src:ro
     depends_on:
       - hive-metastore
+      - namenode
+      - datanode
     restart: on-failure
 
   grafana:

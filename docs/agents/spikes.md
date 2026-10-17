@@ -1,6 +1,6 @@
 # Spikes
 
-Half-day each. Hive-on-HDFS and YARN-MR gate later milestones.
+Half-day each. YARN-MR gates later milestones. Hive-on-HDFS is done.
 
 Related decisions (already accepted — spikes prove or refine them):
 
@@ -18,7 +18,14 @@ Related decisions (already accepted — spikes prove or refine them):
    Replicate historical vs live in Grafana: Hive-backed views + streaming-sink live views.
 
 3. **Hive-on-Docker + HDFS warehouse** (data & lake)  
-   `beeline` querying HDFS-backed tables in Compose. `infra/hive/hive-site.xml` uses a local Derby warehouse on purpose. Target: `hive.metastore.warehouse.dir = hdfs://namenode:9000/user/hive/warehouse`.
+   Done. `hive.metastore.warehouse.dir` is `hdfs://namenode:9000/user/hive/warehouse`.
+   The authority is `fs.defaultFS` on the namenode (`hdfs://namenode:9000`). The path is Hive's default warehouse directory.
+   Derby stays the metastore database. The JDBC URL is `jdbc:derby:;databaseName=/opt/hive/data/metastore_db;create=true`.
+   Hive clients and the namenode use replication 1. Compose has one datanode.
+   Tez runs in local mode. The proof `SELECT` used that local Tez process.
+   A new `hive_metastore` volume sets database `default` to this URI.
+   A volume created while the warehouse path was `/opt/hive/data/warehouse` keeps `default` on local disk. Remove that volume and start Hive again.
+   Proof, 2026-10-16: Beeline `INSERT` then `SELECT` on `default.hdfs_probe`. The namenode stored `hdfs://namenode:9000/user/hive/warehouse/hdfs_probe/000000_0`. HiveServer2 and the metastore listed that path. `DROP TABLE` removed it.
 
 4. **YARN + Maven jars** (batch baseline)  
    Prove a MapReduce job runs on bde2020 YARN. `make mr-package` builds in Docker.

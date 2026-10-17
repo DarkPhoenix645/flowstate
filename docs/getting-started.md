@@ -37,7 +37,7 @@ make down-v         # DESTRUCTIVE: compose down -v + remint CLUSTER_ID
 | `make hotspots`           | Spark demand job **inside** the `spark` service                              | TODO    |
 | `make stream-produce`     | `TOPIC=flowstate.ridehail.activity.v1 RATE=500` (host → Kafka `:9094`). Topic set: [ADR-0008](adr/0008-speed-layer-streaming-shape.md). | TODO    |
 | `make stream-consume`     | rolling metrics **inside** Compose Spark                                     | TODO    |
-| `make hive-ddl`           | beeline against `rides.sql` (needs stack up + Hive↔HDFS spike done)          | TODO    |
+| `make hive-ddl`           | beeline against `rides.sql`. Warehouse directory is on HDFS.                 | TODO    |
 | `make mr-package`         | Maven package in Docker (no host Java)                                       | TODO    |
 | `make test` / `make lint` | pytest, ruff                                                                 | WORKING |
 
