@@ -1,0 +1,18 @@
+---
+description: Read and update the scratch phone-home note, and follow its standing operating rules
+alwaysApply: true
+---
+
+# Phone home
+
+`.scratch/phone-home.md` is the live task note. It is scratch, not a repo doc.
+
+Read it before the first edit of a task. Update it in the same turn the task starts, finishes, or blocks. Record the branch, the issue, and the blocker. Leave `Where we are`, `Do not touch`, and `Parse` in place. Edit a line when the fact it records changes.
+
+GitHub issue and pull-request writes go out as `cursoragent-bot[bot]`. The app id and the key path are in the scratch note. Print neither the key nor the token. No logo and no "Cursor Agent" line.
+
+Leave a `Blocked by` preamble and the bottom dependency section unchanged unless a dependency is added or removed.
+
+Commit and push only when asked. Commit messages are one line, lowercase. `git push` to `git@github.com` loads the user key named in the scratch note first. That key is not the bot key. The bot key is for GitHub API writes.
+
+Print neither secrets nor `.env` values. OpenSky env names use the `FLOWSTATE_` prefix only.

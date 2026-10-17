@@ -25,7 +25,7 @@ Stubs print `TODO:` / throw `UnsupportedOperationException`. Do not fill in job 
 
 - Kafka dual listeners: Compose `kafka:9092`, host `localhost:9094`.
 - Spark master + worker are in compose; do not add `local[*]` on the host.
-- Hive 4 + Derby + two Hive containers is fragile; warehouse-on-HDFS is a spike ([spikes.md](spikes.md) #3).
+- Hive 4 uses Derby for the metastore database. The warehouse directory is on HDFS ([spikes.md](spikes.md) #3).
 - Pin tags already; bump together when changing.
 - `data/lake` mounted on namenode at `/mnt/lake` for optional copy-in; real lake should be HDFS.
 - Spark submit form: `docker compose exec spark spark-submit --master spark://spark:7077 …`

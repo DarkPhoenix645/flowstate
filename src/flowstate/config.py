@@ -19,10 +19,12 @@ class Settings(BaseSettings):
     )
 
     data_dir: Path = Path("data")
-    datasets_dir: Path = Path("flowstate-datasets")
+    # Source extracts. Same directory as raw_dir.
+    datasets_dir: Path = Path("data/raw")
     kafka_bootstrap_servers: str = "localhost:9094"
     spark_master: str = "spark://spark:7077"
     hdfs_namenode: str = "hdfs://namenode:9000"
+    google_maps_api_key: str = ""
 
     def opensky_clients(self) -> list[tuple[int, str, str]]:
         """Up to 10 OpenSky client pairs.
@@ -30,7 +32,6 @@ class Settings(BaseSettings):
         Pair 1: FLOWSTATE_OPENSKY_CLIENT_ID and
         FLOWSTATE_OPENSKY_CLIENT_SECRET.
         Pairs 2-10: the same names with a _2 .. _10 suffix.
-        Unprefixed OPENSKY_CLIENT_ID is ignored.
         """
         pairs: list[tuple[int, str, str]] = []
         for index in range(1, 11):
