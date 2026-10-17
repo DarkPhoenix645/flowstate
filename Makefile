@@ -1,4 +1,4 @@
-.PHONY: help setup ingest stage amplify hotspots up down down-v \
+.PHONY: help setup ingest normalize stage amplify hotspots up down down-v \
 	ensure-kafka-cluster-id \
 	stream-produce stream-consume hive-ddl mr-package test lint \
 
@@ -16,6 +16,7 @@ help:
 	@echo "FlowState targets:"
 	@echo "  make setup              uv lock/sync + config check"
 	@echo "  make ingest             DATASET=all|ridehail|metro|bus|aviation|opensky|events|manifest|validate"
+	@echo "  make normalize          analysis tables from files already on disk"
 	@echo "  make stage              parquet from cold extracts. aviation is DGCA only, not OpenSky"
 	@echo "  make amplify            synthetic scale (ROWS=1000000)"
 	@echo "  make up                 mint Kafka CLUSTER_ID if needed, start stack"
@@ -35,6 +36,9 @@ setup:
 
 ingest:
 	PYTHONUNBUFFERED=1 $(PYTHON) -m flowstate.ingest --dataset $(DATASET)
+
+normalize:
+	PYTHONUNBUFFERED=1 $(PYTHON) -m flowstate.normalize
 
 stage:
 	PYTHONUNBUFFERED=1 $(PYTHON) -m flowstate.stage --dataset $(DATASET)

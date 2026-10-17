@@ -47,11 +47,13 @@ flowchart TB
   sm -->|"kafka:9092"| kafka
   sw -->|"kafka:9092"| kafka
   hs -->|"thrift://hive-metastore:9083"| hm
+  hm -->|"hdfs://namenode:9000"| nn
+  hs -->|"hdfs://namenode:9000"| nn
 ```
 
 Bind mounts, not network links: `./data` is `/opt/data` in the Spark master and the worker. `./data/lake` is `/mnt/lake` on the namenode. `./src` is `/opt/src` in Spark and in HiveServer2.
 
-Grafana listens on host port 3000. It has no warehouse connection and no stream connection yet. Hive does not read HDFS yet. The warehouse path in `infra/hive/hive-site.xml` is local.
+Grafana listens on host port 3000. It has no warehouse connection and no stream connection yet. Hive warehouse files are on HDFS at `hdfs://namenode:9000/user/hive/warehouse`. Derby is the metastore database.
 
 Port 9092 is published on the host, but Kafka advertises it as `kafka:9092`. Use that name only inside Compose. The host producer uses `localhost:9094`.
 
@@ -64,11 +66,11 @@ Port 9092 is published on the host, but Kafka advertises it as `kafka:9092`. Use
 | kafka | 9092, 9094 | KRaft, no ZooKeeper |
 | spark | 8080 UI, 7077, 4040 | Spark master |
 | spark-worker | — | Spark worker |
-| hive-metastore | 9083 | Derby for now |
+| hive-metastore | 9083 | Derby metastore database |
 | hiveserver2 | 10000, 10002 | beeline / JDBC |
 | grafana | 3000 | dashboards |
 
-Tags are pinned in `docker-compose.yml`. Hive↔HDFS is a spike, not done: `infra/hive/hive-site.xml` still uses a local warehouse path on purpose.
+Tags are pinned in `docker-compose.yml`. The Hive warehouse directory is `hdfs://namenode:9000/user/hive/warehouse`. MapReduce on YARN is an open spike. A `hive_metastore` volume from before that URI keeps database `default` on local disk. Remove the volume and start Hive again.
 
 ## Data mount
 

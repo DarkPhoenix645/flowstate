@@ -29,9 +29,6 @@ Compose cluster + host uv: [ADR-0003](adr/0003-compose-cluster-host-uv.md). Oper
 
 ## Open infra (deliberate)
 
-Two items are unfinished in this scaffold on purpose — riskiest learning spikes:
+MapReduce on YARN in the bde2020 images is an open spike. See [team.md](team.md) and [agents/spikes.md](agents/spikes.md).
 
-1. Hive warehouse dir on HDFS (`hive.metastore.warehouse.dir` → `hdfs://namenode:9000/...`).
-2. MapReduce job completing on YARN in the bde2020 images.
-
-See [team.md](team.md) and [agents/spikes.md](agents/spikes.md).
+The Hive warehouse directory is `hdfs://namenode:9000/user/hive/warehouse`. Derby is the metastore database.

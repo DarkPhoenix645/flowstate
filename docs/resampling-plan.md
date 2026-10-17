@@ -52,7 +52,7 @@ The accepted v1 source registry. "Conditional" means adopted for a defined role 
 | Namma Yatri cumulative city trends | city × day; 2022-09-01 → 2026-04-15; 1,322 BLR Normal rows. 2026-02-14 is missing (recheck 2026-10-14) | Primary auto clock. Filter BLR + `Normal`; `done_ride` for totals. Operator-published aggregate, not independently audited. |
 | Namma Metro daily tracker | day; 438 rows; 2024-10-26 → 2026-07-15; 373 in-window (recheck 2026-10-14). No row is dated after 2026-07-15 | Conditional daily metro target/baseline. Missing dates stay missing. |
 | BMRCL RTI August station-hour | station × day × 24 buckets; 2025-08-01 → 08-18; 1,356 rows | Observed hourly profile. Account for Yellow Line opening 2025-08-11 (station count 69 → 83). |
-| BMRCL RTI August entry-exit OD | station-pair × hour; 27,517 × 85 | OD shape prior only after schema/conservation checks. Not row-per-passenger trips. |
+| BMRCL RTI August entry-exit origin-destination (OD) | station-pair × hour; 27,517 × 85 | OD shape prior only after schema/conservation checks. Not row-per-passenger trips. |
 | BMRCL RTI September station-hour | station × day, Entry + Exit sheets; 2025-09-01 → 09-30; 2,491 rows/sheet | Observed hour-grain validation window. Entry/Exit separate. |
 | Station code map | 95 code→name entries (one malformed line); no coordinates | Join key only. A versioned station geography table is built before geo-dependent generation. |
 | OpenSky VOBL arrivals | event; 21,043 arrivals; 2025-08-01 → 09-30 | Observed aviation event proxies. Extend across the window. |
@@ -76,7 +76,7 @@ Resolved 2026-10-11 (addenda): local file hash-identical to the public file; row
 
 ### 4.3 BMRCL RTI station-hour files
 
-Adopted for observed station-level hourly counts on their actual coverage (48 days). Normalize to a long table with interval boundaries preserved (the final "23:00 to last train" bucket is its own interval). Check station-day coverage, missing cells (distinct from zeroes), duplicates, negative values, entry/exit semantics, cross-sheet totals. The 10–25% tracker gap stays a hypothesis until station sets and definitions are compared. The Yellow Line opened 2025-08-11: encode an effective-date regime and validate pre/post separately. The OD workbook is a probabilistic prior only.
+Adopted for observed station-level hourly counts on their actual coverage (48 days). Normalize to a long table with interval boundaries preserved (the final "23:00 to last train" bucket is its own interval). Check station-day coverage, missing cells (distinct from zeroes), duplicates, negative values, entry/exit semantics, cross-sheet totals. The 10–25% tracker gap stays a hypothesis until station sets and definitions are compared. The Yellow Line opened 2025-08-11: encode an effective-date regime and validate pre/post separately. The origin-destination (OD) workbook is a probabilistic prior only.
 
 ### 4.4 OpenSky arrival and departure events
 
@@ -148,7 +148,7 @@ assert sum(counts_hour) == N_day
 
 **Ride-hail (auto and cab).** Anchor synthetic auto completed counts to NY Normal daily `done_ride` in reconstruction mode; sample only in simulation mode. Divide totals across hours with the stitched profile, preserving the daily sum exactly. Generate booking/activity rows from daily `booking`/`done_ride`/`cancel_ride` targets after an arithmetic check; do not force `booking = completed + cancelled` unless verified; if counts do not reconcile, emit separate metric event types. Cancel reasons are a synthetic categorical prior only, never fit from rejected CSVs; driver/rider split stays absent or `unknown`. Cab events, if required, sample a cab-to-auto ratio from a broad configurable prior informed by the post-2025-06 slice; the ~22% is slice-internal. No `fare` as observed: `synthetic_fare_inr` from a versioned assumed distribution; `earning_per_completed_ride_proxy` is a weak calibration target only.
 
-**Metro.** Preserve observed RTI aggregates as `observed_aggregate`; do not duplicate them. For synthetic days, start from a known or sampled daily total and allocate across hours/stations with RTI profiles and the station network active on that date; label extrapolated stations. Emit `metro.station_hour` records with entries/exits; no per-person OD journeys in v1. RTI station-hour totals and tracker dailies are never additive feeds.
+**Metro.** Preserve observed RTI aggregates as `observed_aggregate`; do not duplicate them. For synthetic days, start from a known or sampled daily total and allocate across hours/stations with RTI profiles and the station network active on that date; label extrapolated stations. Emit `metro.station_hour` records with entries/exits; no per-person origin-destination (OD) journeys in v1. RTI station-hour totals and tracker dailies are never additive feeds.
 
 **Bus.** One topic, `flowstate.bus.scheduled_stop.v1`. Each record is one validated GTFS stop call (`Asia/Kolkata`, route/trip/stop ids, feed version) plus a synthetic ridership object on that same record. There is no `bus.boarding_estimate` topic. Scheduled times are not vehicle positions. The stop call is `derived`. The ridership object is `synthetic` and `assumption_driven`.
 
@@ -276,7 +276,7 @@ Metro component identities; NY key uniqueness and Normal/Purple filtering; corre
 | WP | Deliverables | Done when |
 | --- | --- | --- |
 | WP0 source-table amendment / QA gate | Drop fake rows and out-of-scope cities; add accepted sources with roles and limits (ADR-0011) | G1–G8 pass or report exact residuals; rejected sets inactive |
-| WP1 normalizers and analysis tables | Canonical city-day, metro-day, station-hour, OD profile, flight events, coverage reports (ticket T33) | Reproducible deterministic tables with schemas, counts, hashes |
+| WP1 normalizers and analysis tables | Canonical city-day, metro-day, station-hour, origin-destination (OD) profile, flight events, coverage reports (ticket T33) | Reproducible deterministic tables with schemas, counts, hashes |
 | WP2 model baseline | NB2 dailies with calendar controls; residual coupling; flight ablation; held-out baselines (T32) | Validated model or documented fallback; no unearned causal claim |
 | WP3 shape and event unfolding | City-hour and station-hour profiles; ward allocation; deterministic ride-hail metrics/events (T32) | Parent totals preserved; provenance correct; cab/fare marked assumed |
 | WP4 BMTC schedule events + aviation backfill | Validate GTFS; fetch/checkpoint full-window arrivals and departures (T14, T34) | Coverage manifests prove observed vs missing vs synthetic |
@@ -297,7 +297,7 @@ Every normalized dataset and model bundle carries: `dataset_id`/version (schema,
 | Short hourly metro test | Aug 1–18 + Sep with network expansion mid-window | Exploratory hour level; matched stations; regime indicators |
 | Thin ride-hail hourly slice | ~1% of volume, near-zero correlation | Shape only; uncertain vehicle share; never multiply to city scale |
 | No airport metro connection in period | Cannot observe KIA-station metro arrivals | Airport-station claims and direct response disabled by default |
-| No individual trip data | No OD, fare variance, mode-choice transitions | Synthetic attributes labelled as assumptions; aggregate interval records preferred |
+| No individual trip data | No origin-destination (OD) counts, fare variance, mode-choice transitions | Synthetic attributes labelled as assumptions; aggregate interval records preferred |
 | Metro input mismatch | RTI vs tracker 10–25% | Never merge/sum; identify differences or keep two measurements |
 | Future extrapolation from Apr 2026 | Emitting in Oct 2026 is outside the ride-hail window | Freeze/regularize trend; widen uncertainty; outside-window flag |
 | GTFS schedule quality | Unofficial, may be wrong/incomplete | Validate the feed. Stop call stays `derived`. Passenger fields stay synthetic and quote the assumed citywide total, capacity, and load factor. |
@@ -310,7 +310,7 @@ Every normalized dataset and model bundle carries: `dataset_id`/version (schema,
 - [x] Amend the locked source table; remove synthetic rows and out-of-scope cities (ADR-0011).
 - [x] Fix the metro local/public identity and date range; exclude future-dated rows; recompute overlaps.
 - [ ] Generate the snapshot coverage manifest for the 720-commit city-hour archive and its overwrite history.
-- [ ] Normalize the RTI station-hour and OD workbooks; establish the 48-day nominal overlap and record-level intersection.
+- [ ] Normalize the RTI station-hour and origin-destination (OD) workbooks; establish the 48-day nominal overlap and record-level intersection.
 - [ ] Add station operational-date metadata and the Yellow Line regime marker (2025-08-11); no airport metro station before operation.
 - [ ] Backfill OpenSky arrivals and departures over the alignment window with resumable windows and auditable completeness.
 - [ ] Fit simple count baselines; evaluate flight predictors and auto-metro coupling on the frozen holdout.

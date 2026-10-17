@@ -9,7 +9,7 @@ from flowstate.config import Settings
 from flowstate.provenance import require_valid
 from flowstate.staged import read_parquet
 
-MANIFEST = Path("flowstate-datasets/provenance/manifest.json")
+MANIFEST = Path("data/raw/provenance/manifest.json")
 pytestmark = pytest.mark.skipif(
     not MANIFEST.exists(),
     reason="cold extracts are not in this checkout",
