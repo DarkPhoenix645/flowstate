@@ -6,7 +6,7 @@ These tables are not `RIDE_COLUMNS`. Ride-grain events stay with the resampler.
 
 ## Ride-hail
 
-`data/staged/namma_yatri/city_day.parquet` is `city_code=BLR` and `booking_type=Normal`. Purple is excluded. `drvr_cancel` and `rider_cancel` are not columns. `earning_per_completed_ride_proxy` is `earning / done_ride`. The city-day file has no rate columns. Checked 2026-10-14: 1,322 rows, 2022-09-01 through 2026-04-15, and the only missing date in that span is 2026-02-14. The alignment window therefore has 536 city-day rows, not 537.
+`data/staged/namma_yatri/city_day.parquet` is `city_code=BLR` and `booking_type=Normal`. Purple is excluded. The file has the normalizer columns. `drvr_cancel` and `rider_cancel` are columns. A null stays null. In the files we hold, those two columns are zero. Do not use that split. `cnvr_rate`, `bkng_cancel_rate`, and `q_accept_rate` are columns. A missing rate stays null. `earning_per_completed_ride_proxy` is `earning / done_ride`. Checked 2026-10-14: 1,322 rows, 2022-09-01 through 2026-04-15, and the only missing date in that span is 2026-02-14. The alignment window therefore has 536 city-day rows, not 537.
 
 `city_hour.parquet` and `ward_hour.parquet` are the stitched archives, with their coverage JSON copied beside them. The city-hour file is a shape prior. It is not the city-day volume. Normal Auto `done_ride` in that archive, divided by city-day `done_ride` on the same dates, is 0.0037.
 
