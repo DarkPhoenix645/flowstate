@@ -105,7 +105,8 @@ def _g3(
             if key != "by_table"
         },
         "note": (
-            "Intersections use dates present in the tables. "
+            "Overlaps are counts of calendar dates. "
+            "Hour grain is metro_station_hour_long, not these counts. "
             "RTI coverage is the city profile's service spans, "
             "not a longer window. "
             "A day with no flight event is not a zero-flight day."
@@ -187,14 +188,17 @@ def _overlaps(
             "city_day_and_metro_in_alignment",
             "rti_and_metro",
         ),
-        "metro_station_hour_long": _slice(
-            payload,
-            "rti_days",
-            "rti_and_city_day",
-            "rti_and_metro",
-            "arrival_and_rti",
-            "departure_and_rti",
-        ),
+        "metro_station_hour_long": {
+            "grain": "hour",
+            **_slice(
+                payload,
+                "rti_days",
+                "rti_and_city_day",
+                "rti_and_metro",
+                "arrival_and_rti",
+                "departure_and_rti",
+            ),
+        },
         "station_geography": {
             "grain": "station, not day",
             "line_open": profile.line_open.isoformat(),

@@ -77,6 +77,27 @@ def test_normalize_disk(tmp_path):
     assert hsli["name"] == (
         "Sri Balagangadharanatha Swamiji Station, Hosahalli"
     )
+    assert hsli["rti_label"] == "113-Hosahalli"
+    gora = next(
+        row for row in geo_rows if row["name"] == "Goraguntepalya"
+    )
+    ypur = next(
+        row
+        for row in geo_rows
+        if row["name"] in {"Yeshwanthpur", "Yeshwantpur"}
+    )
+    assert gora["rti_label"]
+    assert ypur["rti_label"]
+    assert gora["station_code"] != ypur["station_code"]
+    assert not any(
+        row["name"] == "Yeshwanthpur Industry" for row in geo_rows
+    )
+    dated = [
+        row
+        for row in geo_rows
+        if row["rti_label"] and row["operational_from"] is None
+    ]
+    assert dated == []
     yellow = [row for row in geo_rows if row["line"] == "yellow"]
     assert len(yellow) == 14
     on_opening = [

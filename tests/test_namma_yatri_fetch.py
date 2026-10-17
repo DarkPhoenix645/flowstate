@@ -2,7 +2,7 @@
 
 import requests
 
-from flowstate.ingest.namma_yatri import _too_large, rate_limit_delay
+from flowstate.ingest.github import rate_limit_delay, too_large
 
 
 def _response(
@@ -22,7 +22,7 @@ def test_retry_after_is_the_wait():
 
 def test_low_remaining_waits_until_reset(monkeypatch):
     monkeypatch.setattr(
-        "flowstate.ingest.namma_yatri.time.time", lambda: 1000
+        "flowstate.ingest.github.time.time", lambda: 1000
     )
     response = _response(
         200,
@@ -43,5 +43,5 @@ def test_oversized_blob_is_not_a_rate_limit():
     response = _response(
         403, b"This API returns blobs up to 1 MB in size."
     )
-    assert _too_large(response)
+    assert too_large(response)
     assert rate_limit_delay(response) == 0

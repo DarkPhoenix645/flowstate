@@ -49,23 +49,67 @@ def test_hsli_name_keeps_the_comma():
         codes,
         ["11-Baiyappanahalli", "8-Banashankari", "113-Hosahalli"],
         ["113-Hosahalli"],
+        {"11-Baiyappanahalli": "2025-08-01"},
         line_name="yellow",
         line_open=date(2025, 8, 11),
+        aliases={
+            "Hosahalli": (
+                "Sri Balagangadharanatha Swamiji Station, Hosahalli"
+            ),
+        },
     )
     rows = built.table.to_pylist()
     by_label = {row["rti_label"]: row for row in rows if row["rti_label"]}
     assert by_label["11-Baiyappanahalli"]["station_code"] == "BYPH"
+    assert by_label["11-Baiyappanahalli"]["operational_from"] == (
+        "2025-08-01"
+    )
     ambiguous = by_label["8-Banashankari"]
     assert ambiguous["station_code"] is None
     assert ambiguous["ambiguous_codes"] == "BNSK|BSNK"
-    hosahalli = by_label["113-Hosahalli"]
-    assert hosahalli["line"] == "yellow"
-    assert hosahalli["operational_from"] == "2025-08-11"
-    assert hosahalli["latitude"] is None
-    assert hosahalli["longitude"] is None
-    hsli = next(row for row in rows if row["station_code"] == "HSLI")
-    assert hsli["name"].endswith("Hosahalli")
+    hosahalli = [
+        row for row in rows if row["station_code"] == "HSLI"
+    ]
+    assert len(hosahalli) == 1
+    assert hosahalli[0]["rti_label"] == "113-Hosahalli"
+    assert hosahalli[0]["line"] == "yellow"
+    assert hosahalli[0]["operational_from"] == "2025-08-11"
+    assert hosahalli[0]["latitude"] is None
     assert "trip_id" not in built.table.column_names
+
+
+def test_industry_is_goraguntepalya_not_yeshwanthpur():
+    codes = parse_station_codes(
+        "code,name\n"
+        "GTPL,Goraguntepalya\n"
+        "YPM,Yeshwantpur\n"
+    )
+    built = build_geography(
+        codes,
+        ["Yeshwanthpur Industry", "Yeshwanthpur"],
+        [],
+        {
+            "Yeshwanthpur Industry": "2025-08-01",
+            "Yeshwanthpur": "2025-08-01",
+        },
+        line_name="yellow",
+        line_open=date(2025, 8, 11),
+        aliases={
+            "Yeshwanthpur Industry": "Goraguntepalya",
+            "Yeshwantpur": "Yeshwanthpur",
+        },
+    )
+    rows = built.table.to_pylist()
+    names = [row["name"] for row in rows]
+    assert names.count("Goraguntepalya") == 1
+    assert names.count("Yeshwanthpur") == 0
+    assert "Yeshwanthpur Industry" not in names
+    gora = next(row for row in rows if row["station_code"] == "GTPL")
+    ypur = next(row for row in rows if row["station_code"] == "YPM")
+    assert gora["rti_label"] == "Yeshwanthpur Industry"
+    assert ypur["rti_label"] == "Yeshwanthpur"
+    assert gora["name"] == "Goraguntepalya"
+    assert ypur["name"] == "Yeshwantpur"
 
 
 def test_city_day_gap_is_not_a_zero_row():
@@ -80,8 +124,20 @@ def test_city_day_gap_is_not_a_zero_row():
     assert [row["date"] for row in out] == ["2024-10-26", "2024-10-28"]
     assert "2024-10-27" in built.coverage["missing"]
     assert all(row["done_ride"] != 0 for row in out)
-    assert "drvr_cancel" not in built.table.column_names
+    assert out[0]["drvr_cancel"] == 0
+    assert out[0]["cnvr_rate"] is None
     assert built.coverage["rate_columns_present"] == []
+    rated = _city("2024-10-26", "BLR", "Normal", done=10)
+    rated["drvr_cancel"] = 4
+    rated["rider_cancel"] = 2
+    rated["cnvr_rate"] = 0.4
+    rated["bkng_cancel_rate"] = 0.1
+    rated["q_accept_rate"] = 0.8
+    kept = build_city_day([rated], **_blr_clock()).table.to_pylist()[0]
+    assert kept["drvr_cancel"] == 4
+    assert kept["rider_cancel"] == 2
+    assert kept["cnvr_rate"] == pytest.approx(0.4)
+    assert kept["q_accept_rate"] == pytest.approx(0.8)
     assert built.coverage["counts"]["purple_rows_excluded"] == 1
 
 

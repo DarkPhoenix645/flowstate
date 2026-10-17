@@ -5,26 +5,21 @@ from __future__ import annotations
 import logging
 import time
 
-import requests
-
 from flowstate.config import Settings
+from flowstate.ingest.github import fetch_repo_file
 
 log = logging.getLogger("ingest.dgca")
 
-URL = (
-    "https://raw.githubusercontent.com/Vonter/india-aviation-traffic/"
-    "main/aggregated/domestic/city.csv"
-)
+REPO = "Vonter/india-aviation-traffic"
+PATH = "aggregated/domestic/city.csv"
 
 
 def run(settings: Settings) -> None:
     path = settings.datasets_dir / "aviation" / "domestic" / "city.csv"
     path.parent.mkdir(parents=True, exist_ok=True)
-    log.info("GET %s", URL)
     t0 = time.perf_counter()
-    response = requests.get(URL, timeout=180)
-    response.raise_for_status()
-    path.write_bytes(response.content)
+    payload = fetch_repo_file(REPO, PATH)
+    path.write_bytes(payload)
     log.info(
         "TIMING series=dgca_city wall_s=%.3f bytes=%s",
         time.perf_counter() - t0,

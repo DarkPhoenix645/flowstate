@@ -32,6 +32,10 @@ from pathlib import Path
 import pandas as pd
 import requests
 
+from flowstate.ingest.github import github_get as _github_get
+from flowstate.ingest.github import github_token
+from flowstate.ingest.github import too_large as _too_large
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
@@ -44,8 +48,6 @@ REPO = "DigitalIndiaArchiver/NammaYatriStats"
 ROOT = Path(__file__).resolve().parents[3]
 _API = "https://api.github.com"
 # Leave headroom for the rest of `gh` during a long stitch.
-_MIN_REMAINING = 100
-
 SERIES = {
     "city": {
         "git_path": "raw-data/opendata/city_agg_live_trends_new_key.json",
@@ -116,92 +118,6 @@ class Fetch:
     seconds: float
     nbytes: int
     kind: str  # cache, download, empty, failed
-
-
-def github_token() -> str:
-    """Token from `gh auth login`. Not printed."""
-    result = subprocess.run(
-        ["gh", "auth", "token"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    token = result.stdout.strip()
-    if result.returncode != 0 or not token:
-        raise SystemExit(
-            "ridehail needs `gh auth login` before make ingest"
-        )
-    return token
-
-
-def _too_large(response: requests.Response) -> bool:
-    if response.status_code != 403:
-        return False
-    text = response.text.lower()
-    return "1 mb" in text or "too large" in text
-
-
-def rate_limit_delay(response: requests.Response) -> float:
-    """Seconds to wait before another GitHub request.
-
-    A 1 MB contents response is not a rate limit.
-    403 and 429 use Retry-After, otherwise the primary reset.
-    A successful response waits only when remaining is below
-    ``_MIN_REMAINING``.
-    """
-    if _too_large(response):
-        return 0.0
-    retry_after = response.headers.get("Retry-After")
-    limited = response.status_code in (403, 429)
-    if limited and retry_after and str(retry_after).isdigit():
-        return float(retry_after)
-    remaining = response.headers.get("X-RateLimit-Remaining")
-    low = (
-        remaining is not None
-        and str(remaining).isdigit()
-        and int(remaining) < _MIN_REMAINING
-    )
-    if not limited and not low:
-        return 0.0
-    reset = response.headers.get("X-RateLimit-Reset")
-    if reset and str(reset).isdigit():
-        return max(1.0, int(reset) - time.time() + 1)
-    return 60.0
-
-
-def _github_get(
-    url: str, token: str, accept: str
-) -> requests.Response:
-    headers = {
-        "Accept": accept,
-        "Authorization": f"Bearer {token}",
-        "User-Agent": "flowstate-ingest",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-    response: requests.Response | None = None
-    for _ in range(6):
-        response = requests.get(url, headers=headers, timeout=60)
-        if _too_large(response):
-            return response
-        delay = rate_limit_delay(response)
-        if response.status_code in (403, 429):
-            log.warning(
-                "GitHub %s, sleeping %.0fs",
-                response.status_code,
-                delay,
-            )
-            time.sleep(delay)
-            continue
-        if delay:
-            log.info(
-                "GitHub remaining %s, sleeping %.0fs",
-                response.headers.get("X-RateLimit-Remaining"),
-                delay,
-            )
-            time.sleep(delay)
-        return response
-    assert response is not None
-    return response
 
 
 def _contents_url(series: str, sha: str) -> str:

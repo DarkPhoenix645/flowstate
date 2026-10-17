@@ -28,8 +28,13 @@ COLUMNS = [
     "booking",
     "done_ride",
     "cancel_ride",
+    "drvr_cancel",
+    "rider_cancel",
     "earning",
     "earning_per_completed_ride_proxy",
+    "cnvr_rate",
+    "bkng_cancel_rate",
+    "q_accept_rate",
 ]
 
 COUNT_COLUMNS = (
@@ -40,9 +45,10 @@ COUNT_COLUMNS = (
     "booking",
     "done_ride",
     "cancel_ride",
+    "drvr_cancel",
+    "rider_cancel",
 )
 
-# Published names. This extract does not carry them. Do not invent them.
 RATE_COLUMNS = ("cnvr_rate", "bkng_cancel_rate", "q_accept_rate")
 
 
@@ -138,11 +144,11 @@ def build_city_day(
         "duplicates": [],
         "future_dates": future_dates(dates),
         "rate_columns_present": rate_present,
-        "excluded_columns": ["drvr_cancel", "rider_cancel"],
         "veracity": [
             "Purple is excluded. It is an accessibility product.",
-            "drvr_cancel and rider_cancel stay off this table.",
-            "Rate columns are not in the file and are not invented.",
+            "drvr_cancel and rider_cancel are copied. A null stays null.",
+            "cnvr_rate, bkng_cancel_rate, and q_accept_rate are copied "
+            "when the file has them. A missing rate stays null.",
             "booking is not rewritten to done_ride + cancel_ride.",
             "A missing date is absent. It is not a zero row.",
             "earning_per_completed_ride_proxy is earning / done_ride.",
@@ -182,8 +188,13 @@ def _clock_row(row: dict[str, Any]) -> dict[str, Any]:
         "booking": _int(row.get("booking")),
         "done_ride": done,
         "cancel_ride": _int(row.get("cancel_ride")),
+        "drvr_cancel": _int(row.get("drvr_cancel")),
+        "rider_cancel": _int(row.get("rider_cancel")),
         "earning": earning,
         "earning_per_completed_ride_proxy": proxy,
+        "cnvr_rate": _float(row.get("cnvr_rate")),
+        "bkng_cancel_rate": _float(row.get("bkng_cancel_rate")),
+        "q_accept_rate": _float(row.get("q_accept_rate")),
     }
 
 
@@ -192,7 +203,11 @@ def _schema() -> pa.Schema:
     for name in COLUMNS:
         if name in COUNT_COLUMNS:
             fields.append(pa.field(name, pa.int64()))
-        elif name in {"earning", "earning_per_completed_ride_proxy"}:
+        elif name in {
+            "earning",
+            "earning_per_completed_ride_proxy",
+            *RATE_COLUMNS,
+        }:
             fields.append(pa.field(name, pa.float64()))
         else:
             fields.append(pa.field(name, pa.string()))

@@ -37,16 +37,16 @@ def places_cache_path(data_dir: Path, city_id: str) -> Path:
 def canonical_names(
     rows: list[dict[str, Any]], aliases: dict[str, str]
 ) -> set[str]:
-    """Official names from station codes, plus alias targets.
+    """Row names plus alias targets.
 
     An alias key is not itself canonical, even when the code file
-    uses that spelling.
+    uses that spelling. An RTI-only row is its own station.
     """
     alias_keys = set(aliases)
     names = {
         str(row["name"])
         for row in rows
-        if row.get("station_code") and str(row["name"]) not in alias_keys
+        if str(row["name"]) not in alias_keys
     }
     names.update(aliases.values())
     return names

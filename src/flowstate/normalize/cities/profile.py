@@ -28,8 +28,9 @@ Field guide:
   canonical station name. Do not use this template for an airport.
   An airport uses ``Airport.query`` and included type ``airport``.
 - ``station_aliases``: ``(alias, canonical name)``. Name mapping
-  only. No coordinates. A name that is neither a canonical station
-  name nor an alias is not sent to Places.
+  only. No coordinates. The same map joins an RTI label onto the
+  station code row. A name that is neither a row name nor an alias
+  is not sent to Places.
 - ``ward``: ward-id join. See ``WardJoin``.
   ``geojson_parts`` is the polygon path under the datasets dir.
   A missing file is downloaded from ``source_url`` into that path.

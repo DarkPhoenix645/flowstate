@@ -66,53 +66,60 @@ def build_geography(
     *,
     line_name: str,
     line_open: date,
+    aliases: dict[str, str] | None = None,
 ) -> TableBuild:
     by_name: dict[str, list[tuple[str, str]]] = {}
+    by_code = dict(codes)
     for code, name in codes:
         by_name.setdefault(norm_name(name), []).append((code, name))
-    used: set[str] = set()
+    alias_map = aliases or {}
     opened = set(line_labels)
     seen = first_seen or {}
     open_day = line_open.isoformat()
+    assigned: dict[str, list[str]] = {}
     rows: list[dict[str, object]] = []
     for label in sorted(set(rti_labels)):
-        candidates = by_name.get(norm_name(label), [])
-        on_line = label in opened
-        operational = _operational_from(label, on_line, seen, open_day)
-        line = line_name if on_line else None
+        candidates = _candidates(label, by_name, alias_map)
         if len(candidates) == 1:
-            code, name = candidates[0]
-            used.add(code)
-            rows.append(
-                _row(
-                    station_code=code,
-                    name=name,
-                    rti_label=label,
-                    line=line,
-                    operational_from=operational,
-                    source="station_codes+rti",
-                    ambiguous_codes=None,
-                )
-            )
+            assigned.setdefault(candidates[0][0], []).append(label)
             continue
         ambiguous = (
             "|".join(sorted(code for code, _name in candidates))
             if len(candidates) > 1
             else None
         )
+        on_line = label in opened
         rows.append(
             _row(
                 station_code=None,
                 name=_LEADING_CODE.sub("", label),
                 rti_label=label,
-                line=line,
-                operational_from=operational,
+                line=line_name if on_line else None,
+                operational_from=_operational_from(
+                    [label], on_line, seen, open_day
+                ),
                 source="rti",
                 ambiguous_codes=ambiguous,
             )
         )
+    for code, labels in assigned.items():
+        name = by_code[code]
+        on_line = any(label in opened for label in labels)
+        rows.append(
+            _row(
+                station_code=code,
+                name=name,
+                rti_label=_pick_label(labels, name),
+                line=line_name if on_line else None,
+                operational_from=_operational_from(
+                    labels, on_line, seen, open_day
+                ),
+                source="station_codes+rti",
+                ambiguous_codes=None,
+            )
+        )
     for code, name in sorted(codes):
-        if code in used:
+        if code in assigned:
             continue
         rows.append(
             _row(
@@ -169,9 +176,10 @@ def build_geography(
             "A name is matched only when the normalized name is unique.",
             f"{line_name} stations are present on {open_day} "
             "and absent the day before.",
+            "An alias joins an RTI label onto the station code row.",
             "operational_from is the first RTI date for that station.",
             f"It is not rewritten to {open_day} when an earlier row exists.",
-            "Other opening dates are unknown and stay null.",
+            "A station that is only in station_codes.csv stays null.",
         ],
     }
     code_to_label = {
@@ -206,6 +214,7 @@ def from_disk(
         first_seen,
         line_name=profile.line_name,
         line_open=profile.line_open,
+        aliases=dict(profile.station_aliases),
     )
 
 
@@ -237,15 +246,47 @@ def apply_station_pins(
     )
 
 
-def _operational_from(
+def _candidates(
     label: str,
+    by_name: dict[str, list[tuple[str, str]]],
+    aliases: dict[str, str],
+) -> list[tuple[str, str]]:
+    bare = _LEADING_CODE.sub("", label).strip()
+    keys = {norm_name(bare)}
+    if bare in aliases:
+        keys.add(norm_name(aliases[bare]))
+    for key, target in aliases.items():
+        if target == bare or norm_name(target) == norm_name(bare):
+            keys.add(norm_name(key))
+            keys.add(norm_name(target))
+    found: dict[str, tuple[str, str]] = {}
+    for key in keys:
+        for code, name in by_name.get(key, []):
+            found[code] = (code, name)
+    return list(found.values())
+
+
+def _pick_label(labels: list[str], name: str) -> str:
+    wanted = norm_name(name)
+    for label in sorted(labels):
+        bare = _LEADING_CODE.sub("", label).strip()
+        if norm_name(bare) == wanted:
+            return label
+    return sorted(labels)[0]
+
+
+def _operational_from(
+    labels: list[str],
     on_line: bool,
     first_seen: dict[str, str],
     line_open: str,
 ) -> str | None:
-    if not on_line:
-        return None
-    return first_seen.get(label, line_open)
+    dates = [first_seen[label] for label in labels if label in first_seen]
+    if dates:
+        return min(dates)
+    if on_line:
+        return line_open
+    return None
 
 
 def _row(

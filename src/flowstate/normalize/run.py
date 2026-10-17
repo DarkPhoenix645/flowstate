@@ -124,14 +124,19 @@ def _attach_pins(
         api_key=settings.google_maps_api_key,
         fetch=geocode,
     )
-    stats["cached"] += airport_stats["cached"]
-    stats["fetched"] += airport_stats["fetched"]
-    stats["missed"] += airport_stats["missed"]
-    stats["needs_review"].extend(airport_stats["needs_review"])
     airports = airports_from_profile(profile, airport_pins)
-    airports.coverage["geocode"] = stats
+    airports.coverage["geocode"] = airport_stats
     builds["airport_geography"] = airports
-    return stats
+    merged = {
+        "cached": stats["cached"] + airport_stats["cached"],
+        "fetched": stats["fetched"] + airport_stats["fetched"],
+        "missed": stats["missed"] + airport_stats["missed"],
+        "needs_review": [
+            *stats["needs_review"],
+            *airport_stats["needs_review"],
+        ],
+    }
+    return merged
 
 
 def _build(

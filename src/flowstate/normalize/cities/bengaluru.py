@@ -46,7 +46,9 @@ BENGALURU = CityProfile(
     station_geocode="{name} metro station",
     # Alias, then the station_codes.csv name. No coordinates.
     # Yeshwanthpur is the RTI spelling. The code file spells it
-    # Yeshwantpur. Yeshwanthpur Industry is an unverified alias.
+    # Yeshwantpur. That is the next Green Line stop, ~1.2 km north.
+    # Yeshwanthpur Industry is the 2014 opening name of
+    # Goraguntepalya (renamed 2016). Same station, same pin.
     station_aliases=(
         ("Banashankarl", "Banashankari"),
         (
