@@ -1,6 +1,6 @@
 """Hash local Bengaluru sources and record how each file was obtained.
 
-`make acquire` writes flowstate-datasets/provenance/manifest.json from files
+`make acquire` writes data/raw/provenance/manifest.json from files
 already on disk. `make acquire-fetch` re-downloads the HTTP sources first
 (Namma Yatri city-day gzip, BMRCL RTI workbooks), then hashes them.
 
@@ -8,7 +8,7 @@ Does not re-fetch OpenSky (credit cost). It renames last_seen_utc to
 arrival_time_proxy_utc if the old header is still there.
 
 Does not fetch DGCA, BMTC, or the metro tracker. Those copies were already
-in flowstate-datasets/. The manifest records the upstream repo and the local
+in data/raw/. The manifest records the upstream repo and the local
 mtime. No git commit is pinned, because this workspace does not contain
 those clones.
 
@@ -37,7 +37,7 @@ logging.basicConfig(
 log = logging.getLogger("ingest.manifest")
 
 ROOT = Path(__file__).resolve().parents[3]
-DATA = ROOT / "flowstate-datasets"
+DATA = ROOT / "data" / "raw"
 OUT = DATA / "provenance" / "manifest.json"
 CSV_OPENSKY = (
     DATA / "opensky" / "VOBL_arrivals_2024-10-26_2026-04-15.csv"
@@ -172,7 +172,7 @@ def dgca_check() -> dict | None:
     blr = df[(df.City1 == "BENGALURU") | (df.City2 == "BENGALURU")]
     ym = blr.Year.astype(str) + "-" + blr.Month.astype(str).str.zfill(2)
     return {
-        "file": "flowstate-datasets/aviation/domestic/city.csv",
+        "file": "data/raw/aviation/domestic/city.csv",
         "rows": int(len(df)),
         "bengaluru_pair_rows": int(len(blr)),
         "bengaluru_month_min": str(ym.min()),

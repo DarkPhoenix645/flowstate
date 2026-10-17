@@ -1,4 +1,4 @@
-"""Stage parquet from the files already under flowstate-datasets/.
+"""Stage parquet from the files already under data/raw/.
 
 This package does not download. OpenSky is not a staging dataset.
 """

@@ -2,33 +2,39 @@
 
 Producer: Namma Yatri open-data endpoints.
 Archive: DigitalIndiaArchiver/NammaYatriStats (third party, not the producer).
-This script is the transformation. Re-run with `make ny-stitch-ward` or
-`make ny-stitch-city`. Existing snapshot files are skipped, so a second run
-only fills gaps and rewrites the CSV and coverage manifest.
+Run `make ingest DATASET=ridehail`. `gh auth login` is required.
+Commit lists and snapshot bodies both use that token.
+Requests are serial. GitHub's primary limit is 5000 per hour.
+A low remaining count or a 403/429 waits until the reset.
+Existing snapshot files are skipped, so a second run only fills gaps.
 
 Merge rule: snapshots applied oldest commit first. A later snapshot overwrites
 the same key. City key is (date, hour, trip_category, vehicle_type), Bengaluru
 rows only. Ward key is (ward_num, date, hour).
 
-Cache and outputs live under flowstate-datasets/ (gitignored):
+Cache and outputs live under data/raw/ (gitignored):
   namma-yatri/archiver-cache/<series>/
   namma-yatri/stitched/<output csv + coverage json>
 """
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import subprocess
 import sys
 import time
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
 import requests
+
+from flowstate.ingest.github import github_get as _github_get
+from flowstate.ingest.github import github_token
+from flowstate.ingest.github import too_large as _too_large
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,7 +46,8 @@ log = logging.getLogger("ny-stitch")
 
 REPO = "DigitalIndiaArchiver/NammaYatriStats"
 ROOT = Path(__file__).resolve().parents[3]
-
+_API = "https://api.github.com"
+# Leave headroom for the rest of `gh` during a long stitch.
 SERIES = {
     "city": {
         "git_path": "raw-data/opendata/city_agg_live_trends_new_key.json",
@@ -60,14 +67,14 @@ def _data(datasets_dir: Path) -> Path:
 
 
 def cache_dir(series: str, datasets_dir: Path | None = None) -> Path:
-    root = _data(datasets_dir or (ROOT / "flowstate-datasets"))
+    root = _data(datasets_dir or (ROOT / "data" / "raw"))
     path = root / "archiver-cache" / series
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def out_dir(datasets_dir: Path | None = None) -> Path:
-    root = _data(datasets_dir or (ROOT / "flowstate-datasets"))
+    root = _data(datasets_dir or (ROOT / "data" / "raw"))
     path = root / "stitched"
     path.mkdir(parents=True, exist_ok=True)
     return path
@@ -113,46 +120,87 @@ class Fetch:
     kind: str  # cache, download, empty, failed
 
 
-def _upstream_empty(series: str, sha: str) -> bool:
+def _contents_url(series: str, sha: str) -> str:
     spec = SERIES[series]
-    url = (
-        f"https://api.github.com/repos/{REPO}/contents/"
-        f"{spec['git_path']}?ref={sha}"
+    return (
+        f"{_API}/repos/{REPO}/contents/{spec['git_path']}?ref={sha}"
     )
+
+
+def _fetch_large_blob(
+    series: str, sha: str, token: str
+) -> str | None:
+    """Contents API stops at 1 MB. The blobs API allows 100 MB."""
+    meta = _github_get(
+        _contents_url(series, sha),
+        token,
+        "application/vnd.github+json",
+    )
+    if meta.status_code != 200:
+        log.warning(
+            "blob meta %s status %s", sha[:10], meta.status_code
+        )
+        return None
+    git_url = str(meta.json().get("git_url") or "")
+    if not git_url:
+        return None
+    blob = _github_get(
+        git_url, token, "application/vnd.github+json"
+    )
+    if blob.status_code != 200:
+        log.warning(
+            "blob body %s status %s", sha[:10], blob.status_code
+        )
+        return None
+    payload = blob.json()
+    if payload.get("encoding") != "base64":
+        return None
+    raw = base64.b64decode(payload.get("content") or "")
+    return raw.decode()
+
+
+def _upstream_empty(series: str, sha: str, token: str) -> bool:
     try:
-        r = requests.get(
-            url,
-            headers={
-                "Accept": "application/vnd.github+json",
-                "User-Agent": "flowstate-ingest",
-            },
-            timeout=30,
+        response = _github_get(
+            _contents_url(series, sha),
+            token,
+            "application/vnd.github+json",
         )
     except requests.RequestException as exc:
         log.warning("size check %s failed: %s", sha[:10], exc)
         return False
-    if r.status_code != 200:
+    if response.status_code == 404:
+        return True
+    if response.status_code != 200:
         return False
-    return int(r.json().get("size") or 0) == 0
+    return int(response.json().get("size") or 0) == 0
 
 
-def fetch_one(series: str, sha: str) -> Fetch:
-    spec = SERIES[series]
+def fetch_one(series: str, sha: str, token: str) -> Fetch:
     dest = cache_dir(series) / f"{sha}.json"
     if dest.exists() and dest.stat().st_size > 0:
         log.debug("cache hit %s", sha[:10])
         return Fetch(dest, 0.0, dest.stat().st_size, "cache")
-    url = f"https://raw.githubusercontent.com/{REPO}/{sha}/{spec['git_path']}"
-    headers = {"User-Agent": "flowstate-ingest"}
+    url = _contents_url(series, sha)
     spent = 0.0
     for attempt in range(1, 6):
         t0 = time.perf_counter()
         try:
             log.info("downloading %s attempt %s", sha[:10], attempt)
-            r = requests.get(url, timeout=60, headers=headers)
+            response = _github_get(
+                url, token, "application/vnd.github.raw"
+            )
             spent += time.perf_counter() - t0
-            if r.status_code == 200 and r.text.startswith("["):
-                dest.write_text(r.text)
+            text = response.text
+            if _too_large(response):
+                large = _fetch_large_blob(series, sha, token)
+                if large is None:
+                    text = ""
+                else:
+                    text = large
+                    response.status_code = 200
+            if response.status_code == 200 and text.startswith("["):
+                dest.write_text(text)
                 log.info(
                     "saved %s (%s bytes, %.2fs)",
                     sha[:10],
@@ -160,22 +208,27 @@ def fetch_one(series: str, sha: str) -> Fetch:
                     spent,
                 )
                 return Fetch(dest, spent, dest.stat().st_size, "download")
-            if r.status_code == 200:
+            if response.status_code == 200:
                 log.info(
-                    "skip %s: upstream body is not a JSON array (%s bytes)",
+                    "skip %s: upstream body is not a JSON array "
+                    "(%s bytes)",
                     sha[:10],
-                    len(r.content),
+                    len(text.encode()),
                 )
                 return Fetch(None, spent, 0, "empty")
+            if response.status_code == 404 or _upstream_empty(
+                series, sha, token
+            ):
+                log.info("skip %s: upstream file is missing", sha[:10])
+                return Fetch(None, spent, 0, "empty")
             log.warning(
-                "bad response %s status %s", sha[:10], r.status_code
+                "bad response %s status %s",
+                sha[:10],
+                response.status_code,
             )
         except requests.RequestException as exc:
             spent += time.perf_counter() - t0
             log.warning("download error %s: %s", sha[:10], exc)
-        if _upstream_empty(series, sha):
-            log.info("skip %s: upstream file size is 0", sha[:10])
-            return Fetch(None, spent, 0, "empty")
         delay = min(2**attempt, 30)
         log.info("retry %s in %ss", sha[:10], delay)
         time.sleep(delay)
@@ -298,7 +351,7 @@ def check_overwrites(series: str, commits: list[tuple[str, str]]) -> dict:
     return report
 
 
-def stitch(series: str, refresh: bool, workers: int) -> None:
+def stitch(series: str, refresh: bool) -> None:
     spec = SERIES[series]
     log.info(
         "series=%s archive=%s file=%s",
@@ -313,6 +366,7 @@ def stitch(series: str, refresh: bool, workers: int) -> None:
         spec["key_cols"],
     )
     commits = load_commits(series, refresh)
+    token = github_token()
     log.info("%s commits to apply, oldest first", len(commits))
     failed = 0
     empty = 0
@@ -324,49 +378,47 @@ def stitch(series: str, refresh: bool, workers: int) -> None:
     acc: pd.DataFrame | None = None
     pending: list[pd.DataFrame] = []
     wall0 = time.perf_counter()
-    with ThreadPoolExecutor(workers) as pool:
-        futures = [pool.submit(fetch_one, series, sha) for sha, _ in commits]
-        for i, fut in enumerate(futures, 1):
-            fetched = fut.result()
-            if fetched.kind == "download":
-                downloads += 1
-                download_s += fetched.seconds
-                download_bytes += fetched.nbytes
-            elif fetched.kind == "cache":
-                cache_hits += 1
-            elif fetched.kind == "empty":
-                empty += 1
-            else:
-                failed += 1
-            path = fetched.path
-            if path is not None:
-                rows = json.loads(path.read_text())
-                if series == "city":
-                    rows = [r for r in rows if r.get("city_code") == "BLR"]
-                if rows:
-                    pending.append(pd.DataFrame(rows))
-            if len(pending) >= 40 or (i == len(futures) and pending):
-                chunk = pd.concat(pending, ignore_index=True)
-                before += len(chunk)
-                acc = (
-                    chunk
-                    if acc is None
-                    else pd.concat([acc, chunk], ignore_index=True)
-                )
-                for col in spec["key_cols"]:
-                    if col not in acc.columns:
-                        acc[col] = None
-                acc = acc.drop_duplicates(spec["key_cols"], keep="last")
-                pending.clear()
-            if i % 25 == 0 or i == len(futures):
-                rows_now = 0 if acc is None else len(acc)
-                log.info(
-                    "progress %s/%s snapshots, failed %s, stitched rows %s",
-                    i,
-                    len(commits),
-                    failed,
-                    rows_now,
-                )
+    for i, (sha, _) in enumerate(commits, 1):
+        fetched = fetch_one(series, sha, token)
+        if fetched.kind == "download":
+            downloads += 1
+            download_s += fetched.seconds
+            download_bytes += fetched.nbytes
+        elif fetched.kind == "cache":
+            cache_hits += 1
+        elif fetched.kind == "empty":
+            empty += 1
+        else:
+            failed += 1
+        path = fetched.path
+        if path is not None:
+            rows = json.loads(path.read_text())
+            if series == "city":
+                rows = [r for r in rows if r.get("city_code") == "BLR"]
+            if rows:
+                pending.append(pd.DataFrame(rows))
+        if len(pending) >= 40 or (i == len(commits) and pending):
+            chunk = pd.concat(pending, ignore_index=True)
+            before += len(chunk)
+            acc = (
+                chunk
+                if acc is None
+                else pd.concat([acc, chunk], ignore_index=True)
+            )
+            for col in spec["key_cols"]:
+                if col not in acc.columns:
+                    acc[col] = None
+            acc = acc.drop_duplicates(spec["key_cols"], keep="last")
+            pending.clear()
+        if i % 25 == 0 or i == len(commits):
+            rows_now = 0 if acc is None else len(acc)
+            log.info(
+                "progress %s/%s snapshots, failed %s, stitched rows %s",
+                i,
+                len(commits),
+                failed,
+                rows_now,
+            )
     wall_s = time.perf_counter() - wall0
     log.info(
         "snapshots done, failed %s, empty %s, downloads %s, cache %s",
@@ -375,6 +427,11 @@ def stitch(series: str, refresh: bool, workers: int) -> None:
         downloads,
         cache_hits,
     )
+    if failed:
+        raise SystemExit(
+            f"ny-stitch {series}: {failed} snapshots failed; "
+            "CSV not written"
+        )
     df = acc if acc is not None else pd.DataFrame()
     out = out_dir() / spec["out_name"]
     df.to_csv(out, index=False)
@@ -478,8 +535,8 @@ def run(settings: object) -> None:
         time.perf_counter() - t0,
         dest.stat().st_size,
     )
-    stitch("city", False, 2)
-    stitch("ward", False, 2)
+    stitch("city", False)
+    stitch("ward", False)
 
 
 if __name__ == "__main__":

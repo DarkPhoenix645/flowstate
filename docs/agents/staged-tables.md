@@ -1,6 +1,6 @@
 # Staged source tables
 
-#13, #14, and #15. The command is `make stage`. It reads `flowstate-datasets/` and writes `data/staged/`. It does not download. `make stage DATASET=aviation` writes the DGCA table only. It does not call OpenSky.
+#13, #14, and #15. The command is `make stage`. It reads `data/raw/` and writes `data/staged/`. It does not download. `make stage DATASET=aviation` writes the DGCA table only. It does not call OpenSky.
 
 These tables are not `RIDE_COLUMNS`. Ride-grain events stay with the resampler.
 

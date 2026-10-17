@@ -7,7 +7,6 @@ from an empty cache are 16,140 credits.
 
 Credentials come from Settings.opensky_clients(). Up to 10 pairs.
 Pair 1 is unsuffixed. Pairs 2-10 use _2 .. _10.
-Unprefixed OPENSKY_CLIENT_ID is ignored.
 
 One worker per client. A window file that already exists and is non-empty
 is not fetched again. Arrival files left in the cache root by the serial
@@ -61,7 +60,7 @@ IST = dt.timezone(dt.timedelta(hours=5, minutes=30))
 UTC = dt.UTC
 START = dt.datetime(2024, 10, 26, 0, 0, tzinfo=IST).astimezone(UTC)
 END = dt.datetime(2026, 4, 15, 23, 59, 59, tzinfo=IST).astimezone(UTC)
-OPENSKY_DIR = ROOT / "flowstate-datasets" / "opensky"
+OPENSKY_DIR = ROOT / "data" / "raw" / "opensky"
 CACHE = OPENSKY_DIR / "windows"
 LEGACY_CACHE = ROOT / ".scratch" / "dl" / "opensky"
 
