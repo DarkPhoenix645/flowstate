@@ -30,11 +30,13 @@ infra/kafka/cluster.env
 # Data lake (raw downloads + generated parquet)
 data/raw/
 data/staged/
+data/normalized/
+data/geocode/
 data/lake/
 data/stream-sink/
-
-# Local source extracts (Kaggle is downloaded at ingest; do not commit)
-flowstate-datasets/
+data/normalized/
+data/geocode/
+data/*
 
 # Local exploration
 .scratch/

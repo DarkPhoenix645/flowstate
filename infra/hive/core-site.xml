@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+  <!-- Same authority as infra/hadoop/core-site.xml and the warehouse URI. -->
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://namenode:9000</value>
+  </property>
+  <!-- HiveServer2 demands scratch-dir mode 0733. The default umask turns that into 0755. -->
+  <property>
+    <name>fs.permissions.umask-mode</name>
+    <value>000</value>
+  </property>
+</configuration>

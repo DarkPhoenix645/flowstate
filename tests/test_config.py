@@ -23,10 +23,6 @@ _OPENSKY_KEYS = [
     "FLOWSTATE_OPENSKY_CLIENT_SECRET_9",
     "FLOWSTATE_OPENSKY_CLIENT_ID_10",
     "FLOWSTATE_OPENSKY_CLIENT_SECRET_10",
-    "OPENSKY_CLIENT_ID",
-    "OPENSKY_CLIENT_SECRET",
-    "OPENSKY_CLIENT_ID_1",
-    "OPENSKY_CLIENT_SECRET_1",
 ]
 
 
@@ -38,26 +34,18 @@ def _clear_opensky(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_default_data_dir():
     s = Settings()
     assert s.data_dir.name == "data"
+    assert s.datasets_dir == s.raw_dir
     assert s.spark_master == "spark://spark:7077"
 
 
-def test_opensky_clients_use_flowstate_prefix_only(monkeypatch):
+def test_opensky_clients_collect_complete_pairs(monkeypatch):
     _clear_opensky(monkeypatch)
-    monkeypatch.setenv("OPENSKY_CLIENT_ID", "legacy")
-    monkeypatch.setenv("OPENSKY_CLIENT_SECRET", "legacy-secret")
     monkeypatch.setenv("FLOWSTATE_OPENSKY_CLIENT_ID", "one")
     monkeypatch.setenv("FLOWSTATE_OPENSKY_CLIENT_SECRET", "s1")
     monkeypatch.setenv("FLOWSTATE_OPENSKY_CLIENT_ID_3", "three")
     monkeypatch.setenv("FLOWSTATE_OPENSKY_CLIENT_SECRET_3", "s3")
     clients = Settings().opensky_clients()
     assert clients == [(1, "one", "s1"), (3, "three", "s3")]
-
-
-def test_opensky_unprefixed_names_are_ignored(monkeypatch):
-    _clear_opensky(monkeypatch)
-    monkeypatch.setenv("OPENSKY_CLIENT_ID", "legacy")
-    monkeypatch.setenv("OPENSKY_CLIENT_SECRET", "legacy-secret")
-    assert Settings().opensky_clients() == []
 
 
 def test_opensky_pair_10_is_accepted(monkeypatch):

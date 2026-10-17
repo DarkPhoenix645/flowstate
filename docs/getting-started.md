@@ -10,6 +10,7 @@ Identical on Windows (Git Bash or WSL), macOS, Linux. All heavy infra is Docker.
 | Git                              | Windows: Git for Windows (includes Git Bash — use that for `make`).                    |
 | [uv](https://docs.astral.sh/uv/) | Pins 3.11 via `.python-version`.                                                       |
 | GNU Make                         | macOS/Linux default. Windows: Git Bash `make` or WSL. We do **not** use `just`.        |
+| [GitHub CLI](https://cli.github.com/) | `gh auth login` before `make ingest`. Ridehail, metro, DGCA, and BMTC reads use that token. |
 
 No host JDK. Spark/Hadoop/Hive images already include Java. MapReduce jars are built with the `maven:3.9-eclipse-temurin-8` image (`make mr-package`).
 
@@ -36,17 +37,20 @@ make down-v         # DESTRUCTIVE: compose down -v + remint CLUSTER_ID
 | `make hotspots`           | Spark demand job **inside** the `spark` service                              | TODO    |
 | `make stream-produce`     | `TOPIC=flowstate.ridehail.activity.v1 RATE=500` (host → Kafka `:9094`). Topic set: [ADR-0008](adr/0008-speed-layer-streaming-shape.md). | TODO    |
 | `make stream-consume`     | rolling metrics **inside** Compose Spark                                     | TODO    |
-| `make hive-ddl`           | beeline against `rides.sql` (needs stack up + Hive↔HDFS spike done)          | TODO    |
+| `make hive-ddl`           | beeline against `rides.sql`. Warehouse directory is on HDFS.                 | TODO    |
 | `make mr-package`         | Maven package in Docker (no host Java)                                       | TODO    |
 | `make test` / `make lint` | pytest, ruff                                                                 | WORKING |
 
 Examples:
 
 ```bash
+gh auth login
 make ingest DATASET=ridehail
 make amplify ROWS=10000
 make stream-produce TOPIC=flowstate.ridehail.activity.v1 RATE=100
 ```
+
+`make ingest DATASET=ridehail` reads commit lists and snapshot files from `DigitalIndiaArchiver/NammaYatriStats` with the `gh` token. Requests are one at a time. GitHub's primary limit is 5000 requests per hour; the stitch waits when remaining drops below 100, and on HTTP 403 or 429 it sleeps until `Retry-After` or the reset. City is 720 commits and ward is 459, so a clean run stays inside that budget. A failed snapshot exits before the CSV is written, and `DATASET=all` does not continue.
 
 ## Python extras
 

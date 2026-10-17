@@ -8,7 +8,7 @@ Areas to staff. Paths are fixed; do not fork layouts.
 - Each loader writes **standardized parquet** under `data/staged/` (schema: [agents/schema.md](agents/schema.md)).
 - `amplify.py`: write 1M / 10M / 100M Bengaluru multimodal events from the calibrated resampler ([ADR-0010](adr/0010-bengaluru-calibrated-resampler.md)).
 - Done when: `make ingest && make amplify` materializes the lake. Document veracity per dataset.
-- Spike: Hive-on-HDFS warehouse dir (early).
+- Hive warehouse directory: `hdfs://namenode:9000/user/hive/warehouse`.
 
 ## Batch baseline & benchmarks — `src/flowstate/batch/mapreduce/`, `src/flowstate/benchmarks/`
 

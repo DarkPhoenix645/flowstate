@@ -6,7 +6,7 @@ Human summary: [../team.md](../team.md). Stack decisions: [ADR-0002](../adr/0002
 
 Files: `namma_yatri.py`, `namma_ridership.py`, `bmrcl_rti.py`, `bmtc_gtfs.py`, `dgca_aviation.py`, `opensky_flights.py`, `significant_dates.py`, `manifest.py`. Dispatcher: `python -m flowstate.ingest --dataset all|ridehail|metro|bus|aviation|events|manifest|validate`.
 
-Each downloader/validator owns its ADR-0011 source and refreshes `flowstate-datasets/provenance/manifest.json`. Staged parquet per source is the T12–T14 scope. Source registry and windows: [../data-sources.md](../data-sources.md). Rejected sources: [../rejected-sources.md](../rejected-sources.md).
+Each downloader/validator owns its ADR-0011 source and refreshes `data/raw/provenance/manifest.json`. Staged parquet per source is the T12–T14 scope. Source registry and windows: [../data-sources.md](../data-sources.md). Rejected sources: [../rejected-sources.md](../rejected-sources.md).
 
 Amplify CLI: `amplify.py --rows N --seed S` with `N` in `{1e6, 1e7, 1e8}`. Multimodal events come from the calibrated resampler ([ADR-0010](../adr/0010-bengaluru-calibrated-resampler.md)). Scale targets: [ADR-0006](../adr/0006-amplify-for-scale-benchmarks.md).
 

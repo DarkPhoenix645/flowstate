@@ -1,0 +1,20 @@
+---
+description: Keep the scratch branch board current when branch, PR, or issue status changes
+alwaysApply: true
+---
+
+# Branch board
+
+`.scratch/branch-board.md` is the branch and issue plan. It is scratch, not a repo doc.
+
+Update that file in the same turn as the change when any of these happen:
+
+- A branch is created or renamed
+- A pull request opens, leaves draft, receives changes, or merges
+- An issue closes, or an open blocker clears, and the next row changes
+
+Read `git` and `gh` before editing a status. Use only these status words: `not created`, `being worked on`, `review pending`, `merged`.
+
+Keep every `feat/001` branch onward as a row. A planned branch with no checkout is `not created`. A closed pull request that did not merge stays in the notes under the table, not as a status row.
+
+Leave the notes under the table in place. Edit a note when the fact it records changes.

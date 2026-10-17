@@ -88,28 +88,46 @@ services:
 
   hive-metastore:
     image: apache/hive:4.0.0
+    # Image USER is hive, but /opt/hive/data is root-owned. Derby cannot
+    # create metastore_db unless this process is root.
+    user: "0:0"
     ports:
       - "9083:9083"
-    command: ["metastore"]
     environment:
       SERVICE_NAME: metastore
     volumes:
       - ./infra/hive/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
+      - ./infra/hive/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./infra/hive/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
       - hive_metastore:/opt/hive/data
+    depends_on:
+      - namenode
+      - datanode
+    restart: on-failure
 
   hiveserver2:
     image: apache/hive:4.0.0
+    # The image entrypoint always runs schematool unless IS_RESUME=true.
+    # Schema init belongs to the metastore container only.
+    # HiveServer2 requires /tmp/hive mode 0733. The image creates it as 0755.
+    entrypoint: ["bash", "-c", "mkdir -p /tmp/hive /tmp/home && chmod 733 /tmp/hive && export HOME=/tmp/home && exec /entrypoint.sh"]
     ports:
       - "10000:10000"
       - "10002:10002"
     environment:
       SERVICE_NAME: hiveserver2
+      IS_RESUME: "true"
       SERVICE_OPTS: -Dhive.metastore.uris=thrift://hive-metastore:9083
     volumes:
       - ./infra/hive/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
+      - ./infra/hive/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./infra/hive/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
       - ./src:/opt/src:ro
     depends_on:
       - hive-metastore
+      - namenode
+      - datanode
+    restart: on-failure
 
   grafana:
     image: grafana/grafana:13.2.0
