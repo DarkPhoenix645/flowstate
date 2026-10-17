@@ -8,29 +8,25 @@ import time
 import zipfile
 from pathlib import Path
 
-import requests
-
 from flowstate.config import Settings
+from flowstate.ingest.github import fetch_repo_file
 
 log = logging.getLogger("ingest.bmtc")
 
-URL = (
-    "https://raw.githubusercontent.com/Vonter/bmtc-gtfs/main/gtfs/bmtc.zip"
-)
+REPO = "Vonter/bmtc-gtfs"
+PATH = "gtfs/bmtc.zip"
 
 
 def run(settings: Settings) -> None:
     dest = settings.datasets_dir / "bmtc"
     dest.mkdir(parents=True, exist_ok=True)
-    log.info("GET %s", URL)
     t0 = time.perf_counter()
-    response = requests.get(URL, timeout=300)
-    response.raise_for_status()
-    written = _extract_txt(dest, response.content)
+    payload = fetch_repo_file(REPO, PATH)
+    written = _extract_txt(dest, payload)
     log.info(
         "TIMING series=bmtc_gtfs wall_s=%.3f zip_bytes=%s txt_files=%s",
         time.perf_counter() - t0,
-        len(response.content),
+        len(payload),
         written,
     )
 

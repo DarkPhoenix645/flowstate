@@ -11,7 +11,7 @@ import hashlib
 import json
 from pathlib import Path
 
-MANIFEST = Path("flowstate-datasets/provenance/manifest.json")
+MANIFEST = Path("data/raw/provenance/manifest.json")
 
 
 class ProvenanceError(RuntimeError):

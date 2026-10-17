@@ -16,6 +16,7 @@ Agents: read this glossary before you invent synonyms. Read ADRs under `docs/adr
 | resampler | Generator that draws Bengaluru events for all four modes from models calibrated to observed aggregate clocks; one process feeds the lake and Kafka | Taxi-only generator; separate batch vs stream samplers; training on NCR taxis; a neural forecaster (RNN/Hawkes are future candidates, not v1) |
 | scenario | An injected command that forks a conditional synthetic stream; its response is assumption-driven unless a held-out test validates it | Calling a scenario response a learned causal effect |
 | provenance status | The label every event carries: `observed`, `observed_proxy`, `derived`, or `synthetic` | Presenting synthetic or proxy records as observed trips |
+| origin-destination | Counts from one place to another. The short form is OD. | One passenger trip. The licence short form ODbL |
 | Bengaluru alignment window | Shared clock for Bengaluru events: 2024-10-26 through 2026-04-15 (the ride-hail clock ends there) | Joining Jan/Jul 2024 Bengaluru bookings or NCR taxis to metro days as if they overlap |
 | batch layer | Spark batch jobs + MapReduce baseline over the lake | Calling streaming windows “batch” |
 | speed layer | Kafka emit + Spark Structured Streaming rolling metrics | Host-local Spark streaming; “replay” as the only emit path; calling the stream observed ridership |
