@@ -1,7 +1,6 @@
--- RTI station-hour long table. This is not the rides table.
--- Hive-on-HDFS location is still the T7 spike. Do not apply this until then.
+-- RTI station-hour long table. Not the rides table.
 
-CREATE TABLE IF NOT EXISTS metro_station_hour (
+CREATE EXTERNAL TABLE IF NOT EXISTS metro_station_hour (
   service_date STRING,
   station STRING,
   measure STRING,
@@ -9,9 +8,10 @@ CREATE TABLE IF NOT EXISTS metro_station_hour (
   interval_start STRING,
   interval_end STRING,
   ends_at_last_train BOOLEAN,
-  yellow_line_open BOOLEAN,
+  line_open BOOLEAN,
   count BIGINT,
   source_sheet STRING,
   source_row BIGINT
 )
-STORED AS PARQUET;
+STORED AS PARQUET
+LOCATION 'hdfs://namenode:9000/user/hive/warehouse/metro_station_hour';

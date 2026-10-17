@@ -1,8 +1,7 @@
--- DGCA monthly Bengaluru city pairs. This is not the rides table.
+-- DGCA monthly Bengaluru city pairs. Not the rides table.
 -- There is no Kafka topic for this table.
--- Hive-on-HDFS location is still the T7 spike. Do not apply this until then.
 
-CREATE TABLE IF NOT EXISTS dgca_city_month (
+CREATE EXTERNAL TABLE IF NOT EXISTS dgca_city_month (
   year INT,
   month INT,
   city1 STRING,
@@ -16,4 +15,5 @@ CREATE TABLE IF NOT EXISTS dgca_city_month (
   mail_to_city2 DOUBLE,
   mail_from_city2 DOUBLE
 )
-STORED AS PARQUET;
+STORED AS PARQUET
+LOCATION 'hdfs://namenode:9000/user/hive/warehouse/dgca_city_month';

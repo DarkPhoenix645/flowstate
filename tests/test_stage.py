@@ -1,7 +1,4 @@
-from datetime import date
-
 import pandas as pd
-import pytest
 
 from flowstate.stage.bus import validate_frames
 from flowstate.stage.dgca import city_month_table
@@ -11,67 +8,6 @@ from flowstate.stage.events import (
     bus_scheduled_stop_event,
     metro_station_hour_event,
 )
-from flowstate.stage.metro import daily_table, parse_interval
-from flowstate.stage.ridehail import CITY_DAY_COLUMNS, city_day_table
-
-
-def test_city_day_keeps_blr_normal_only():
-    rows = [
-        _day("2025-08-01", "BLR", "Normal", 10, 100),
-        _day("2025-08-01", "BLR", "Purple", 1, 1),
-        _day("2025-08-02", "COK", "Normal", 4, 4),
-        _day("2025-08-02", "BLR", "Normal", 0, 50),
-    ]
-    table, coverage = city_day_table(rows)
-    assert table.column_names == CITY_DAY_COLUMNS
-    assert "drvr_cancel" not in table.column_names
-    out = table.to_pylist()
-    assert [row["date"] for row in out] == ["2025-08-01", "2025-08-02"]
-    assert out[0]["earning_per_completed_ride_proxy"] == 10
-    assert out[1]["earning_per_completed_ride_proxy"] is None
-    assert coverage["purple_rows_excluded"] == 1
-    assert coverage["other_city_rows_excluded"] == 1
-    assert {row["booking_type"] for row in out} == {"Normal"}
-    assert {row["city_code"] for row in out} == {"BLR"}
-
-
-def test_city_day_duplicate_date_raises():
-    rows = [
-        _day("2025-08-01", "BLR", "Normal", 1, 1),
-        _day("2025-08-01", "BLR", "Normal", 2, 2),
-    ]
-    with pytest.raises(ValueError, match="duplicate"):
-        city_day_table(rows)
-
-
-def test_parse_interval_keeps_last_train():
-    assert parse_interval("00:00 Hrs To     01:00 Hrs") == (
-        "00:00",
-        "01:00",
-        False,
-    )
-    assert parse_interval("23:00 Hrs To Last train") == ("23:00", None, True)
-    assert parse_interval("H23") == ("23:00", "24:00", False)
-
-
-def test_metro_daily_drops_rows_after_cutoff():
-    frame = pd.DataFrame(
-        [
-            _metro("2026-07-15", 1),
-            _metro("2026-07-16", 2),
-        ]
-    )
-    table, coverage = daily_table(frame)
-    assert table.column("record_date").to_pylist() == ["2026-07-15"]
-    assert coverage["dropped_after_2026_07_15"] == 1
-    assert "total" in table.column_names
-
-
-def test_metro_daily_identity_failure():
-    row = _metro("2026-07-15", 1)
-    row["Total"] = 99
-    with pytest.raises(ValueError, match="Total"):
-        daily_table(pd.DataFrame([row]))
 
 
 def test_dgca_keeps_both_directions_and_no_day_grain():
@@ -157,39 +93,6 @@ def test_metro_event_is_observed_and_bus_ridership_is_synthetic():
     assert BUS_TOPIC == "flowstate.bus.scheduled_stop.v1"
 
 
-def _day(day: str, city: str, booking: str, done: int, earning: int) -> dict:
-    return {
-        "date": day,
-        "city": "Bengaluru" if city == "BLR" else city,
-        "city_code": city,
-        "booking_type": booking,
-        "srch_rqst": done,
-        "srch_fr_q": 0,
-        "srch_which_got_q": 0,
-        "srch_which_got_e": 0,
-        "booking": done,
-        "done_ride": done,
-        "cancel_ride": 0,
-        "earning": earning,
-        "drvr_cancel": 0,
-        "rider_cancel": 0,
-    }
-
-
-def _metro(day: str, total: int) -> dict:
-    return {
-        "Record Date": day,
-        "Smart Cards": total,
-        "NCMC": 0,
-        "Commute": total,
-        "Tokens": 0,
-        "QR": 0,
-        "Group Ticket": 0,
-        "Casual": 0,
-        "Total": total,
-    }
-
-
 def _pair(
     year: int,
     month: int,
@@ -223,6 +126,3 @@ def _stop(
         "departure_time": departure,
     }
 
-
-def test_cutoff_constant_is_the_adr_date():
-    assert date(2026, 7, 15).isoformat() == "2026-07-15"

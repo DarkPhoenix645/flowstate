@@ -1,5 +1,6 @@
 """Checks against the cold extracts. Skipped when those files are absent."""
 
+import json
 from pathlib import Path
 
 import pyarrow.compute as pc
@@ -37,10 +38,10 @@ def test_staged_city_day_matches_the_clock():
     table = read_parquet(Path("data/staged/namma_yatri/city_day.parquet"))
     assert table.column("date").to_pylist()[0] == "2022-09-01"
     assert table.column("date").to_pylist()[-1] == "2026-04-15"
-    assert coverage["missing_dates"] == ["2026-02-14"]
-    assert coverage["purple_rows_excluded"] > 0
-    assert coverage["rows"] == 1322
-    assert coverage["alignment_rows"] == 536
+    assert coverage["missing"] == ["2026-02-14"]
+    assert coverage["counts"]["purple_rows_excluded"] > 0
+    assert coverage["counts"]["rows"] == 1322
+    assert coverage["counts"]["alignment_rows"] == 536
     assert set(table.column("booking_type").to_pylist()) == {"Normal"}
     assert set(table.column("city_code").to_pylist()) == {"BLR"}
     hour = read_parquet(Path("data/staged/namma_yatri/city_hour.parquet"))
@@ -66,9 +67,12 @@ def test_staged_metro_tables():
     assert len(days) == 48
     assert "2025-08-11" in days
     assert "2025-07-31" not in days
-    cov = Path("data/staged/metro/station_hour.coverage.json").read_text()
-    assert '"stations_2025_08_10": 69' in cov
-    assert '"stations_2025_08_11": 83' in cov
+    cov = json.loads(
+        Path("data/staged/metro/station_hour.coverage.json").read_text()
+    )
+    line = cov["counts"]["line_open"]
+    assert line["stations_day_before"] == 69
+    assert line["stations_on_date"] == 83
     last = hour.filter(pc.equal(hour.column("ends_at_last_train"), True))
     assert last.num_rows > 0
     assert last.column("interval_end").null_count == last.num_rows

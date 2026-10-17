@@ -1,7 +1,7 @@
--- Metro daily tracker. This is not the rides table.
--- Hive-on-HDFS location is still the T7 spike. Do not apply this until then.
+-- Metro daily tracker. Not the rides table.
+-- Files are loaded onto the namenode before this DDL runs.
 
-CREATE TABLE IF NOT EXISTS metro_daily (
+CREATE EXTERNAL TABLE IF NOT EXISTS metro_daily (
   record_date STRING,
   smart_cards BIGINT,
   ncmc BIGINT,
@@ -12,4 +12,5 @@ CREATE TABLE IF NOT EXISTS metro_daily (
   casual BIGINT,
   total BIGINT
 )
-STORED AS PARQUET;
+STORED AS PARQUET
+LOCATION 'hdfs://namenode:9000/user/hive/warehouse/metro_daily';
