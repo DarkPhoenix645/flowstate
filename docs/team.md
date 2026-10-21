@@ -36,22 +36,22 @@ Hive `PARTITIONED BY (city, vehicle_type)`, load scripts, Grafana over HiveServe
 
 ## Milestones
 
-| Milestone | Done means |
-|---|---|
-| Env setup | Repo usable; `make setup && make test` green; CI matrix; ingest stub runs; `make up` healthy |
-| Batch MVP | Lake in HDFS; 2 Spark jobs + 1 MR on the stack; first benchmark row |
-| Streaming | Producer ≥1k events/s; rolling metrics on replay; live output visible |
-| Benchmarks + UI | 1M/10M/100M table + charts; Hive from Grafana; dashboard; report draft |
+| Milestone       | Done means                                                                                   |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| Env setup       | Repo usable; `make setup && make test` green; CI matrix; ingest stub runs; `make up` healthy |
+| Batch MVP       | Lake in HDFS; 2 Spark jobs + 1 MR on the stack; first benchmark row                          |
+| Streaming       | Producer ≥1k events/s; rolling metrics on replay; live output visible                        |
+| Benchmarks + UI | 1M/10M/100M table + charts; Hive from Grafana; dashboard; report draft                       |
 
 ## Spikes (~half day each)
 
-| Spike | Area |
-|---|---|
-| Event-Detector node pattern | Speed layer |
-| City-Dashboard live vs historical | Spark analytics / dashboards |
-| Hive + HDFS warehouse dir in Compose | Data & lake |
-| YARN + Maven MR on bde2020 | Batch baseline |
-| Watermarks / event-time on Kafka replay | Speed layer |
-| Host-staged parquet readable from Spark containers | Data & lake / Spark analytics |
+| Spike                                   | Area                          |
+| --------------------------------------- | ----------------------------- |
+| Event-Detector node pattern             | Speed layer                   |
+| City-Dashboard live vs historical       | Spark analytics / dashboards  |
+| Hive + HDFS warehouse dir in Compose    | Data & lake                   |
+| YARN + Maven MR on bde2020              | Batch baseline                |
+| Watermarks / event-time on Kafka replay | Speed layer                   |
+| Spark reads the HDFS lake               | Data & lake / Spark analytics |
 
 Notes for agents: [agents/spikes.md](agents/spikes.md), [agents/workstreams.md](agents/workstreams.md).

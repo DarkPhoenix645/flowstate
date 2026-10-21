@@ -55,15 +55,15 @@ Bind mounts, not network links: `./data` is `/opt/data` in the Spark master and 
 
 Grafana listens on host port 3000. It has no warehouse connection and no stream connection yet. Hive warehouse files are on HDFS at `hdfs://namenode:9000/user/hive/warehouse`. Derby is the metastore database.
 
-Port 9092 is published on the host, but Kafka advertises it as `kafka:9092`. Use that name only inside Compose. The host producer uses `localhost:9094`.
+Port 9092 is published on loopback. Kafka advertises it as `kafka:9092`. Use that name only inside Compose. The host producer uses `localhost:9094`. Namenode 9870/9000 also bind to `127.0.0.1`. HDFS permissions are off, so those ports must not listen on the LAN.
 
 ## Compose services
 
 | Service | Ports | Role |
 |---|---|---|
-| namenode | 9870 UI, 9000 RPC | HDFS |
+| namenode | 127.0.0.1:9870 UI, 127.0.0.1:9000 RPC | HDFS. Loopback only. Permissions are off |
 | datanode | — | HDFS blocks |
-| kafka | 9092, 9094 | KRaft, no ZooKeeper |
+| kafka | 127.0.0.1:9092 containers, 127.0.0.1:9094 host | KRaft, no ZooKeeper |
 | spark | 8080 UI, 7077, 4040 | Spark master |
 | spark-worker | — | Spark worker |
 | hive-metastore | 9083 | Derby metastore database |
@@ -74,4 +74,15 @@ Tags are pinned in `docker-compose.yml`. The Hive warehouse directory is `hdfs:/
 
 ## Data mount
 
-Host ingest writes `./data/...`. Spark containers mount that at `/opt/data`. Same files; do not duplicate job code for "host Spark".
+Host ingest writes `./data/...`. Spark containers still mount that at `/opt/data`. After #7, batch jobs read `hdfs://namenode:9000/lake/...`. Keep the mount until #22 moves the stream-sink onto HDFS. Do not treat `/opt/data` as the batch input.
+
+## Ride-hail lake
+
+`make lake` puts the staged ride-hail parquet on HDFS. Run `make up` first so the namenode and the datanode are up. A login shell in the namenode does not see `hdfs`. The binary is `/opt/hadoop-3.2.1/bin/hdfs`.
+
+```bash
+docker compose --env-file infra/kafka/cluster.env exec -T namenode \
+  /opt/hadoop-3.2.1/bin/hdfs dfs -ls /lake/namma_yatri
+```
+
+The lake directory is `hdfs://namenode:9000/lake/namma_yatri/`. MapReduce submit reads that directory. Amplify writes `hdfs://namenode:9000/lake/rides_amplified/` beside it. `./data/lake` is the copy-in mount (`/mnt/lake` on the namenode). It is not the lake. `make lake` removes the ride-hail copy-in after HDFS has the files. `data/lake/hive-load/` stays. The host staged files stay in `data/staged/namma_yatri/`.
