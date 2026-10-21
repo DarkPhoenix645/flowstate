@@ -3,7 +3,8 @@
 Normative v1.0 specification for the Bengaluru resampler and the Kafka producer. Decided 2026-10-10. Counts below were checked against the files on disk on 2026-10-11.
 
 - Scope: Bengaluru auto ride-hail, metro, airport aviation events, schedule-derived bus activity.
-- Decisions: [ADR-0010](adr/0010-bengaluru-calibrated-resampler.md), [ADR-0011](adr/0011-bengaluru-source-table-v2.md), [ADR-0008](adr/0008-speed-layer-streaming-shape.md).
+- Decisions: [ADR-0010](adr/0010-bengaluru-calibrated-resampler.md), [ADR-0011](adr/0011-bengaluru-source-table-v2.md), [ADR-0008](adr/0008-speed-layer-streaming-shape.md), [ADR-0013](adr/0013-amplify-thins-the-alignment-window.md).
+- Hold-out scores and the Bengaluru 1M reconstruction: [resampler-evaluation.md](resampler-evaluation.md).
 - Source facts: [data-sources.md](data-sources.md). Excluded files: [rejected-sources.md](rejected-sources.md).
 - Core contract: a real-time stream of clearly labelled synthetic mobility events calibrated to real aggregate data. Generated records are never presented as observed trips, real-time ridership, or validated causal responses.
 
@@ -313,9 +314,9 @@ Every normalized dataset and model bundle carries: `dataset_id`/version (schema,
 - [ ] Normalize the RTI station-hour and origin-destination (OD) workbooks; establish the 48-day nominal overlap and record-level intersection.
 - [ ] Add station operational-date metadata and the Yellow Line regime marker (2025-08-11); no airport metro station before operation.
 - [ ] Backfill OpenSky arrivals and departures over the alignment window with resumable windows and auditable completeness.
-- [ ] Fit simple count baselines; evaluate flight predictors and auto-metro coupling on the frozen holdout.
-- [ ] Build hour/station/ward profiles with Dirichlet-multinomial sampling; enforce exact integer conservation.
-- [ ] Generate ride-hail activities, bus scheduled stops, and aviation events with source/assumption tags.
+- [x] Fit simple count baselines; evaluate flight predictors and auto-metro coupling on the frozen holdout ([resampler-evaluation.md](resampler-evaluation.md)).
+- [x] Build hour and station profiles with Dirichlet-multinomial sampling; enforce exact integer conservation. Ward allocation is still open.
+- [x] Generate ride-hail activities, bus scheduled stops, and aviation events with source/assumption tags.
 - [ ] Implement stimulation commands and scenario forks; record commands, seeds, versions, output manifests.
 - [ ] Freeze evaluation results; refit after selection; present the live topic as synthetic activity.
 

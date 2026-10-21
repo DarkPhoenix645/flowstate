@@ -173,7 +173,12 @@ def test_finished_review_lets_amplify_run(tmp_path, monkeypatch):
         "reviewed_at": "2026-10-16T00:00:00Z",
     }
     path.write_text(json.dumps(store, indent=2) + "\n")
-    amplify_main([])
+    # The gate passes; the real resampler then needs staged tables.
+    # An empty data dir fails on the missing staged parquet, which
+    # is the honest next precondition (the stub used to print a
+    # TODO and exit zero).
+    with pytest.raises(FileNotFoundError, match="city_day"):
+        amplify_main([])
 
 
 def test_airport_miss_is_cached_and_not_sent_again(tmp_path):

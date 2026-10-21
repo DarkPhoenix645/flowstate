@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = "==3.11.*"
 resolution-markers = [
     "sys_platform == 'win32'",
@@ -181,6 +181,7 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "kafka-python-ng" },
     { name = "kagglehub" },
+    { name = "numpy" },
     { name = "openpyxl" },
     { name = "pandas" },
     { name = "pyarrow" },
@@ -207,6 +208,7 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12" },
     { name = "kafka-python-ng", specifier = "==2.2.*" },
     { name = "kagglehub", specifier = ">=0.2" },
+    { name = "numpy", specifier = ">=1.26" },
     { name = "openpyxl", specifier = ">=3.1" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "pyarrow", specifier = ">=16" },

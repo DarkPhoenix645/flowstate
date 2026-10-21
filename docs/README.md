@@ -11,7 +11,8 @@ Read these in order. ~20 minutes.
 | 5   | [data-sources.md](data-sources.md)         | Bengaluru sources, grains, windows, and what each file is for |
 | 6   | [rejected-sources.md](rejected-sources.md) | Datasets checked and excluded, with the evidence              |
 | 7   | [resampling-plan.md](resampling-plan.md)   | v1 resampler and streaming specification                      |
-| 8   | [work-plan.md](work-plan.md)               | What to build next: lake layout, two consumers, ticket order  |
+| 8   | [resampler-evaluation.md](resampler-evaluation.md) | Frozen hold-out scores and the Bengaluru 1M reconstruction |
+| 9   | [work-plan.md](work-plan.md)               | What to build next: lake layout, two consumers, ticket order  |
 
 Root [README.md](../README.md) is the one-pager; this folder is the rest.
 

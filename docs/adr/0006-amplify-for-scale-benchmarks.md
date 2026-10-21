@@ -12,7 +12,7 @@ Public mobility extracts are smaller than the 1M / 10M / 100M rows needed for th
 
 Scale the lake with `make amplify`. For **Bengaluru events**, `amplify.py` calls the calibrated resampler in ADR-0010. It writes `N` rows in `{1e6, 1e7, 1e8}` to `data/staged/rides_amplified/` with `--seed`. `N` is the count of multimodal events (all `mode` values), not taxi-only. It does not invent a second sampler.
 
-Keep calibrated hour-of-day mix and cancellation rates, taken from the real aggregate clocks (Namma Yatri daily metrics and the stitched hourly archive — ADR-0011), never from the rejected booking CSVs. Never overwrite source files.
+Keep calibrated hour-of-day mix, cancellation rates, and the calendar shape of the alignment window (ADR-0013). Take those from the real aggregate clocks (Namma Yatri daily metrics and the stitched hourly archive — ADR-0011), never from the rejected booking CSVs. Never overwrite source files. `N` is a thin copy of the window, not a handful of full source days.
 
 `benchmarks/runner.py` records timings in `benchmarks/results/timings.csv` (committed) for the report.
 
