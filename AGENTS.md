@@ -14,6 +14,10 @@ Canonical roles map 1:1 (`needs-triage`, `needs-info`, `ready-for-agent`, `ready
 
 Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
+### Work plan
+
+Lake layout, host vs HDFS, Spark-over-HDFS, WebHDFS vs `docker exec`, loopback ports. See `docs/work-plan.md`.
+
 ### Branch board
 
 `.scratch/branch-board.md` lists each `feat/001` branch onward, its status, and its issues. Update it when a branch, pull request, or blocker changes. See `.cursor/rules/branch-board.mdc`.

@@ -4,12 +4,12 @@ Half-day each. YARN-MR gates later milestones. Hive-on-HDFS is done.
 
 Related decisions (already accepted — spikes prove or refine them):
 
-| Spike theme | ADR |
-|---|---|
-| One metric per streaming job / Event-Detector | [ADR-0008](../adr/0008-speed-layer-streaming-shape.md) |
-| Live vs historical dashboard | [ADR-0008](../adr/0008-speed-layer-streaming-shape.md), [ADR-0002](../adr/0002-lambda-pipeline-kafka-spark-hdfs-hive.md) |
-| MapReduce on YARN | [ADR-0007](../adr/0007-mapreduce-spark-benchmark-pair.md) |
-| Host data readable in Spark containers | [ADR-0003](../adr/0003-compose-cluster-host-uv.md) |
+| Spike theme                                   | ADR                                                                                                                      |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| One metric per streaming job / Event-Detector | [ADR-0008](../adr/0008-speed-layer-streaming-shape.md)                                                                   |
+| Live vs historical dashboard                  | [ADR-0008](../adr/0008-speed-layer-streaming-shape.md), [ADR-0002](../adr/0002-lambda-pipeline-kafka-spark-hdfs-hive.md) |
+| MapReduce on YARN                             | [ADR-0007](../adr/0007-mapreduce-spark-benchmark-pair.md)                                                                |
+| Spark reads the HDFS lake                     | [ADR-0003](../adr/0003-compose-cluster-host-uv.md)                                                                       |
 
 1. **Event-Detector README + layout** (speed layer)  
    Turn the node pattern into the streaming design-doc skeleton (annotated → aggregated → event).
@@ -33,5 +33,5 @@ Related decisions (already accepted — spikes prove or refine them):
 5. **Watermarks & late data** (speed layer)  
    Replay through Kafka: event-time vs processing-time. When decided, write or supersede ADR-0008; do not only leave a chat note.
 
-6. **Host ingest parquet vs Spark container** (data & lake / Spark)  
-   Files under `./data` must be readable at `/opt/data` in Spark services (mounts, permissions).
+6. **Spark reads the HDFS lake** (data & lake / Spark)  
+   Batch jobs read `hdfs://namenode:9000/lake/...`. Mount `infra/hive/core-site.xml` and `hdfs-site.xml` into Spark. Set `HADOOP_CONF_DIR`. That ships `dfs.replication=1`. Keep the `./data` mount until the stream-sink moves onto HDFS (#22). Amend ADR-0003 in the same branch. Record: [work-plan.md](../work-plan.md).

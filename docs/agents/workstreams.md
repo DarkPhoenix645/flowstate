@@ -12,6 +12,8 @@ Amplify CLI: `amplify.py --rows N --seed S` with `N` in `{1e6, 1e7, 1e8}`. Multi
 
 Done when `make ingest && make amplify` fills the lake. Per-dataset veracity notes (missing values, mixed formats).
 
+Ride-hail staged parquet on the lake: `hdfs://namenode:9000/lake/namma_yatri/` (`make lake`). That is the observed clock. Amplify writes `hdfs://namenode:9000/lake/rides_amplified/` beside it. Spark findings and MapReduce benches read the amplified directory.
+
 Schema contract: [schema.md](schema.md).
 
 ## Batch baseline `batch/mapreduce/`, `benchmarks/`

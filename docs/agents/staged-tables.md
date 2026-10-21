@@ -10,6 +10,8 @@ These tables are not `RIDE_COLUMNS`. Ride-grain events stay with the resampler.
 
 `city_hour.parquet` and `ward_hour.parquet` are the stitched archives, with their coverage JSON copied beside them. The city-hour file is a shape prior. It is not the city-day volume. Normal Auto `done_ride` in that archive, divided by city-day `done_ride` on the same dates, is 0.0037.
 
+`make lake` puts `city_day.parquet`, `city_hour.parquet`, and `ward_hour.parquet` on HDFS. The host files in `data/staged/namma_yatri/` stay. The lake directory is `hdfs://namenode:9000/lake/namma_yatri/`. MapReduce reads that directory. Amplify writes `hdfs://namenode:9000/lake/rides_amplified/` beside `namma_yatri`. `make lake` does not run `make hive-ddl` and does not write `rides_amplified`.
+
 ## Metro
 
 `data/staged/metro/daily.parquet` drops tracker rows dated after 2026-07-15. The file checked on 2026-10-14 already ends that day, so the drop count is 0. It has 438 rows, 2024-10-26 through 2026-07-15, and 373 of those rows sit in the alignment window. 190 dates are missing inside that span. Missing dates stay missing. Use `total` alone.

@@ -12,4 +12,6 @@ Agents: contracts and open spikes live here. Locked architecture choices live in
 | [spikes.md](spikes.md)           | Open half-day spikes                                                                                                                              |
 | [scaffold.md](scaffold.md)       | Layout, compose caveats, imports (runtime: [ADR-0003](../adr/0003-compose-cluster-host-uv.md), Make: [ADR-0004](../adr/0004-make-task-runner.md)) |
 
+Forward work (lake layout, host vs HDFS, Spark-over-HDFS, WebHDFS): [../work-plan.md](../work-plan.md).
+
 Also under this folder (skills config, not FlowState specs): `issue-tracker.md`, `triage-labels.md`, `domain.md`.

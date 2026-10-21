@@ -13,7 +13,7 @@ flowstate/
 ├── CONTEXT.md
 ├── docs/                 # humans + adr/ + agents/
 ├── infra/hadoop|kafka|hive
-├── src/flowstate/{ingest,batch,streaming,warehouse,benchmarks}
+├── src/flowstate/{ingest,lake,batch,streaming,warehouse,benchmarks}
 ├── dashboards/{grafana,explore}
 ├── tests/
 └── data/                 # gitignored bodies; README only
@@ -27,7 +27,7 @@ Stubs print `TODO:` / throw `UnsupportedOperationException`. Do not fill in job 
 - Spark master + worker are in compose; do not add `local[*]` on the host.
 - Hive 4 uses Derby for the metastore database. The warehouse directory is on HDFS ([spikes.md](spikes.md) #3).
 - Pin tags already; bump together when changing.
-- `data/lake` mounted on namenode at `/mnt/lake` for optional copy-in; real lake should be HDFS.
+- `data/lake` mounted on namenode at `/mnt/lake` for optional copy-in. The ride-hail lake directory is `hdfs://namenode:9000/lake/namma_yatri/` (`make lake`). Amplify writes `hdfs://namenode:9000/lake/rides_amplified/` beside it.
 - Spark submit form: `docker compose exec spark spark-submit --master spark://spark:7077 …`
 - MapReduce package image: `maven:3.9-eclipse-temurin-8` (`make mr-package`).
 

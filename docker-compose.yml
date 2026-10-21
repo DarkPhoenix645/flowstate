@@ -2,8 +2,8 @@ services:
   namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
     ports:
-      - "9870:9870"
-      - "9000:9000"
+      - "127.0.0.1:9870:9870"
+      - "127.0.0.1:9000:9000"
     environment:
       CLUSTER_NAME: flowstate
     env_file:
@@ -27,8 +27,8 @@ services:
     image: apache/kafka:4.2.1
     hostname: kafka
     ports:
-      - "9092:9092"
-      - "9094:9094"
+      - "127.0.0.1:9092:9092"
+      - "127.0.0.1:9094:9094"
     environment:
       KAFKA_NODE_ID: "1"
       CLUSTER_ID: ${CLUSTER_ID:?Run 'make up' first (mints infra/kafka/cluster.env)}
@@ -110,7 +110,12 @@ services:
     # The image entrypoint always runs schematool unless IS_RESUME=true.
     # Schema init belongs to the metastore container only.
     # HiveServer2 requires /tmp/hive mode 0733. The image creates it as 0755.
-    entrypoint: ["bash", "-c", "mkdir -p /tmp/hive /tmp/home && chmod 733 /tmp/hive && export HOME=/tmp/home && exec /entrypoint.sh"]
+    entrypoint:
+      [
+        "bash",
+        "-c",
+        "mkdir -p /tmp/hive /tmp/home && chmod 733 /tmp/hive && export HOME=/tmp/home && exec /entrypoint.sh",
+      ]
     ports:
       - "10000:10000"
       - "10002:10002"

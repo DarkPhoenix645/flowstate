@@ -32,3 +32,5 @@ Compose cluster + host uv: [ADR-0003](adr/0003-compose-cluster-host-uv.md). Oper
 MapReduce on YARN in the bde2020 images is an open spike. See [team.md](team.md) and [agents/spikes.md](agents/spikes.md).
 
 The Hive warehouse directory is `hdfs://namenode:9000/user/hive/warehouse`. Derby is the metastore database.
+
+Staged ride-hail parquet on the lake is `hdfs://namenode:9000/lake/namma_yatri/` (`make lake`). That is the observed clock. Amplify writes `hdfs://namenode:9000/lake/rides_amplified/` beside it. Spark findings and MapReduce benches read the amplified directory. Record: [work-plan.md](work-plan.md).
