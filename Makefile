@@ -1,9 +1,10 @@
-.PHONY: help setup ingest normalize stage lake amplify hotspots up down down-v \
+.PHONY: help setup ingest normalize stage lake amplify evaluate hotspots up down down-v \
 	ensure-kafka-cluster-id \
 	stream-produce stream-consume hive-ddl mr-package test lint \
 
 PYTHON ?= uv run python
 ROWS ?= 1000000
+SEED ?= 42
 TOPIC ?= flowstate.ridehail.activity.v1
 RATE ?= 500
 DATASET ?= all
@@ -19,7 +20,8 @@ help:
 	@echo "  make normalize          analysis tables from files already on disk"
 	@echo "  make stage              parquet from cold extracts. aviation is DGCA only, not OpenSky"
 	@echo "  make lake               put staged ride-hail parquet on HDFS"
-	@echo "  make amplify            synthetic scale (ROWS=1000000)"
+	@echo "  make amplify            synthetic scale (ROWS=1000000 SEED=42)"
+	@echo "  make evaluate           fit + record the held-out resampler evaluation"
 	@echo "  make up                 mint Kafka CLUSTER_ID if needed, start stack"
 	@echo "  make down               stop stack (keeps volumes + CLUSTER_ID)"
 	@echo "  make down-v             stop stack, DELETE volumes, remint CLUSTER_ID"
@@ -48,7 +50,10 @@ lake:
 	PYTHONUNBUFFERED=1 $(PYTHON) -m flowstate.lake
 
 amplify:
-	$(PYTHON) -m flowstate.ingest.amplify --rows $(ROWS)
+	$(PYTHON) -m flowstate.ingest.amplify --rows $(ROWS) --seed $(SEED)
+
+evaluate:
+	$(PYTHON) -m flowstate.resample.evaluate
 
 ensure-kafka-cluster-id:
 	$(PYTHON) infra/kafka/ensure_cluster_id.py

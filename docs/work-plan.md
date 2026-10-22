@@ -1,6 +1,6 @@
 # Work plan
 
-This document is the go-forward after the 2026-10-18 HDFS review. It does not replace [ADR-0002](adr/0002-lambda-pipeline-kafka-spark-hdfs-hive.md), [ADR-0010](adr/0010-bengaluru-calibrated-resampler.md), or the [resampling plan](resampling-plan.md). Read those for the locked product. Read this for what to build next and where files live.
+This document is the go-forward after the 2026-10-18 HDFS review. It does not replace [ADR-0002](adr/0002-lambda-pipeline-kafka-spark-hdfs-hive.md), [ADR-0010](adr/0010-bengaluru-calibrated-resampler.md), or the [resampling plan](resampling-plan.md). Hold-out scores: [resampler-evaluation.md](resampler-evaluation.md). Read those for the locked product. Read this for what to build next and where files live.
 
 Issue order still lives in `.scratch/branch-board.md`. Ticket text lives on GitHub (`gh issue view <n>`). This file records the layout and the product split that those tickets must follow. Do not keep a second copy of an issue body on disk.
 
@@ -67,7 +67,7 @@ Done when: the pull request is open and merged. Tests already pass on this branc
 
 ### 2. Calibrated resampler — `feat/009`, #34
 
-Build the three-layer resampler. One module serves `make amplify` and the producer. Emit all four modes with provenance.
+Build the three-layer resampler. One module serves `make amplify` and the producer. Emit all four modes with provenance. Amplify writes a thin copy of the alignment window (ADR-0013), not a handful of full source days. Live wall-clock emit stays #39.
 
 Write amplify output as many parquet part files. Target about 128 MB per part. That size is one HDFS block (live default `blockSize` is 134217728). MapReduce and Spark split work by block. Record `--seed`. Never overwrite a source file.
 

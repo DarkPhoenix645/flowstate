@@ -63,7 +63,7 @@ The alignment window has 537 calendar days. Checked 2026-10-14: the Namma Yatri 
 
 ![Resampler design](assets/resampler-design.png)
 
-Color code: green = real data, blue = learned model and validation, yellow = shape prior, pink/red = synthetic events. Only Stage 1 is real data. Layer 3 rows are reported as "calibrated to real aggregates", never "learned from trips".
+Color code: green = real data, blue = learned model and validation, yellow = shape prior, pink/red = synthetic events. Only Stage 1 is real data. Layer 3 rows are reported as "calibrated to real aggregates", never "learned from trips". Hold-out scores and the Bengaluru 1M reconstruction: [resampler-evaluation.md](resampler-evaluation.md).
 
 ### Layer 1 — learned clock (day grain)
 

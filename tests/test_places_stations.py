@@ -16,6 +16,7 @@ from flowstate.normalize.places.geocode import (
     places_cache_path,
 )
 from flowstate.normalize.places.review import record_failure, review_path
+from flowstate.provenance import ProvenanceError
 from flowstate.streaming.producer import main as produce_main
 
 BOUNDS = BENGALURU.geocode_bounds
@@ -173,7 +174,15 @@ def test_finished_review_lets_amplify_run(tmp_path, monkeypatch):
         "reviewed_at": "2026-10-16T00:00:00Z",
     }
     path.write_text(json.dumps(store, indent=2) + "\n")
-    amplify_main([])
+    # Review gate passed. Pin the provenance manifest under tmp_path
+    # so this does not depend on whether cwd already has ingest
+    # output (CI does not; a local checkout often does).
+    monkeypatch.setattr(
+        "flowstate.provenance.MANIFEST",
+        tmp_path / "raw" / "provenance" / "manifest.json",
+    )
+    with pytest.raises(ProvenanceError, match="manifest.json"):
+        amplify_main([])
 
 
 def test_airport_miss_is_cached_and_not_sent_again(tmp_path):

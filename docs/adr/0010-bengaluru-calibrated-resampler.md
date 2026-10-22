@@ -16,7 +16,7 @@ Build a **calibrated event resampler** in three layers:
 2. **Layer 2, shape priors.** Hour-of-day profiles from the stitched city-hour archive (shape only, never scale; it is ~1% of city volume). Station-hour metro profiles from the RTI workbooks, Entry and Exit separate, with a shrinkage hierarchy and the station network active on each date. Cab share (~22%) is an uncertain prior from the thin post-2025-06 slice, not a citywide fact.
 3. **Layer 3, event unfolding.** Dirichlet-multinomial allocation that preserves parent totals exactly. Ride-hail activity events from daily `booking` / `done_ride` / `cancel_ride` targets; cancel reasons stay `unknown` (source split fields are zero-filled); fare, if required, is `synthetic_fare_inr` from a versioned assumption, never an observed fare. Metro station-hour records from known daily totals. Bus events are BMTC GTFS stop calls. Each call carries synthetic `boardings`, `alightings`, and `onboard_leaving` from the bus-load feature in [resampling-plan.md](../resampling-plan.md) §7.4. Those counts are not observed ridership. Aviation events are observed OpenSky proxies inside fetched windows and synthetic draws outside.
 
-Operating modes: historical reconstruction (exact parent totals), deterministic replay (fixed seed and config), live simulation on the wall clock, and scenario forks. The same model bundle, seed policy, and profiles serve `make amplify` and the Kafka producer.
+Operating modes: historical reconstruction (exact parent totals), deterministic replay (fixed seed and config), live simulation on the wall clock, and scenario forks. The same model bundle, seed policy, and profiles serve `make amplify` and the Kafka producer. `make amplify` reconstruction thins every source day in the alignment window ([ADR-0013](0013-amplify-thins-the-alignment-window.md)). Live wall-clock emit is the producer ticket (#39), not amplify. Synthetic bus boardings use `ResampleConfig` constants until #40 writes them as `FLOWSTATE_` settings (ADR-0012, not yet filed).
 
 Provenance: every event carries `observed | observed_proxy | derived | synthetic`, source ids, model/profile versions, and an evidence grade. Synthetic records are never presented as observed trips. Emission after 2026-04-15 is extrapolation: trend frozen at the terminal level, uncertainty widened, `outside_training_window` flagged.
 
@@ -34,4 +34,4 @@ Streaming contract: the `flowstate.*.v1` topic set and the event envelope are [A
 
 ## Sources
 
-`docs/resampling-plan.md`, `docs/data-sources.md`, [ADR-0011](0011-bengaluru-source-table-v2.md), [ADR-0008](0008-speed-layer-streaming-shape.md)
+`docs/resampling-plan.md`, `docs/data-sources.md`, `docs/resampler-evaluation.md`, [ADR-0011](0011-bengaluru-source-table-v2.md), [ADR-0008](0008-speed-layer-streaming-shape.md), [ADR-0013](0013-amplify-thins-the-alignment-window.md)
