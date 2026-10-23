@@ -61,11 +61,16 @@ services:
       FLOWSTATE_DATA_DIR: /opt/data
       FLOWSTATE_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       FLOWSTATE_SPARK_MASTER: spark://spark:7077
+      HADOOP_CONF_DIR: /etc/hadoop
     volumes:
       - ./data:/opt/data
       - ./src:/opt/src
+      - ./infra/hive/core-site.xml:/etc/hadoop/core-site.xml:ro
+      - ./infra/hive/hdfs-site.xml:/etc/hadoop/hdfs-site.xml:ro
     depends_on:
       - kafka
+      - namenode
+      - datanode
 
   spark-worker:
     image: apache/spark:3.5.6
@@ -80,11 +85,16 @@ services:
       FLOWSTATE_DATA_DIR: /opt/data
       FLOWSTATE_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       FLOWSTATE_SPARK_MASTER: spark://spark:7077
+      HADOOP_CONF_DIR: /etc/hadoop
     volumes:
       - ./data:/opt/data
       - ./src:/opt/src
+      - ./infra/hive/core-site.xml:/etc/hadoop/core-site.xml:ro
+      - ./infra/hive/hdfs-site.xml:/etc/hadoop/hdfs-site.xml:ro
     depends_on:
       - spark
+      - namenode
+      - datanode
 
   hive-metastore:
     image: apache/hive:4.0.0
@@ -95,10 +105,11 @@ services:
       - "9083:9083"
     environment:
       SERVICE_NAME: metastore
+      HADOOP_CONF_DIR: /etc/hadoop
     volumes:
       - ./infra/hive/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
-      - ./infra/hive/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./infra/hive/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./infra/hive/core-site.xml:/etc/hadoop/core-site.xml:ro
+      - ./infra/hive/hdfs-site.xml:/etc/hadoop/hdfs-site.xml:ro
       - hive_metastore:/opt/hive/data
     depends_on:
       - namenode
@@ -123,10 +134,11 @@ services:
       SERVICE_NAME: hiveserver2
       IS_RESUME: "true"
       SERVICE_OPTS: -Dhive.metastore.uris=thrift://hive-metastore:9083
+      HADOOP_CONF_DIR: /etc/hadoop
     volumes:
       - ./infra/hive/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
-      - ./infra/hive/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./infra/hive/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./infra/hive/core-site.xml:/etc/hadoop/core-site.xml:ro
+      - ./infra/hive/hdfs-site.xml:/etc/hadoop/hdfs-site.xml:ro
       - ./src:/opt/src:ro
     depends_on:
       - hive-metastore
