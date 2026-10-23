@@ -6,19 +6,19 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-COMPOSE = (ROOT / "docker-compose.yml").read_text()
+COMPOSE = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
 ADR_0003 = (
     ROOT / "docs" / "adr" / "0003-compose-cluster-host-uv.md"
-).read_text()
+).read_text(encoding="utf-8")
 
 HADOOP_CONF_DIR = "/etc/hadoop"
 CORE = "./infra/hive/core-site.xml:/etc/hadoop/core-site.xml:ro"
 HDFS = "./infra/hive/hdfs-site.xml:/etc/hadoop/hdfs-site.xml:ro"
-_SERVICE = re.compile(r"^  ([A-Za-z0-9_-]+):\n", re.M)
+_SERVICE = re.compile(r"^  ([A-Za-z0-9_-]+):\r?\n", re.M)
 
 
 def _service_block(name: str) -> str:
-    match = re.search(rf"^  {re.escape(name)}:\n", COMPOSE, re.M)
+    match = re.search(rf"^  {re.escape(name)}:\r?\n", COMPOSE, re.M)
     if match is None:
         raise AssertionError(f"no compose service {name}")
     nxt = _SERVICE.search(COMPOSE, match.end())
