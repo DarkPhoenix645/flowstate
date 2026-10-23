@@ -1,7 +1,7 @@
 .PHONY: help setup ingest normalize stage lake amplify evaluate hotspots \
 	spark-hdfs up down down-v \
 	ensure-kafka-cluster-id \
-	stream-produce stream-consume hive-ddl mr-package test lint \
+	stream-produce stream-consume hive-ddl mr-package yarn-probe test lint \
 
 PYTHON ?= uv run python
 ROWS ?= 1000000
@@ -33,6 +33,7 @@ help:
 	@echo "  make stream-consume     Structured Streaming (in compose)"
 	@echo "  make hive-ddl           apply warehouse DDL via beeline"
 	@echo "  make mr-package         Maven package MapReduce jar (Docker)"
+	@echo "  make yarn-probe         Hadoop examples pi on YARN (SUCCEEDED)"
 	@echo "  make test / make lint"
 
 setup:
@@ -98,6 +99,16 @@ mr-package:
 		-w /src \
 		maven:3.9-eclipse-temurin-8 \
 		mvn -q -DskipTests package
+
+# Spike proof for #9. Not DemandCount (#24).
+yarn-probe:
+	$(COMPOSE) exec -T resourcemanager bash -lc 'set -eu; \
+	  yarn=/opt/hadoop-3.2.1/bin/yarn; \
+	  jar=/opt/hadoop-3.2.1/share/hadoop/mapreduce/hadoop-mapreduce-examples-3.2.1.jar; \
+	  "$$yarn" jar "$$jar" pi 1 1; \
+	  list=$$("$$yarn" application -list -appStates FINISHED); \
+	  printf "%s\n" "$$list"; \
+	  printf "%s\n" "$$list" | grep QuasiMonteCarlo | grep -q SUCCEEDED'
 
 test:
 	uv run pytest -q
