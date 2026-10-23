@@ -26,9 +26,9 @@ Areas to staff. Paths are fixed; do not fork layouts.
 ## Speed layer — `src/flowstate/streaming/`
 
 - `producer.py`: emit the same resampler on the [ADR-0008](adr/0008-speed-layer-streaming-shape.md) topics, `--events-per-sec`.
-- `rolling_metrics.py`: 1-min tumbling + 5-min sliding, `watermark("timestamp", "10 minutes")` → active rides / zone, cancel rate, surge flag. Console + parquet sink. Submit on Compose Spark (`make stream-consume`).
+- `rolling_metrics.py`: active rides / zone only. `make stream-consume`. Cancel rate and surge are later files. Layout: [agents/event-detector.md](agents/event-detector.md).
 - `ride_event_schema.py`: one JSON schema for producer and consumer.
-- Spike: Event-Detector "one metric node per job"; watermarks / late data on replay.
+- Watermarks / late data on replay stay open (#11).
 
 ## Warehouse & dashboards — `warehouse/`, `dashboards/`
 
