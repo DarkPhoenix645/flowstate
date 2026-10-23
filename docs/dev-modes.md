@@ -2,14 +2,14 @@
 
 Spark, Hadoop, Hive, Kafka, and Grafana run **only** in Docker Compose. Do not install Hadoop/Spark/JDK on the host.
 
-| Piece | Where it runs | How |
-|---|---|---|
-| Ingest, amplify, tests, lint | Host `uv` | `make setup`, `make ingest`, `make test` |
-| Kafka producer | Host `uv` | `make stream-produce` → `localhost:9094` |
-| Spark batch + Structured Streaming | Compose `spark` + `spark-worker` | `make hotspots`, `make stream-consume` |
-| MapReduce compile | `maven:3.9-eclipse-temurin-8` one-shot | `make mr-package` |
-| MapReduce submit | Hadoop images (YARN spike) | TBD with the YARN spike |
-| Hive DDL | `hiveserver2` | `make hive-ddl` |
+| Piece                              | Where it runs                          | How                                                               |
+| ---------------------------------- | -------------------------------------- | ----------------------------------------------------------------- |
+| Ingest, amplify, tests, lint       | Host `uv`                              | `make setup`, `make ingest`, `make test`                          |
+| Kafka producer                     | Host `uv`                              | `make stream-produce` → `localhost:9094`                          |
+| Spark batch + Structured Streaming | Compose `spark` + `spark-worker`       | `make hotspots`, `make stream-consume`                            |
+| MapReduce compile                  | `maven:3.9-eclipse-temurin-8` one-shot | `make mr-package`                                                 |
+| MapReduce submit                   | `resourcemanager` container            | `make yarn-probe` ([ADR-0015](adr/0015-yarn-mapreduce-submit.md)) |
+| Hive DDL                           | `hiveserver2`                          | `make hive-ddl`                                                   |
 
 `make setup` / `python -m flowstate.config --check` prints data dir, Kafka bootstrap, Spark master URL.
 
@@ -33,6 +33,8 @@ flowchart TB
   subgraph compose [Docker Compose]
     nn["namenode\n9870 UI, 9000 RPC"]
     dn["datanode"]
+    rm["resourcemanager\n8088 UI"]
+    nm["nodemanager\n8042 UI"]
     kafka["Kafka\n9092 containers, 9094 host, 9093 controller"]
     sm["spark master\n8080 UI, 7077, 4040"]
     sw["spark-worker"]
@@ -43,6 +45,9 @@ flowchart TB
 
   host -->|"localhost:9094"| kafka
   dn -->|"HDFS RPC"| nn
+  nm -->|"YARN"| rm
+  rm -->|"hdfs://namenode:9000"| nn
+  nm -->|"hdfs://namenode:9000"| nn
   sw -->|"spark://spark:7077"| sm
   sm -->|"hdfs://namenode:9000"| nn
   sw -->|"hdfs://namenode:9000"| nn
@@ -61,18 +66,20 @@ Port 9092 is published on loopback. Kafka advertises it as `kafka:9092`. Use tha
 
 ## Compose services
 
-| Service | Ports | Role |
-|---|---|---|
-| namenode | 127.0.0.1:9870 UI, 127.0.0.1:9000 RPC | HDFS. Loopback only. Permissions are off |
-| datanode | — | HDFS blocks |
-| kafka | 127.0.0.1:9092 containers, 127.0.0.1:9094 host | KRaft, no ZooKeeper |
-| spark | 8080 UI, 7077, 4040 | Spark master |
-| spark-worker | — | Spark worker |
-| hive-metastore | 9083 | Derby metastore database |
-| hiveserver2 | 10000, 10002 | beeline / JDBC |
-| grafana | 3000 | dashboards |
+| Service         | Ports                                          | Role                                     |
+| --------------- | ---------------------------------------------- | ---------------------------------------- |
+| namenode        | 127.0.0.1:9870 UI, 127.0.0.1:9000 RPC          | HDFS. Loopback only. Permissions are off |
+| datanode        | —                                              | HDFS blocks                              |
+| resourcemanager | 127.0.0.1:8088 UI                              | YARN ResourceManager. Loopback only      |
+| nodemanager     | 127.0.0.1:8042 UI                              | YARN NodeManager. Loopback only          |
+| kafka           | 127.0.0.1:9092 containers, 127.0.0.1:9094 host | KRaft, no ZooKeeper                      |
+| spark           | 8080 UI, 7077, 4040                            | Spark master                             |
+| spark-worker    | —                                              | Spark worker                             |
+| hive-metastore  | 9083                                           | Derby metastore database                 |
+| hiveserver2     | 10000, 10002                                   | beeline / JDBC                           |
+| grafana         | 3000                                           | dashboards                               |
 
-Tags are pinned in `docker-compose.yml`. The Hive warehouse directory is `hdfs://namenode:9000/user/hive/warehouse`. MapReduce on YARN is an open spike. A `hive_metastore` volume from before that URI keeps database `default` on local disk. Remove the volume and start Hive again.
+Tags are pinned in `docker-compose.yml`. The Hive warehouse directory is `hdfs://namenode:9000/user/hive/warehouse`. MapReduce submit is `make yarn-probe` ([ADR-0015](adr/0015-yarn-mapreduce-submit.md)). A `hive_metastore` volume from before that URI keeps database `default` on local disk. Remove the volume and start Hive again.
 
 ## Data mount
 

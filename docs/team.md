@@ -14,7 +14,7 @@ Areas to staff. Paths are fixed; do not fork layouts.
 
 - Java MR jobs equivalent to Spark aggregations (zone × hour, cancellation counts). Maven jar (`make mr-package`), YARN submit.
 - `runner.py`: Spark vs MR at 1M/10M/100M, multiple runs, CSV in `benchmarks/results/` (**commit timings**).
-- Spike: YARN submission on bde2020 images.
+- YARN submit: `make yarn-probe` ([ADR-0015](adr/0015-yarn-mapreduce-submit.md)). DemandCount is #24.
 
 ## Spark analytics — `src/flowstate/batch/spark_jobs/`
 

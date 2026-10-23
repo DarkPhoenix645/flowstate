@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Revised 2026-10-24.
+Accepted. Revised 2026-10-24 (YARN services).
 
 ## Context
 
@@ -13,11 +13,12 @@ Spark, HDFS, YARN, Hive, and Kafka differ across developer machines. Host JDK an
 Split runtimes:
 
 - **Host:** `uv` and Python 3.11 (`>=3.11,<3.12`) for ingest, Kafka producer, tests, and lint.
-- **Cluster:** Docker Compose only for HDFS, Kafka, Spark (master + worker), Hive, and Grafana.
+- **Cluster:** Docker Compose only for HDFS, YARN (ResourceManager + NodeManager), Kafka, Spark (master + worker), Hive, and Grafana.
 - Submit Spark with `docker compose exec` against `spark://spark:7077`. Do not use host `local[*]`.
 - Spark master and worker mount `infra/hive/core-site.xml` and `infra/hive/hdfs-site.xml`. `HADOOP_CONF_DIR` is `/etc/hadoop` ([ADR-0014](0014-hadoop-client-conf-at-etc-hadoop.md)). That sets `fs.defaultFS=hdfs://namenode:9000` and `dfs.replication=1`. A Spark write without that conf uses replication 3 and fails on one datanode.
 - Batch jobs read `hdfs://namenode:9000/lake/...`. Do not treat `/opt/data` as the batch input. Keep the `./data` mount at `/opt/data` until #22 moves the stream-sink onto HDFS.
 - Package MapReduce with the Maven Docker image (`make mr-package`). No host JDK requirement.
+- Submit the YARN probe with `make yarn-probe` inside the `resourcemanager` container ([ADR-0015](0015-yarn-mapreduce-submit.md)). Spark stays `spark://spark:7077`.
 - Use **kafka-python-ng** (no librdkafka) and **kagglehub** (no Kaggle CLI).
 - CI runs `uv sync`, ruff, and pytest on Ubuntu, macOS, and Windows. CI does not boot Compose.
 
