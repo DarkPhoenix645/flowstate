@@ -32,7 +32,7 @@ Related decisions (already accepted — spikes prove or refine them):
    Proof, 2026-10-24: `make yarn-probe` after `make up`. NodeManager registered at 2048 MB / 4 vcores. `application_1792786538759_0001` (`QuasiMonteCarlo`, MAPREDUCE) final state SUCCEEDED. Jar `demand-count-0.1.0.jar` built by `make mr-package`. Human sign-off still owns close on #9.
 
 5. **Watermarks & late data** (speed layer)  
-   Replay through Kafka: event-time vs processing-time. When decided, write or supersede ADR-0008; do not only leave a chat note.
+   Decided 2026-10-24. Clock is `event_time`. 1-minute tumble stays. The 5-minute slide and the 10-minute watermark are withdrawn. Late rows are dropped. Note: [watermarks.md](watermarks.md). ADR-0008 is revised in place. Human sign-off still owns close on #11.
 
 6. **Spark reads the HDFS lake** (data & lake / Spark)  
    Conf is in Compose. `HADOOP_CONF_DIR=/etc/hadoop` on Spark and Hive ([ADR-0014](../adr/0014-hadoop-client-conf-at-etc-hadoop.md)). Same `core-site.xml` and `hdfs-site.xml`. ADR-0003 revised 2026-10-24. Keep the `./data` mount until #22. Human sign-off still owns close on #7.  

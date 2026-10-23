@@ -1,6 +1,6 @@
 # Event-Detector node layout
 
-Decision: [ADR-0008](../adr/0008-speed-layer-streaming-shape.md). This note names the nodes. It does not replace the topic list, the envelope, or the watermark default. Watermarks stay with #11. Job code stays with #22, #29, and #30.
+Decision: [ADR-0008](../adr/0008-speed-layer-streaming-shape.md). This note names the nodes. It does not replace the topic list or the envelope. The watermark policy is [watermarks.md](watermarks.md). Job code stays with #22, #29, and #30.
 
 CityPulse ran one event-detection node per pattern on annotated or aggregated streams. FlowState uses the same shape. One Structured Streaming job is one node. Do not put two metrics in one file.
 
@@ -9,7 +9,7 @@ CityPulse ran one event-detection node per pattern on annotated or aggregated st
 | CityPulse stage   | FlowState                                                                                                                                              |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Annotated stream  | The ADR-0008 Kafka envelope. The producer (#39) writes it. A node does not add fields and does not publish a new topic.                                |
-| Aggregated stream | The window inside that node. Until #11 closes, use the ADR-0008 default: 1-minute tumbling, 5-minute sliding, watermark of 10 minutes on `event_time`. |
+| Aggregated stream | The window inside that node. Use [watermarks.md](watermarks.md): 1-minute tumbling on `event_time`, watermark delay 1 minute, drop late rows. |
 | Event             | One metric row in that node's stream-sink directory.                                                                                                   |
 
 There is no enrichment topic. There is no mixed-mode topic.
@@ -30,7 +30,7 @@ The map does not read these directories. It reads the Kafka envelope through the
 
 ## What each node computes
 
-Active rides / zone (#22). Count synthetic activity events by `location_ref.ward_id` in the window. This file does not compute cancel rate or surge. The metric is simulated activity, not observed ridership. Keep `provenance.status` on the sink row.
+Active rides / zone (#22). Count synthetic activity events in the window. Group by `location_ref.ward_id`, `provenance.status`, `scenario_id`, and `event_type`. The count column is `activity_count`. This file does not compute cancel rate or surge. The metric is simulated activity, not observed ridership. Policy: [watermarks.md](watermarks.md).
 
 Cancel rate (#29). Cancelled activity divided by total activity, per zone and window, from the same ride-hail topic. Do not fold it into `rolling_metrics.py`. Do not split driver versus rider. Those source fields are zero-filled.
 
@@ -57,6 +57,6 @@ Aviation events are not ride-hail counts. Surge reads them as the flight context
 1. Add one file under `src/flowstate/streaming/`.
 2. Give it one Make target. Do not add it to `make stream-consume`.
 3. List its topics in the table above.
-4. Watermark on `event_time`. Use the #11 policy. Until that spike closes, use the ADR-0008 default.
+4. Watermark on `event_time`. Use [watermarks.md](watermarks.md).
 5. Write parquet under `hdfs://namenode:9000/stream-sink/<job>/`. Checkpoint under `hdfs://namenode:9000/checkpoints/<job>/`.
 6. Do not publish a Kafka topic.
