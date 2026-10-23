@@ -11,7 +11,8 @@ def main() -> None:
         "TODO #22: active rides / zone only. "
         "Read flowstate.ridehail.activity.v1. "
         "Sink hdfs://namenode:9000/stream-sink/active_rides/. "
-        "Checkpoint hdfs://namenode:9000/checkpoints/active_rides/."
+        "Checkpoint hdfs://namenode:9000/checkpoints/active_rides/. "
+        "Policy: docs/agents/watermarks.md."
     )
 
 
