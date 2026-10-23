@@ -37,6 +37,7 @@ make down-v         # DESTRUCTIVE: compose down -v + remint CLUSTER_ID
 | `make down`               | Stop stack; **keeps** volumes and CLUSTER_ID                                 | WORKING |
 | `make down-v`             | Stop stack, **delete volumes** (`docker compose down -v`), remint CLUSTER_ID | WORKING |
 | `make hotspots`           | Spark demand job **inside** the `spark` service                              | TODO    |
+| `make spark-hdfs`         | Spark list + write probe against `hdfs://namenode:9000` (replication 1). Recreate Spark after a compose conf change. | WORKING |
 | `make stream-produce`     | `TOPIC=flowstate.ridehail.activity.v1 RATE=500` (host → Kafka `:9094`). Topic set: [ADR-0008](adr/0008-speed-layer-streaming-shape.md). | TODO    |
 | `make stream-consume`     | rolling metrics **inside** Compose Spark                                     | TODO    |
 | `make hive-ddl`           | beeline against `rides.sql`. Warehouse directory is on HDFS.                 | TODO    |

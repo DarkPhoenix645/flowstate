@@ -1,4 +1,5 @@
-.PHONY: help setup ingest normalize stage lake amplify evaluate hotspots up down down-v \
+.PHONY: help setup ingest normalize stage lake amplify evaluate hotspots \
+	spark-hdfs up down down-v \
 	ensure-kafka-cluster-id \
 	stream-produce stream-consume hive-ddl mr-package test lint \
 
@@ -10,8 +11,9 @@ RATE ?= 500
 DATASET ?= all
 SPARK_MASTER ?= spark://spark:7077
 COMPOSE = docker compose --env-file infra/kafka/cluster.env
-SPARK_SUBMIT = $(COMPOSE) exec -e PYTHONPATH=/opt/src spark \
-	spark-submit --master $(SPARK_MASTER)
+SPARK_SUBMIT = $(COMPOSE) exec -e PYTHONPATH=/opt/src \
+	-e HADOOP_CONF_DIR=/etc/hadoop spark \
+	/opt/spark/bin/spark-submit --master $(SPARK_MASTER)
 
 help:
 	@echo "FlowState targets:"
@@ -26,6 +28,7 @@ help:
 	@echo "  make down               stop stack (keeps volumes + CLUSTER_ID)"
 	@echo "  make down-v             stop stack, DELETE volumes, remint CLUSTER_ID"
 	@echo "  make hotspots           Spark demand job (in compose)"
+	@echo "  make spark-hdfs         Spark list+write HDFS probe (replication 1)"
 	@echo "  make stream-produce     Kafka publish (TOPIC, RATE)"
 	@echo "  make stream-consume     Structured Streaming (in compose)"
 	@echo "  make hive-ddl           apply warehouse DDL via beeline"
@@ -73,6 +76,9 @@ down-v: ensure-kafka-cluster-id
 
 hotspots:
 	$(SPARK_SUBMIT) /opt/src/flowstate/batch/spark_jobs/demand_hotspots.py
+
+spark-hdfs:
+	$(SPARK_SUBMIT) /opt/src/flowstate/batch/spark_jobs/hdfs_probe.py
 
 stream-produce:
 	$(PYTHON) -m flowstate.streaming.producer \

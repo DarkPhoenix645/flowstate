@@ -34,4 +34,5 @@ Related decisions (already accepted — spikes prove or refine them):
    Replay through Kafka: event-time vs processing-time. When decided, write or supersede ADR-0008; do not only leave a chat note.
 
 6. **Spark reads the HDFS lake** (data & lake / Spark)  
-   Batch jobs read `hdfs://namenode:9000/lake/...`. Mount `infra/hive/core-site.xml` and `hdfs-site.xml` into Spark. Set `HADOOP_CONF_DIR`. That ships `dfs.replication=1`. Keep the `./data` mount until the stream-sink moves onto HDFS (#22). Amend ADR-0003 in the same branch. Record: [work-plan.md](../work-plan.md).
+   Conf is in Compose. `HADOOP_CONF_DIR=/etc/hadoop` on Spark and Hive ([ADR-0014](../adr/0014-hadoop-client-conf-at-etc-hadoop.md)). Same `core-site.xml` and `hdfs-site.xml`. ADR-0003 revised 2026-10-24. Keep the `./data` mount until #22. Human sign-off still owns close on #7.  
+   Proof, 2026-10-24, `make spark-hdfs` after `make up`: `fs.defaultFS=hdfs://namenode:9000`, `dfs.replication=1` after the HDFS FileSystem class loads `hdfs-site.xml`, `ls hdfs://namenode:9000/lake` shows `namma_yatri`, write to `/tmp/spark_hdfs_probe` at replication 1 (`_SUCCESS` and both parquet parts). Hadoop does not put `dfs.replication` on a bare Spark `Configuration` until that FileSystem init. Record: [work-plan.md](../work-plan.md).

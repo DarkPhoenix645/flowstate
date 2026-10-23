@@ -77,7 +77,7 @@ Done when: the #34 acceptance list passes, and the output contract above is in t
 
 The old spike asked if Spark can see host files at `/opt/data`. That question is obsolete. Batch jobs read `hdfs://namenode:9000/lake/...`.
 
-Mount the existing Hive Hadoop conf into the Spark master and the Spark worker. Set `HADOOP_CONF_DIR`. That ships `dfs.replication=1`. Without it, a Spark write uses replication 3 and fails on one datanode. This is proven: the Spark container has no Hadoop conf today.
+Mount the existing Hive Hadoop conf into the Spark master and the Spark worker. Set `HADOOP_CONF_DIR`. That ships `dfs.replication=1`. Without it, a Spark write uses replication 3 and fails on one datanode. Compose now ships that conf. Recreate Spark after a compose change. Proof: `make spark-hdfs`. A human still signs off on #7.
 
 Keep the `./data` mount until #22 moves the stream-sink off the host. #18–#21 now say the jobs read `hdfs://` after #7.
 
@@ -185,7 +185,7 @@ Do not set `HDFS_CONF_dfs_client_use_datanode_hostname`. `MULTIHOMED_NETWORK=1` 
 - `MULTIHOMED_NETWORK=1`
 - WebHDFS `noredirect` CREATE Location: `http://<container-id>:9864/...&namenoderpcaddress=namenode:9000`
 - `fsck /lake/namma_yatri`: HEALTHY, replication 1, one block per file, sizes 127006 / 1024853 / 47241015. Match host `stat`
-- Spark `HADOOP_CONF_DIR` unset. No `/opt/hadoop` in the Spark image
+- Spark and Hive `HADOOP_CONF_DIR` is `/etc/hadoop` ([ADR-0014](adr/0014-hadoop-client-conf-at-etc-hadoop.md)). Recreate Spark and Hive after the compose change.
 - Compose publishes namenode 9870/9000 and Kafka 9092/9094 on `127.0.0.1` after #16
 
 ### Files to read first

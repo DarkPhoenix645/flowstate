@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. Revised 2026-10-24.
 
 ## Context
 
@@ -15,6 +15,8 @@ Split runtimes:
 - **Host:** `uv` and Python 3.11 (`>=3.11,<3.12`) for ingest, Kafka producer, tests, and lint.
 - **Cluster:** Docker Compose only for HDFS, Kafka, Spark (master + worker), Hive, and Grafana.
 - Submit Spark with `docker compose exec` against `spark://spark:7077`. Do not use host `local[*]`.
+- Spark master and worker mount `infra/hive/core-site.xml` and `infra/hive/hdfs-site.xml`. `HADOOP_CONF_DIR` is `/etc/hadoop` ([ADR-0014](0014-hadoop-client-conf-at-etc-hadoop.md)). That sets `fs.defaultFS=hdfs://namenode:9000` and `dfs.replication=1`. A Spark write without that conf uses replication 3 and fails on one datanode.
+- Batch jobs read `hdfs://namenode:9000/lake/...`. Do not treat `/opt/data` as the batch input. Keep the `./data` mount at `/opt/data` until #22 moves the stream-sink onto HDFS.
 - Package MapReduce with the Maven Docker image (`make mr-package`). No host JDK requirement.
 - Use **kafka-python-ng** (no librdkafka) and **kagglehub** (no Kaggle CLI).
 - CI runs `uv sync`, ruff, and pytest on Ubuntu, macOS, and Windows. CI does not boot Compose.
@@ -24,9 +26,9 @@ Kafka listeners: Compose clients use `kafka:9092`; host clients use `localhost:9
 ## Consequences
 
 - Docs and Make targets assume Compose is up for Spark, Hive, and MR submit paths.
-- Staged data under `./data` must be visible inside Spark at `/opt/data` (mounts and permissions). That path sync is a spike, not a second Spark install.
+- Recreate the Spark containers after this conf change. `HADOOP_CONF_DIR` is an environment value. A running container from before the change does not pick it up.
 - Changing pinned image tags should happen as a set.
 
 ## Sources
 
-`docs/agents/scaffold.md`, `docs/dev-modes.md`, [ADR-0009](0009-grafana-city-dashboard.md)
+`docs/agents/scaffold.md`, `docs/dev-modes.md`, `docs/work-plan.md`, [ADR-0009](0009-grafana-city-dashboard.md), [ADR-0014](0014-hadoop-client-conf-at-etc-hadoop.md), issue #7

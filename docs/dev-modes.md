@@ -20,7 +20,7 @@ Host producer must **not** use `kafka:9092`. That hostname only resolves inside 
 - Containers → `kafka:9092`
 - Host → `localhost:9094` (`FLOWSTATE_KAFKA_BOOTSTRAP_SERVERS`)
 
-Spark services set `FLOWSTATE_DATA_DIR=/opt/data` and `FLOWSTATE_KAFKA_BOOTSTRAP_SERVERS=kafka:9092` so jobs inside the network see the mount and the internal listener.
+Spark services set `FLOWSTATE_DATA_DIR=/opt/data`, `FLOWSTATE_KAFKA_BOOTSTRAP_SERVERS=kafka:9092`, and `HADOOP_CONF_DIR=/etc/hadoop` (the Hive `core-site.xml` and `hdfs-site.xml`). Jobs inside the network see the mount, the internal Kafka listener, and `dfs.replication=1`. Path: [ADR-0014](adr/0014-hadoop-client-conf-at-etc-hadoop.md).
 
 ## Compose links
 
@@ -44,6 +44,8 @@ flowchart TB
   host -->|"localhost:9094"| kafka
   dn -->|"HDFS RPC"| nn
   sw -->|"spark://spark:7077"| sm
+  sm -->|"hdfs://namenode:9000"| nn
+  sw -->|"hdfs://namenode:9000"| nn
   sm -->|"kafka:9092"| kafka
   sw -->|"kafka:9092"| kafka
   hs -->|"thrift://hive-metastore:9083"| hm
