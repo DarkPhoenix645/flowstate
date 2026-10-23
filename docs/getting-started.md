@@ -4,12 +4,12 @@ Identical on Windows (Git Bash or WSL), macOS, Linux. All heavy infra is Docker.
 
 ## Install once
 
-| Tool                             | Notes                                                                                  |
-| -------------------------------- | -------------------------------------------------------------------------------------- |
-| Docker Desktop                   | Windows: WSL2 backend. macOS: Apple Silicon OK. Linux: Docker Engine + Compose plugin. |
-| Git                              | Windows: Git for Windows (includes Git Bash — use that for `make`).                    |
-| [uv](https://docs.astral.sh/uv/) | Pins 3.11 via `.python-version`.                                                       |
-| GNU Make                         | macOS/Linux default. Windows: Git Bash `make` or WSL. We do **not** use `just`.        |
+| Tool                                  | Notes                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Docker Desktop                        | Windows: WSL2 backend. macOS: Apple Silicon OK. Linux: Docker Engine + Compose plugin.      |
+| Git                                   | Windows: Git for Windows (includes Git Bash — use that for `make`).                         |
+| [uv](https://docs.astral.sh/uv/)      | Pins 3.11 via `.python-version`.                                                            |
+| GNU Make                              | macOS/Linux default. Windows: Git Bash `make` or WSL. We do **not** use `just`.             |
 | [GitHub CLI](https://cli.github.com/) | `gh auth login` before `make ingest`. Ridehail, metro, DGCA, and BMTC reads use that token. |
 
 No host JDK. Spark/Hadoop/Hive images already include Java. MapReduce jars are built with the `maven:3.9-eclipse-temurin-8` image (`make mr-package`).
@@ -26,23 +26,24 @@ make down-v         # DESTRUCTIVE: compose down -v + remint CLUSTER_ID
 
 ## Make targets
 
-| Target                    | What                                                                         | State   |
-| ------------------------- | ---------------------------------------------------------------------------- | ------- |
-| `make setup`              | `uv lock`, `uv sync --all-groups`, create `data/*` dirs, print config        | WORKING |
-| `make ingest`             | `DATASET=all` (or `ridehail` / `metro` / `bus` / `aviation` / `events` / `manifest` / `validate`) | WORKING |
-| `make lake`               | Put staged ride-hail parquet on HDFS. Host files stay. Path: `hdfs://namenode:9000/lake/namma_yatri/`. | WORKING |
-| `make amplify`            | `ROWS=1000000 SEED=42` synthetic corpus from the resampler to `data/staged/rides_amplified/` | WORKING |
+| Target                    | What                                                                                                                                                                   | State   |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `make setup`              | `uv lock`, `uv sync --all-groups`, create `data/*` dirs, print config                                                                                                  | WORKING |
+| `make ingest`             | `DATASET=all` (or `ridehail` / `metro` / `bus` / `aviation` / `events` / `manifest` / `validate`)                                                                      | WORKING |
+| `make lake`               | Put staged ride-hail parquet on HDFS. Host files stay. Path: `hdfs://namenode:9000/lake/namma_yatri/`.                                                                 | WORKING |
+| `make amplify`            | `ROWS=1000000 SEED=42` synthetic corpus from the resampler to `data/staged/rides_amplified/`                                                                           | WORKING |
 | `make evaluate`           | Fit and record the frozen hold-out evaluation (commits under `src/flowstate/benchmarks/results/`). How to read it: [resampler-evaluation.md](resampler-evaluation.md). | WORKING |
-| `make up`                 | Mint `infra/kafka/cluster.env` if needed, then start Compose                 | WORKING |
-| `make down`               | Stop stack; **keeps** volumes and CLUSTER_ID                                 | WORKING |
-| `make down-v`             | Stop stack, **delete volumes** (`docker compose down -v`), remint CLUSTER_ID | WORKING |
-| `make hotspots`           | Spark demand job **inside** the `spark` service                              | TODO    |
-| `make spark-hdfs`         | Spark list + write probe against `hdfs://namenode:9000` (replication 1). Recreate Spark after a compose conf change. | WORKING |
-| `make stream-produce`     | `TOPIC=flowstate.ridehail.activity.v1 RATE=500` (host → Kafka `:9094`). Topic set: [ADR-0008](adr/0008-speed-layer-streaming-shape.md). | TODO    |
-| `make stream-consume`     | rolling metrics **inside** Compose Spark                                     | TODO    |
-| `make hive-ddl`           | beeline against `rides.sql`. Warehouse directory is on HDFS.                 | TODO    |
-| `make mr-package`         | Maven package in Docker (no host Java)                                       | TODO    |
-| `make test` / `make lint` | pytest, ruff                                                                 | WORKING |
+| `make up`                 | Mint `infra/kafka/cluster.env` if needed, then start Compose                                                                                                           | WORKING |
+| `make down`               | Stop stack; **keeps** volumes and CLUSTER_ID                                                                                                                           | WORKING |
+| `make down-v`             | Stop stack, **delete volumes** (`docker compose down -v`), remint CLUSTER_ID                                                                                           | WORKING |
+| `make hotspots`           | Spark demand job **inside** the `spark` service                                                                                                                        | TODO    |
+| `make spark-hdfs`         | Spark list + write probe against `hdfs://namenode:9000` (replication 1). Recreate Spark after a compose conf change.                                                   | WORKING |
+| `make stream-produce`     | `TOPIC=flowstate.ridehail.activity.v1 RATE=500` (host → Kafka `:9094`). Topic set: [ADR-0008](adr/0008-speed-layer-streaming-shape.md).                                | TODO    |
+| `make stream-consume`     | rolling metrics **inside** Compose Spark                                                                                                                               | TODO    |
+| `make hive-ddl`           | beeline against `rides.sql`. Warehouse directory is on HDFS.                                                                                                           | TODO    |
+| `make mr-package`         | Maven package in Docker (no host Java)                                                                                                                                 | WORKING |
+| `make yarn-probe`         | Hadoop examples `pi` on YARN inside `resourcemanager`. Final state SUCCEEDED. Not DemandCount (#24).                                                                   | WORKING |
+| `make test` / `make lint` | pytest, ruff                                                                                                                                                           | WORKING |
 
 Examples:
 

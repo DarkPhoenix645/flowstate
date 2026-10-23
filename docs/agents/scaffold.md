@@ -29,7 +29,7 @@ Stubs print `TODO:` / throw `UnsupportedOperationException`. Do not fill in job 
 - Pin tags already; bump together when changing.
 - `data/lake` mounted on namenode at `/mnt/lake` for optional copy-in. The ride-hail lake directory is `hdfs://namenode:9000/lake/namma_yatri/` (`make lake`). Amplify writes `hdfs://namenode:9000/lake/rides_amplified/` beside it.
 - Spark submit form: `docker compose exec spark /opt/spark/bin/spark-submit --master spark://spark:7077 …`
-- MapReduce package image: `maven:3.9-eclipse-temurin-8` (`make mr-package`).
+- MapReduce package image: `maven:3.9-eclipse-temurin-8` (`make mr-package`). Submit: `make yarn-probe` on the `resourcemanager` container ([ADR-0015](../adr/0015-yarn-mapreduce-submit.md)).
 
 ## Hatch / imports
 

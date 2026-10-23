@@ -29,7 +29,7 @@ Compose cluster + host uv: [ADR-0003](adr/0003-compose-cluster-host-uv.md). Oper
 
 ## Open infra (deliberate)
 
-MapReduce on YARN in the bde2020 images is an open spike. See [team.md](team.md) and [agents/spikes.md](agents/spikes.md).
+MapReduce submit is `make yarn-probe` on the bde2020 ResourceManager ([ADR-0015](adr/0015-yarn-mapreduce-submit.md)). DemandCount is #24. See [team.md](team.md) and [agents/spikes.md](agents/spikes.md).
 
 The Hive warehouse directory is `hdfs://namenode:9000/user/hive/warehouse`. Derby is the metastore database.
 

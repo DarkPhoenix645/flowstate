@@ -16,7 +16,7 @@ Keep a Maven MapReduce module under `src/flowstate/batch/mapreduce/` (Hadoop 3.2
 - Build the jar with `make mr-package` in Docker (Temurin 8). Submit on YARN in Compose.
 - Compare Spark vs MapReduce at 1M / 10M / 100M through `benchmarks/runner.py`.
 
-Proving YARN submission on bde2020 images is an explicit spike. It gates later batch milestones.
+The submit path is [ADR-0015](0015-yarn-mapreduce-submit.md). It gates #24.
 
 ## Consequences
 

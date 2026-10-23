@@ -20,7 +20,7 @@ Schema contract: [schema.md](schema.md).
 
 Decision: [ADR-0007](../adr/0007-mapreduce-spark-benchmark-pair.md).
 
-Maven module `src/flowstate/batch/mapreduce/` (`pom.xml`, Hadoop 3.2.1 `provided`, matches bde2020 3.2.1). Classes: `DemandCountMapper`, `DemandCountReducer`, `DemandCountDriver`. Package: `make mr-package`.
+Maven module `src/flowstate/batch/mapreduce/` (`pom.xml`, Hadoop 3.2.1 `provided`, matches bde2020 3.2.1). Classes: `DemandCountMapper`, `DemandCountReducer`, `DemandCountDriver`. Package: `make mr-package`. Submit path: `make yarn-probe` ([ADR-0015](../adr/0015-yarn-mapreduce-submit.md)). DemandCount is #24.
 
 `benchmarks/runner.py` → `benchmarks/results/timings.csv` (committed).
 
