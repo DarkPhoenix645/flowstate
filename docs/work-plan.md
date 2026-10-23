@@ -105,7 +105,7 @@ Done when: `/lake/rides_amplified/` exists at 1M, and the 10M / 100M rows are ei
 
 Emit the `flowstate.*.v1` topics from the same model bundle. Default demo: a flight-arrival command changes a configured synthetic airport-access ride-hail response. Mark it `assumption_driven` unless a holdout validated that coefficient.
 
-After Spark has Hadoop conf, put checkpoints at `hdfs://namenode:9000/checkpoints/<job>`. Put the stream-sink on HDFS as the archive of the live run.
+After Spark has Hadoop conf, put checkpoints at `hdfs://namenode:9000/checkpoints/<job>`. Put the stream-sink on HDFS as the archive of the live run. Node files, topics, and sink directories: [agents/event-detector.md](agents/event-detector.md).
 
 Done when: a scenario command shows on the stream, consumers filter by `scenario_id` and provenance, and checkpoints recover after a worker restart.
 

@@ -32,7 +32,7 @@ One job per file, `main()`, paths from `flowstate.config.Settings`. Files: `dema
 
 Decision: [ADR-0008](../adr/0008-speed-layer-streaming-shape.md) (topic contract, scenario engine), [ADR-0010](../adr/0010-bengaluru-calibrated-resampler.md).
 
-`producer.py` on the host: conditionally stimulable, emits the `flowstate.*.v1` topics with the provenance envelope. Event time, `mode`, and mix come from the same resampler as amplify. `rolling_metrics.py` on Compose Spark. Metrics in scaffold: active rides/zone, cancel rate, surge. Surge framing is scenario-based: a flight-injection demo changes a configured synthetic airport-access response marked `assumption_driven` unless a held-out test validates it.
+`producer.py` on the host: conditionally stimulable, emits the `flowstate.*.v1` topics with the provenance envelope. Event time, `mode`, and mix come from the same resampler as amplify. One Structured Streaming file per metric. `rolling_metrics.py` is active rides / zone only (`make stream-consume`). Cancel rate and surge are later files. Layout: [event-detector.md](event-detector.md). Surge framing is scenario-based: a flight-injection demo changes a configured synthetic airport-access response marked `assumption_driven` unless a held-out test validates it.
 
 ## Warehouse & UI
 
