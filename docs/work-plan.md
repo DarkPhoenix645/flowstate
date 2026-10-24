@@ -113,19 +113,15 @@ Done when: a scenario command shows on the stream, consumers filter by `scenario
 
 Spark jobs (#18–#21) scan `/lake/rides_amplified/` and join source clocks where the finding is the join. MapReduce (#24) mirrors the hotspots aggregation on that same directory. #26 and #31 write timing rows. #12 names the Grafana split ([agents/city-dashboard.md](agents/city-dashboard.md)). #27 and #28 wire the panels. #41–#51 is the demo UI. Grafana stays the City Dashboard. The map draws envelope events. It does not replace Grafana.
 
-## Honest answers
+## What the twin models
 
-A cross-modal question is only honest at the coarsest grain among its legs ([data-sources.md](data-sources.md)). That rule applies to every user-facing answer, not only the report.
+The demo surface is [ADR-0016](adr/0016-demo-surface.md). Inside the demo, resampler output is the state of the twin. Provenance is a label on the event. It does not decide what the surface may show.
 
-| Query class                                                                | Grain we have                                                                                                      | Honest v1 answer                                                                                                 |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| Day-level auto ↔ metro coupling                                            | City-day clocks, copula on shared dates                                                                            | Yes. This is the report cross-modal quantity. Association, not cause                                             |
-| Hour shape, station load, ward load                                        | RTI 48 days. City-hour is ~1% of volume. Ward-hour is a spatial prior                                              | Yes, with provenance tags. Missing is an absence, not a zero                                                     |
-| Live busy / surge / cancel in this window                                  | Kafka envelope plus 1-minute tumbling counts. Longer buckets are sums in the view.                                  | Yes. That is the speed layer                                                                                     |
-| Scenario "if a flight lands / a line stops"                                | Assumption-driven unless the coefficient survives holdout                                                          | Yes as simulation. Default demo is this. Not a causal finding                                                    |
-| Person itinerary, recommended mode, true origin-destination, observed fare | No trip-level bookings. Metro v1 is station-hour. Bus boardings are synthetic. Ride-hail is ward, not a coordinate | Not a validated product answer in v1. You can draw places and simulate load. You cannot claim a recommended mode |
+The twin emits ride-hail bookings, completions, and cancels. It emits metro station-hour entries and exits. It emits synthetic bus boardings, alightings, and onboard counts on a derived stop call. It emits aviation arrivals and departures. It emits scenario effects from the versioned policy.
 
-Write the live-query catalog in the demo tickets. Do not treat one sketch question as the product spec. A routing-class question later needs a new ticket and an ADR. It would be an assumption-driven router over the synthetic field, with the same provenance rules as bus boardings.
+The twin does not emit a true origin-destination, an observed fare, a driver-versus-rider cancel split, an airport metro line, or real BMTC ridership. Plan §2 and §11 state those non-claims.
+
+The report (#32) and [ADR-0010](adr/0010-bengaluru-calibrated-resampler.md) keep the honesty rules. A cross-modal report claim stays at the coarsest grain among its legs ([data-sources.md](data-sources.md)). A routing question needs a new ticket and an ADR.
 
 ## Optional later
 
