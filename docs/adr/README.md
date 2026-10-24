@@ -15,7 +15,7 @@ Accepted choices for FlowState. Read these before you change stack, schema, or r
 | [0009](0009-grafana-city-dashboard.md)                | Grafana for City Dashboard                                               |
 | [0010](0010-bengaluru-calibrated-resampler.md)        | Bengaluru calibrated multimodal resampler                                |
 | [0011](0011-bengaluru-source-table-v2.md)             | Bengaluru source table v2                                                |
-| 0012                                                  | BMTC boarding prior as `FLOWSTATE_` settings (#40; file not written yet) |
+| [0012](0012-bmtc-boarding-prior.md)                  | BMTC boarding prior as `FLOWSTATE_` settings (#40)                        |
 | [0013](0013-amplify-thins-the-alignment-window.md)    | Amplify thins the alignment window                                       |
 | [0014](0014-hadoop-client-conf-at-etc-hadoop.md)      | Hadoop client conf at `/etc/hadoop`                                      |
 | [0015](0015-yarn-mapreduce-submit.md)                 | MapReduce submit on bde2020 YARN                                         |

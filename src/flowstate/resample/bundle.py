@@ -100,9 +100,11 @@ def city_spec(profile: CityProfile) -> CitySpec:
     )
 
 
-# The 12 October 2026 BMTC boarding prior, as ticket #40 records it.
-# #40 promotes these to FLOWSTATE_ settings with sensitivity runs;
-# the resampler keeps them as one config block until then.
+# The 12 October 2026 BMTC boarding prior (ADR-0012). The values
+# come from #40's ``FLOWSTATE_`` settings; these dataclass defaults
+# match the settings defaults so fixture tests and the bundle
+# builder stay deterministic without env. The prior is a model
+# choice, not a BMTC measurement. Report: docs/bmtc-boarding-prior.md.
 # ``clock_vehicle_type`` is the stitched-archive token for the
 # clock's vehicle; the archive spells it ``Auto``.
 
@@ -115,16 +117,55 @@ class ResampleConfig:
     assumed_weekday_boardings: int = 4_600_000
     assumed_bus_capacity: float = 41.3
     assumed_max_load_factor: float = 1.4
+    metro_substitution_multiplier: float = 1.0
+    bus_hour_profile: str = "metro_ridehail_blend"
+    bus_peak_share_low: float = 0.47
+    bus_peak_share_high: float = 0.51
+    bus_trip_length_km_low: float = 10.7
+    bus_trip_length_km_high: float = 10.9
     fare_sigma: float = 0.30
     clock_vehicle_type: str = "Auto"
     provenance_note: str = (
         "cab_share is the thin post-2025-06 city-hour slice share, "
-        "an uncertain prior. Bus boardings, capacity, and load "
-        "factor are the #40 assumption set, not BMTC measurements. "
+        "an uncertain prior. Bus boardings, capacity, load factor, "
+        "and the rest of the boarding prior are the #40 assumption "
+        "set (ADR-0012), not BMTC measurements. "
         "clock_vehicle_type is the archive token for the clock "
-        "vehicle. #40 moves the assumption set to FLOWSTATE_ "
-        "settings."
+        "vehicle. The assumption set is FLOWSTATE_ settings."
     )
+
+    @classmethod
+    def from_settings(cls, settings: Settings) -> "ResampleConfig":
+        """Read the #40 prior from ``FLOWSTATE_`` settings.
+
+        The blend weights stay the generator's implementation of
+        ``metro_ridehail_blend``; no env name moves them.
+        """
+        return cls(
+            assumed_weekday_boardings=settings.assumed_weekday_boardings,
+            assumed_bus_capacity=settings.assumed_bus_capacity,
+            assumed_max_load_factor=settings.assumed_max_load_factor,
+            metro_substitution_multiplier=(
+                settings.metro_substitution_multiplier
+            ),
+            bus_hour_profile=settings.bus_hour_profile,
+            bus_peak_share_low=settings.bus_peak_share_low,
+            bus_peak_share_high=settings.bus_peak_share_high,
+            bus_trip_length_km_low=settings.bus_trip_length_km_low,
+            bus_trip_length_km_high=settings.bus_trip_length_km_high,
+        )
+
+
+def bus_prior_regime(assumed_weekday_boardings: int) -> str:
+    """Target year / regime the boarding scale claims (#40).
+
+    The centre is a model choice inside the press-reported 2025
+    scale. The audited CAG FY2019-20 figure is the strict replay.
+    """
+    if assumed_weekday_boardings == 3_310_000:
+        return "FY2019-20 replay (CAG audited base, pre-Shakti)"
+    return "2025/26 citywide scenario (model choice, post-Shakti)"
+
 
 
 @dataclass(frozen=True)

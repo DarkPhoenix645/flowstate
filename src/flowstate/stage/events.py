@@ -60,7 +60,12 @@ def metro_station_hour_event(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def bus_scheduled_stop_event(row: dict[str, Any]) -> dict[str, Any]:
-    """One GTFS stop call. Ridership counts stay null until #40."""
+    """One GTFS stop call. Ridership counts stay null here.
+
+    The staged stop call is the derived schedule scaffold. The
+    synthetic boarding prior (ADR-0012) lives in the resampler, not
+    in this staged record.
+    """
     stop_id = str(row["stop_id"])
     event_time = _gtfs_event_time(row["service_date"], row["arrival_time"])
     event_id = f"bmtc-{row['trip_id']}-{row['stop_sequence']}"

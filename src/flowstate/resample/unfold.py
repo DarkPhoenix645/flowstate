@@ -25,6 +25,8 @@ import pyarrow as pa
 from flowstate.resample.bundle import (
     FARE_BASIS,
     ModelBundle,
+    ResampleConfig,
+    bus_prior_regime,
 )
 from flowstate.resample.clocks import aviation_mean_for
 from flowstate.resample.nb2 import nb_quantile
@@ -580,11 +582,21 @@ def bus_events(
     Whole trips are sampled so per-trip conservation stays
     checkable. Boardings concentrate on early stops, alightings on
     late stops, and onboard leaving never exceeds the capacity cap.
-    The ridership numbers are the #40 assumption set, not BMTC
-    measurements.
+    The ridership numbers are the #40 assumption set (ADR-0012),
+    not BMTC measurements. The summary carries the ``prior`` audit
+    block: the env values in force, the evidence class, and the
+    target year or regime.
     """
     from flowstate.stage.bus import gtfs_seconds
 
+    config = bundle.config
+    if config.bus_hour_profile != "metro_ridehail_blend":
+        raise ValueError(
+            "unknown FLOWSTATE_BUS_HOUR_PROFILE "
+            f"{config.bus_hour_profile!r}: v1 supports only "
+            "metro_ridehail_blend until a versioned 24-hour BMTC "
+            "table exists"
+        )
     frame = stop_times.to_pandas()
     frame["trip_id"] = frame["trip_id"].astype(str)
     frame["stop_id"] = frame["stop_id"].astype(str)
@@ -592,7 +604,6 @@ def bus_events(
     stops_per_trip = frame.groupby("trip_id", sort=False).size()
     trip_ids = list(stops_per_trip.index)
     first_stops = frame.groupby("trip_id", sort=False).first()
-    config = bundle.config
     daytype_weekend = is_weekend(feed_date)
     metro_shape = np.asarray(
         bundle.metro.hour_exit.weights(daytype_weekend)
@@ -650,6 +661,7 @@ def bus_events(
         int(
             round(
                 config.assumed_weekday_boardings
+                * config.metro_substitution_multiplier
                 * sampled_weight
                 / total_weight
             )
@@ -704,6 +716,9 @@ def bus_events(
     summary["boardings_emitted"] = sum(
         parents.bus.get((f"bmtc_gtfs:{t}", "boardings"), 0) for t in sampled
     )
+    summary["prior"] = _bus_prior_audit(
+        config, rows_by_trip, sampled
+    )
 
     def batches() -> Iterator[list[dict[str, Any]]]:
         batch: list[dict[str, Any]] = []
@@ -716,6 +731,83 @@ def bus_events(
             yield batch
 
     return batches(), summary
+
+
+def _bus_prior_audit(
+    config: ResampleConfig,
+    rows_by_trip: dict[str, list[dict[str, Any]]],
+    sampled: list[str],
+) -> dict[str, Any]:
+    """The #40 audit line: env values, evidence class, regime.
+
+    The combined peak windows (08:00-11:00 and 17:00-20:00) are
+    compared against the published 47-51% band. The blend profile
+    is a fallback, so an off-band share is a warning here, not a
+    build failure. A versioned BMTC curve mode would enforce the
+    band; none exists yet.
+    """
+    by_hour = [0] * 24
+    total = 0
+    for trip_id in sampled:
+        for row in rows_by_trip[trip_id]:
+            count = int(row["boardings"])
+            by_hour[int(row["hour"])] += count
+            total += count
+    peak = sum(by_hour[8:11]) + sum(by_hour[17:20])
+    share = peak / total if total else 0.0
+    audit: dict[str, Any] = {
+        "env": {
+            "FLOWSTATE_ASSUMED_WEEKDAY_BOARDINGS": (
+                config.assumed_weekday_boardings
+            ),
+            "FLOWSTATE_ASSUMED_BUS_CAPACITY": (
+                config.assumed_bus_capacity
+            ),
+            "FLOWSTATE_ASSUMED_MAX_LOAD_FACTOR": (
+                config.assumed_max_load_factor
+            ),
+            "FLOWSTATE_METRO_SUBSTITUTION_MULTIPLIER": (
+                config.metro_substitution_multiplier
+            ),
+            "FLOWSTATE_BUS_HOUR_PROFILE": config.bus_hour_profile,
+            "FLOWSTATE_BUS_PEAK_SHARE_LOW": config.bus_peak_share_low,
+            "FLOWSTATE_BUS_PEAK_SHARE_HIGH": config.bus_peak_share_high,
+            "FLOWSTATE_BUS_TRIP_LENGTH_KM_LOW": (
+                config.bus_trip_length_km_low
+            ),
+            "FLOWSTATE_BUS_TRIP_LENGTH_KM_HIGH": (
+                config.bus_trip_length_km_high
+            ),
+        },
+        "evidence_class": "assumption_driven",
+        "target_regime": bus_prior_regime(
+            config.assumed_weekday_boardings
+        ),
+        "peak_window_share": share,
+        "trip_length_soft_target_km": [
+            config.bus_trip_length_km_low,
+            config.bus_trip_length_km_high,
+        ],
+        "note": (
+            "Boardings are synthetic assumption-driven values, not "
+            "BMTC ridership. Do not add them to observed metro or "
+            "ride-hail totals."
+        ),
+    }
+    within = (
+        config.bus_peak_share_low <= share <= config.bus_peak_share_high
+    )
+    audit["peak_share_within_band"] = within
+    if not within:
+        audit["peak_share_warning"] = (
+            f"generated combined-peak share {share:.3f} falls outside "
+            f"the published band [{config.bus_peak_share_low}, "
+            f"{config.bus_peak_share_high}] under "
+            f"{config.bus_hour_profile}; the published band is a "
+            "check for a versioned BMTC curve, not this fallback "
+            "blend"
+        )
+    return audit
 
 
 def _peak_fraction(n: int) -> float:
