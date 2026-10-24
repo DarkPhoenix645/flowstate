@@ -135,7 +135,7 @@ class ResampleConfig:
     )
 
     @classmethod
-    def from_settings(cls, settings: Settings) -> "ResampleConfig":
+    def from_settings(cls, settings: Settings) -> ResampleConfig:
         """Read the #40 prior from ``FLOWSTATE_`` settings.
 
         The blend weights stay the generator's implementation of
