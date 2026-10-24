@@ -22,7 +22,11 @@ from flowstate.resample import (
     run_amplify,
     to_envelope,
 )
-from flowstate.resample.bundle import FARE_BASIS
+from flowstate.resample.bundle import (
+    FARE_BASIS,
+    ResampleConfig,
+    bus_prior_regime,
+)
 from flowstate.resample.nb2 import (
     crps,
     fit_nb2,
@@ -472,6 +476,99 @@ def test_bus_events_trip_conservation(bundle):
     # cap, so capping must have displaced boardings and said so.
     assert summary["capped_trips"] >= 1
     assert summary["boardings_displaced_by_cap"] > 0
+    # The #40 audit line quotes the prior in force.
+    audit = summary["prior"]
+    assert audit["env"]["FLOWSTATE_ASSUMED_WEEKDAY_BOARDINGS"] == 4_600_000
+    assert audit["env"]["FLOWSTATE_ASSUMED_BUS_CAPACITY"] == 41.3
+    assert audit["env"]["FLOWSTATE_ASSUMED_MAX_LOAD_FACTOR"] == 1.4
+    assert audit["evidence_class"] == "assumption_driven"
+    assert "2025/26" in audit["target_regime"]
+    assert 0.0 <= audit["peak_window_share"] <= 1.0
+
+
+def test_bus_prior_settings_flow_into_audit_and_rows():
+    settings = Settings(
+        _env_file=None,
+        assumed_weekday_boardings=1_200,
+        assumed_bus_capacity=50.0,
+        assumed_max_load_factor=1.2,
+        metro_substitution_multiplier=1.0,
+    )
+    config = ResampleConfig.from_settings(settings)
+    prior_bundle = build_bundle(
+        fx.fixture_inputs(), fx.fixture_spec(), config=config, seed=42
+    )
+    parents = ParentTotals()
+    stream, summary = bus_events(
+        prior_bundle,
+        rng_for(42, "bus"),
+        fx.fixture_inputs().stop_times,
+        feed_date="2026-09-07",
+        budget_rows=60,
+        parents=parents,
+    )
+    rows = [row for batch in stream for row in batch]
+    cap = 50.0 * 1.2
+    audit = summary["prior"]
+    assert audit["env"]["FLOWSTATE_ASSUMED_WEEKDAY_BOARDINGS"] == 1_200
+    assert audit["env"]["FLOWSTATE_ASSUMED_BUS_CAPACITY"] == 50.0
+    assert audit["env"]["FLOWSTATE_ASSUMED_MAX_LOAD_FACTOR"] == 1.2
+    assert (
+        audit["env"]["FLOWSTATE_METRO_SUBSTITUTION_MULTIPLIER"] == 1.0
+    )
+    assert (
+        audit["env"]["FLOWSTATE_BUS_HOUR_PROFILE"]
+        == "metro_ridehail_blend"
+    )
+    assert audit["evidence_class"] == "assumption_driven"
+    assert audit["target_regime"] == (
+        "2025/26 citywide scenario (model choice, post-Shakti)"
+    )
+    assert summary["boardings_allocated"] > 0
+    trips: dict[str, list[dict]] = {}
+    for row in rows:
+        assert row["ridership_status"] == "synthetic"
+        assert row["ridership_grade"] == "assumption_driven"
+        assert 0 <= row["onboard_leaving"] <= cap
+        trips.setdefault(row["parent_id"], []).append(row)
+    for trip_rows in trips.values():
+        assert (
+            sum(r["boardings"] for r in trip_rows)
+            == sum(r["alightings"] for r in trip_rows)
+        )
+    board = sum(
+        parents.bus.get((trip, "boardings"), 0) for trip in trips
+    )
+    alight = sum(
+        parents.bus.get((trip, "alightings"), 0) for trip in trips
+    )
+    assert board == alight and board > 0
+
+
+def test_bus_prior_fy1920_replay_regime():
+    config = ResampleConfig.from_settings(
+        Settings(_env_file=None, assumed_weekday_boardings=3_310_000)
+    )
+    assert config.assumed_weekday_boardings == 3_310_000
+    assert bus_prior_regime(config.assumed_weekday_boardings) == (
+        "FY2019-20 replay (CAG audited base, pre-Shakti)"
+    )
+
+
+def test_bus_prior_unknown_hour_profile_rejected():
+    config = ResampleConfig(bus_hour_profile="bmtc_digitised_v1")
+    with pytest.raises(ValueError, match="FLOWSTATE_BUS_HOUR_PROFILE"):
+        bus_events(
+            build_bundle(
+                fx.fixture_inputs(), fx.fixture_spec(), config=config,
+                seed=42,
+            ),
+            rng_for(42, "bus"),
+            fx.fixture_inputs().stop_times,
+            feed_date="2026-09-07",
+            budget_rows=60,
+            parents=ParentTotals(),
+        )
 
 
 def _amplify(settings_dir: Path, rows: int, seed: int):
@@ -482,6 +579,18 @@ def _amplify(settings_dir: Path, rows: int, seed: int):
 def test_run_amplify_end_to_end(tmp_path, monkeypatch, bundle):
     import flowstate.resample.writer as writer_module
 
+    for key in (
+        "FLOWSTATE_ASSUMED_WEEKDAY_BOARDINGS",
+        "FLOWSTATE_ASSUMED_BUS_CAPACITY",
+        "FLOWSTATE_ASSUMED_MAX_LOAD_FACTOR",
+        "FLOWSTATE_METRO_SUBSTITUTION_MULTIPLIER",
+        "FLOWSTATE_BUS_HOUR_PROFILE",
+        "FLOWSTATE_BUS_PEAK_SHARE_LOW",
+        "FLOWSTATE_BUS_PEAK_SHARE_HIGH",
+        "FLOWSTATE_BUS_TRIP_LENGTH_KM_LOW",
+        "FLOWSTATE_BUS_TRIP_LENGTH_KM_HIGH",
+    ):
+        monkeypatch.delenv(key, raising=False)
     inputs = fx.fixture_inputs()
     monkeypatch.setattr(
         writer_module, "load_inputs", lambda settings: inputs
@@ -491,8 +600,15 @@ def test_run_amplify_end_to_end(tmp_path, monkeypatch, bundle):
         "city_spec",
         lambda profile: fx.fixture_spec(),
     )
-    manifest = run_amplify(Settings(data_dir=tmp_path), 2000, seed=42)
+    manifest = run_amplify(
+        Settings(data_dir=tmp_path, _env_file=None), 2000, seed=42
+    )
     assert manifest["rows"] == 2000
+    # The #40 prior rides through to the run manifest's audit line.
+    prior = manifest["replay"]["bus"]["prior"]
+    assert prior["env"]["FLOWSTATE_ASSUMED_WEEKDAY_BOARDINGS"] == 4_600_000
+    assert prior["evidence_class"] == "assumption_driven"
+    assert "2025/26" in prior["target_regime"]
     assert set(manifest["mode_counts"]) == {
         "ride_hail",
         "metro",

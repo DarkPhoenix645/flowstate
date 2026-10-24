@@ -30,6 +30,7 @@ from flowstate.normalize.cities import DEFAULT_CITY_ID, load
 from flowstate.resample.bundle import (
     FARE_BASIS,
     ModelBundle,
+    ResampleConfig,
     build_bundle,
     bundle_hash,
     bundle_json,
@@ -227,7 +228,14 @@ def run_amplify(
         )
     inputs = load_inputs(settings)
     spec = city_spec(load(DEFAULT_CITY_ID))
-    bundle = build_bundle(inputs, spec, seed=seed)
+    # The #40 boarding prior is FLOWSTATE_ settings (ADR-0012).
+    # The bus summary and bundle.json quote the values in force.
+    bundle = build_bundle(
+        inputs,
+        spec,
+        config=ResampleConfig.from_settings(settings),
+        seed=seed,
+    )
     shares = _natural_shares(inputs, bundle)
     budgets = dict(
         zip(
@@ -528,8 +536,8 @@ def run_amplify(
             "synthetic_fare_inr is a lognormal draw centred on the "
             "day's earning_per_completed_ride_proxy. It is never an "
             "observed fare.",
-            "Bus ridership is the #40 assumption set, not BMTC "
-            "ridership. Do not add it to observed totals.",
+            "Bus ridership is the #40 assumption set (ADR-0012), not "
+            "BMTC ridership. Do not add it to observed totals.",
             "Mode budgets follow measured natural shares: "
             + ", ".join(
                 f"{mode}={shares[mode]:.0f}" for mode in sorted(shares)
