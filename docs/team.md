@@ -21,7 +21,7 @@ Areas to staff. Paths are fixed; do not fork layouts.
 - Descriptive: demand heatmaps, booking-value by vehicle, metro trends, GTFS, DGCA share.
 - Diagnostic: cancellation root-cause, cross-modal correlation, aviation seasonality.
 - One file, one `main()`, config-driven paths. Submit with `make hotspots` (Compose Spark), not host `spark-submit`.
-- Spike: City-Dashboard historical vs live split (for later Grafana views).
+- City Dashboard split: [agents/city-dashboard.md](agents/city-dashboard.md). Historical reads Hive. Live reads the stream-sink. Panels stay #27 and #28.
 
 ## Speed layer — `src/flowstate/streaming/`
 

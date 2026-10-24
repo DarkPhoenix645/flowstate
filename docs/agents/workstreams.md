@@ -36,4 +36,4 @@ Decision: [ADR-0008](../adr/0008-speed-layer-streaming-shape.md) (topic contract
 
 ## Warehouse & UI
 
-`warehouse/ddl/*.sql`, `warehouse/load.py`, `dashboards/grafana/`, `dashboards/explore/`. Partitions: ADR-0005. Dashboards: ADR-0009.
+`warehouse/ddl/*.sql`, `warehouse/load.py`, `dashboards/grafana/`, `dashboards/explore/`. Partitions: ADR-0005. Dashboards: ADR-0009. The historical vs live split is [city-dashboard.md](city-dashboard.md).

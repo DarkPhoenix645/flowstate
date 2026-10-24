@@ -20,5 +20,5 @@ Also: **RiverBench/dataset-citypulse-traffic** — replay-shaped traffic stream 
 ## Reading (three items)
 
 1. Event-Detector README — node pattern + aggregated/annotated flow. FlowState layout: [event-detector.md](event-detector.md).
-2. City-Dashboard README — historical vs live.
+2. City-Dashboard README — historical vs live. FlowState split: [city-dashboard.md](city-dashboard.md).
 3. Org framing quote for the report (batch = large-scale analytics, speed = real-time stream).

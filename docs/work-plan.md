@@ -111,7 +111,7 @@ Done when: a scenario command shows on the stream, consumers filter by `scenario
 
 ### 7. Findings jobs, benchmark, Grafana, demo UI
 
-Spark jobs (#18–#21) scan `/lake/rides_amplified/` and join source clocks where the finding is the join. MapReduce (#24) mirrors the hotspots aggregation on that same directory. #26 and #31 write timing rows. #12 / #27 / #28 wire Grafana. #41–#51 is the demo UI. Grafana stays the City Dashboard. The map draws envelope events. It does not replace Grafana.
+Spark jobs (#18–#21) scan `/lake/rides_amplified/` and join source clocks where the finding is the join. MapReduce (#24) mirrors the hotspots aggregation on that same directory. #26 and #31 write timing rows. #12 names the Grafana split ([agents/city-dashboard.md](agents/city-dashboard.md)). #27 and #28 wire the panels. #41–#51 is the demo UI. Grafana stays the City Dashboard. The map draws envelope events. It does not replace Grafana.
 
 ## Honest answers
 
