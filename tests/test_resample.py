@@ -488,6 +488,7 @@ def test_bus_events_trip_conservation(bundle):
 
 def test_bus_prior_settings_flow_into_audit_and_rows():
     settings = Settings(
+        _env_file=None,
         assumed_weekday_boardings=1_200,
         assumed_bus_capacity=50.0,
         assumed_max_load_factor=1.2,
@@ -546,7 +547,7 @@ def test_bus_prior_settings_flow_into_audit_and_rows():
 
 def test_bus_prior_fy1920_replay_regime():
     config = ResampleConfig.from_settings(
-        Settings(assumed_weekday_boardings=3_310_000)
+        Settings(_env_file=None, assumed_weekday_boardings=3_310_000)
     )
     assert config.assumed_weekday_boardings == 3_310_000
     assert bus_prior_regime(config.assumed_weekday_boardings) == (
@@ -599,7 +600,9 @@ def test_run_amplify_end_to_end(tmp_path, monkeypatch, bundle):
         "city_spec",
         lambda profile: fx.fixture_spec(),
     )
-    manifest = run_amplify(Settings(data_dir=tmp_path), 2000, seed=42)
+    manifest = run_amplify(
+        Settings(data_dir=tmp_path, _env_file=None), 2000, seed=42
+    )
     assert manifest["rows"] == 2000
     # The #40 prior rides through to the run manifest's audit line.
     prior = manifest["replay"]["bus"]["prior"]

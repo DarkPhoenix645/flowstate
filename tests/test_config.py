@@ -82,7 +82,7 @@ def _clear_bus_prior(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_bus_prior_defaults_when_env_absent(monkeypatch):
     _clear_bus_prior(monkeypatch)
-    s = Settings()
+    s = Settings(_env_file=None)
     assert s.assumed_weekday_boardings == 4_600_000
     assert s.assumed_bus_capacity == 41.3
     assert s.assumed_max_load_factor == 1.4
@@ -98,7 +98,7 @@ def test_bus_prior_empty_env_means_default(monkeypatch):
     _clear_bus_prior(monkeypatch)
     for key in _BUS_PRIOR_KEYS:
         monkeypatch.setenv(key, "  ")
-    s = Settings()
+    s = Settings(_env_file=None)
     assert s.assumed_weekday_boardings == 4_600_000
     assert s.assumed_bus_capacity == 41.3
     assert s.assumed_max_load_factor == 1.4
@@ -121,7 +121,7 @@ def test_bus_prior_present_env_overrides(monkeypatch):
     monkeypatch.setenv("FLOWSTATE_BUS_PEAK_SHARE_HIGH", "0.51")
     monkeypatch.setenv("FLOWSTATE_BUS_TRIP_LENGTH_KM_LOW", "10.7")
     monkeypatch.setenv("FLOWSTATE_BUS_TRIP_LENGTH_KM_HIGH", "10.9")
-    s = Settings()
+    s = Settings(_env_file=None)
     assert s.assumed_weekday_boardings == 3_310_000
     assert s.assumed_bus_capacity == 40.0
     assert s.assumed_max_load_factor == 1.2
