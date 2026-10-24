@@ -15,7 +15,7 @@ Related decisions (already accepted — spikes prove or refine them):
    Annotated envelope → window aggregate → one metric event. One file per node. The note is [event-detector.md](event-detector.md). It does not replace ADR-0008. `rolling_metrics.py` stays a stub until #22. Human sign-off still owns close on #10.
 
 2. **City-Dashboard README** (analytics / dashboards)  
-   Replicate historical vs live in Grafana: Hive-backed views + streaming-sink live views.
+   Decided 2026-10-24. Two Grafana dashboards. Historical reads Hive. Live reads `hdfs://namenode:9000/stream-sink/active_rides/`. The map stays out. Note: [city-dashboard.md](city-dashboard.md). Image pin stays ADR-0009. Human sign-off still owns close on #12.
 
 3. **Hive-on-Docker + HDFS warehouse** (data & lake)  
    Done. `hive.metastore.warehouse.dir` is `hdfs://namenode:9000/user/hive/warehouse`.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. Revised 2026-10-24. The historical vs live split is [city-dashboard.md](../agents/city-dashboard.md). Hive wiring stays #27. Live panels stay #28.
 
 ## Context
 
@@ -18,7 +18,7 @@ Use Grafana for batch views over Hive and live views over the stream-sink. Do no
 - Dashboard JSON lives under `dashboards/grafana/`.
 - Keep `dashboards/explore` as a local Plotly/Streamlit sandbox. It is not the City Dashboard.
 
-Hive datasource wiring and live panels stay later tickets (T11 / T26 / T27). This ADR locks the product, not those panels.
+The historical vs live split is [city-dashboard.md](../agents/city-dashboard.md). Hive datasource wiring stays #27. Live panels stay #28. This ADR locks the product, not those panels.
 
 This supersedes the dashboard technology rows in ADR-0002 and the cluster list in ADR-0003.
 
@@ -30,4 +30,4 @@ This supersedes the dashboard technology rows in ADR-0002 and the cluster list i
 
 ## Sources
 
-`docker-compose.yml`, `docs/architecture.md`, `docs/dev-modes.md`
+`docker-compose.yml`, `docs/architecture.md`, `docs/dev-modes.md`, `docs/agents/city-dashboard.md`
