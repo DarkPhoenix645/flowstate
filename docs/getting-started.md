@@ -31,7 +31,7 @@ make down-v         # DESTRUCTIVE: compose down -v + remint CLUSTER_ID
 | `make setup`              | `uv lock`, `uv sync --all-groups`, create `data/*` dirs, print config                                                                                                  | WORKING |
 | `make ingest`             | `DATASET=all` (or `ridehail` / `metro` / `bus` / `aviation` / `events` / `manifest` / `validate`)                                                                      | WORKING |
 | `make lake`               | Put staged ride-hail parquet on HDFS. Host files stay. Path: `hdfs://namenode:9000/lake/namma_yatri/`.                                                                 | WORKING |
-| `make amplify`            | `ROWS=1000000 SEED=42` synthetic corpus from the resampler to `data/staged/rides_amplified/`                                                                           | WORKING |
+| `make amplify`            | `ROWS=1000000 SEED=42`. Host corpus, HDFS `/lake/rides_amplified/`, then Hive `rollup_conservation`.                                                                   | WORKING |
 | `make evaluate`           | Fit and record the frozen hold-out evaluation (commits under `src/flowstate/benchmarks/results/`). How to read it: [resampler-evaluation.md](resampler-evaluation.md). | WORKING |
 | `make up`                 | Mint `infra/kafka/cluster.env` if needed, then start Compose                                                                                                           | WORKING |
 | `make down`               | Stop stack; **keeps** volumes and CLUSTER_ID                                                                                                                           | WORKING |

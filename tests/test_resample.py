@@ -45,6 +45,7 @@ from flowstate.resample.unfold import (
     rng_for,
     weighted_without_replacement,
 )
+from flowstate.resample.writer import PartWriter
 
 
 @pytest.fixture(scope="module")
@@ -698,3 +699,11 @@ def test_source_files_not_touched_by_amplify(tmp_path, monkeypatch):
     run_amplify(Settings(data_dir=tmp_path), 1000, seed=1)
     assert inputs.city_day.num_rows == before["city_day"]
     assert inputs.flight_events.num_rows == before["flight_events"]
+
+
+def test_part_writer_opens_another_file_past_the_target(tmp_path):
+    writer = PartWriter(tmp_path, target_bytes=1)
+    writer.append([{"trip_id": "a"}])
+    writer.append([{"trip_id": "b"}])
+    writer.close()
+    assert len(list(tmp_path.glob("part-*.parquet"))) >= 2

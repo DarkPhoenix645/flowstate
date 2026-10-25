@@ -22,7 +22,7 @@ help:
 	@echo "  make normalize          analysis tables from files already on disk"
 	@echo "  make stage              parquet from cold extracts. aviation is DGCA only, not OpenSky"
 	@echo "  make lake               put staged ride-hail parquet on HDFS"
-	@echo "  make amplify            synthetic scale (ROWS=1000000 SEED=42)"
+	@echo "  make amplify            1M corpus, lake put, rollup_conservation"
 	@echo "  make evaluate           fit + record the held-out resampler evaluation"
 	@echo "  make up                 mint Kafka CLUSTER_ID if needed, start stack"
 	@echo "  make down               stop stack (keeps volumes + CLUSTER_ID)"
@@ -55,6 +55,11 @@ lake:
 
 amplify:
 	$(PYTHON) -m flowstate.ingest.amplify --rows $(ROWS) --seed $(SEED)
+	$(PYTHON) -m flowstate.lake.amplify
+	$(SPARK_SUBMIT) /opt/src/flowstate/batch/spark_jobs/conservation_check.py
+	$(COMPOSE) exec -T hiveserver2 beeline \
+		-u jdbc:hive2://localhost:10000 \
+		-f /opt/src/flowstate/warehouse/ddl/rollup_conservation.sql
 
 evaluate:
 	$(PYTHON) -m flowstate.resample.evaluate
