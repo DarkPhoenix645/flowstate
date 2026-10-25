@@ -40,7 +40,7 @@ make down-v         # DESTRUCTIVE: compose down -v + remint CLUSTER_ID
 | `make spark-hdfs`         | Spark list + write probe against `hdfs://namenode:9000` (replication 1). Recreate Spark after a compose conf change.                                                   | WORKING |
 | `make stream-produce`     | `TOPIC=flowstate.ridehail.activity.v1 RATE=500` (host → Kafka `:9094`). Topic set: [ADR-0008](adr/0008-speed-layer-streaming-shape.md).                                | TODO    |
 | `make stream-consume`     | rolling metrics **inside** Compose Spark                                                                                                                               | TODO    |
-| `make hive-ddl`           | beeline against `rides.sql`. Warehouse directory is on HDFS.                                                                                                           | TODO    |
+| `make hive-ddl`           | Create partitioned `rides`, put the city-day clock from the lake, then `MSCK REPAIR`.                                                                                 | WORKING |
 | `make mr-package`         | Maven package in Docker (no host Java)                                                                                                                                 | WORKING |
 | `make yarn-probe`         | Hadoop examples `pi` on YARN inside `resourcemanager`. Final state SUCCEEDED. Not DemandCount (#24).                                                                   | WORKING |
 | `make test` / `make lint` | pytest, ruff                                                                                                                                                           | WORKING |
