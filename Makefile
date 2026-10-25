@@ -89,9 +89,13 @@ stream-consume:
 	$(SPARK_SUBMIT) /opt/src/flowstate/streaming/rolling_metrics.py
 
 hive-ddl:
-	$(COMPOSE) exec hiveserver2 beeline \
+	$(COMPOSE) exec -T hiveserver2 beeline \
 		-u jdbc:hive2://localhost:10000 \
 		-f /opt/src/flowstate/warehouse/ddl/rides.sql
+	$(PYTHON) -m flowstate.warehouse.load
+	$(COMPOSE) exec -T hiveserver2 beeline \
+		-u jdbc:hive2://localhost:10000 \
+		-e "MSCK REPAIR TABLE rides;"
 
 mr-package:
 	docker run --rm \
