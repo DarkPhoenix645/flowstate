@@ -93,13 +93,13 @@ Done when: Beeline can `SELECT` from `rides`, and `make hive-ddl` is no longer a
 
 ### 5. Amplify onto the lake — #25 then #31
 
-Write `/lake/rides_amplified/` beside `namma_yatri`. Run 1M on the Compose cluster. Run 10M and 100M on a small GCP Dataproc cluster (about 3–4 workers). Quote rows and `--seed` every time.
+Write `/lake/rides_amplified/` beside `namma_yatri`. The 1M entry is `make amplify ROWS=1000000 SEED=42`. It writes the host corpus, puts that lake directory, and runs `conservation_check`. The lake put is not complete until Hive `rollup_conservation` exists. The seed is in `manifest.json` and in that table. Hour-of-day mix and ride-event cancel rates stay the ADR-0006 resampler. Parts target one 128 MB block. A corpus under one block is one part file. Run 10M and 100M on a small GCP Dataproc cluster (about 3–4 workers). That scale is #31, through the #72 entry. Quote rows and `--seed` every time. Do not run 10M or 100M on #25.
 
 Measured size for a canonical ride-event parquet (Snappy, 1M synthetic rows): about 57 bytes per row. That is about 57 MB at 1M, 0.57 GB at 10M, 5.7 GB / ~43 blocks at 100M. The in-memory working set at 100M is tens of GB. That is why the 100M row belongs on GCP. The single-node Compose stack cannot show a real shuffle.
 
 The map does not need 100M events. Draw a live or replayed envelope at human time.
 
-Done when: `/lake/rides_amplified/` exists at 1M, and the 10M / 100M rows are either on disk or recorded as a GCP run in `benchmarks/results/timings.csv`.
+Done when: `/lake/rides_amplified/` exists at 1M and Hive `rollup_conservation` has that seed. The 10M / 100M rows are either on disk or recorded as a GCP run in `benchmarks/results/timings.csv`.
 
 ### 6. Producer and speed layer — #39, then #22 / #17 / #29 / #30
 

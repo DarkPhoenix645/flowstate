@@ -21,7 +21,7 @@ Use two dashboards. Do not mix the sources in one dashboard.
 
 The query target is HiveServer2 JDBC on port 10000, database `default`. The warehouse is `hdfs://namenode:9000/user/hive/warehouse`. Checked 2026-10-24: the running `grafana/grafana:13.2.0` image has no Hive plugin. #27 installs the datasource that talks to that JDBC port. Do not add Trino, DuckDB, or Superset for this path.
 
-Hive `rides` is the city-day clock (`make hive-ddl`), partitioned by `city` and `vehicle_type`. A row is one day, not a passenger trip. #27 still owns the rollup panels.
+Hive `rides` is the city-day clock (`make hive-ddl`), partitioned by `city` and `vehicle_type`. A row is one day, not a passenger trip. #27 still owns the rollup panels. `rollup_conservation` is the #25 check. #27 draws that stat. It does not build the table.
 
 These tables have a real `CREATE TABLE` today. Extra charts on them are optional for #27:
 
@@ -31,6 +31,7 @@ These tables have a real `CREATE TABLE` today. Extra charts on them are optional
 | `metro_station_hour` | Station-hour. A missing cell stays missing. |
 | `bmtc_stops` | Stop list. This is not ridership. |
 | `dgca_city_month` | Month. There is no DGCA Kafka topic. |
+| `rollup_conservation` | One row. Children match parents. #25 writes it. |
 
 `metro_ridership.sql` and `aviation.sql` are comments. Do not query them until they are real tables.
 
