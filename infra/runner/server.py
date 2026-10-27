@@ -121,7 +121,11 @@ def _under(raw: str, root: Path, suffix: str) -> Path:
 def _hdfs_dest(dest: str) -> str:
     if ".." in dest or not dest.startswith(("/lake/", "/tmp/")):
         raise ValueError("dest is not an allowed HDFS path")
-    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_./-")
+    allowed = set(
+        "abcdefghijklmnopqrstuvwxyz"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "0123456789_./-"
+    )
     if not set(dest) <= allowed:
         raise ValueError("dest has a character that is not allowed")
     return dest
