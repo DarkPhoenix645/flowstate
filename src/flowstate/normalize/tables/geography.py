@@ -202,7 +202,7 @@ def from_disk(
     line_labels: list[str],
     first_seen: dict[str, str] | None = None,
 ) -> TableBuild:
-    ensure_sources([profile.rti_dataset])
+    ensure_sources([profile.rti_dataset], datasets)
     path = (
         dataset_path(datasets, profile.rti_dir) / profile.station_codes_name
     )

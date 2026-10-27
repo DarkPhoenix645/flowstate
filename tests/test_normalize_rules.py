@@ -340,7 +340,7 @@ def test_future_dates_are_after_as_of():
 def test_require_valid_runs_before_a_read(tmp_path, monkeypatch):
     from flowstate.normalize.sources import reset_source_cache
 
-    def boom(dataset_ids):
+    def boom(dataset_ids, datasets_dir=None):
         raise ProvenanceError("blocked")
 
     monkeypatch.setattr(

@@ -159,7 +159,7 @@ def build_city_day(
 
 
 def from_disk(datasets: Path, profile: CityProfile) -> TableBuild:
-    ensure_sources([profile.city_day_dataset])
+    ensure_sources([profile.city_day_dataset], datasets)
     path = dataset_path(datasets, profile.city_day_parts)
     return build_city_day(
         load_city_day(path),

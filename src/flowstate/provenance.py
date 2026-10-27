@@ -11,7 +11,35 @@ import hashlib
 import json
 from pathlib import Path
 
-MANIFEST = Path("data/raw/provenance/manifest.json")
+_RAW_PREFIX = Path("data") / "raw"
+
+
+def manifest_path(datasets_dir: Path) -> Path:
+    """The acquisition manifest for one raw directory."""
+    return datasets_dir / "provenance" / "manifest.json"
+
+
+def recorded_path(path: Path, datasets_dir: Path) -> str:
+    """Manifest path string. ``data/raw/...`` when the file is in that tree."""
+    try:
+        suffix = path.resolve().relative_to(datasets_dir.resolve())
+    except ValueError:
+        return path.as_posix()
+    return (_RAW_PREFIX / suffix).as_posix()
+
+
+def locate_recorded_path(rel: str, datasets_dir: Path) -> Path:
+    """A manifest path. Raw files resolve under ``datasets_dir``."""
+    path = Path(rel)
+    if path.is_absolute():
+        return path
+    try:
+        suffix = path.relative_to(_RAW_PREFIX)
+    except ValueError:
+        from flowstate.config import repo_root
+
+        return repo_root() / path
+    return datasets_dir / suffix
 
 
 class ProvenanceError(RuntimeError):
@@ -26,12 +54,21 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def require_valid(dataset_ids: list[str] | None = None) -> None:
-    if not MANIFEST.exists():
+def require_valid(
+    dataset_ids: list[str] | None = None,
+    datasets_dir: Path | None = None,
+) -> None:
+    if datasets_dir is None:
+        from flowstate.config import get_settings
+
+        datasets_dir = get_settings().datasets_dir
+    assert datasets_dir is not None
+    manifest_file = manifest_path(datasets_dir)
+    if not manifest_file.exists():
         raise ProvenanceError(
-            f"Missing {MANIFEST}. Run make ingest DATASET=manifest."
+            f"Missing {manifest_file}. Run make ingest DATASET=manifest."
         )
-    manifest = json.loads(MANIFEST.read_text())
+    manifest = json.loads(manifest_file.read_text())
     wanted = set(dataset_ids) if dataset_ids else None
     problems: list[str] = []
     for dataset in manifest["datasets"]:
@@ -46,7 +83,7 @@ def require_valid(dataset_ids: list[str] | None = None) -> None:
             if not rel:
                 problems.append(f"{name}: manifest entry has no path")
                 continue
-            path = Path(rel)
+            path = locate_recorded_path(rel, datasets_dir)
             if not path.exists():
                 problems.append(f"{name}: missing {rel}")
                 continue

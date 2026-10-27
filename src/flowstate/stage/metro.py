@@ -22,7 +22,9 @@ from flowstate.staged import staged_parquet_path, write_parquet
 
 
 def stage_metro(settings: Settings) -> dict[str, Any]:
-    require_valid(["namma_metro_daily", "bmrcl_rti"])
+    require_valid(
+        ["namma_metro_daily", "bmrcl_rti"], settings.datasets_dir
+    )
     profile = load(DEFAULT_CITY_ID)
     daily = metro_from_disk(settings.datasets_dir, profile)
     hour = station_from_disk(settings.datasets_dir, profile)

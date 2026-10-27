@@ -22,18 +22,7 @@ from flowstate.streaming.ride_event_schema import (
     BUS_PRIOR_PARAMETERS,
     envelope_json,
 )
-
-TOPIC_BY_MODE = {
-    "ride_hail": "flowstate.ridehail.activity.v1",
-    "metro": "flowstate.metro.station_hour.v1",
-    "bus": "flowstate.bus.scheduled_stop.v1",
-    "aviation": None,  # arrival and departure are separate topics
-}
-
-AVIATION_TOPICS = {
-    "arrival": "flowstate.aviation.arrival.v1",
-    "departure": "flowstate.aviation.departure.v1",
-}
+from flowstate.topic_names import AVIATION_TOPICS, TOPIC_BY_MODE
 
 
 def topic_for(row: dict[str, Any]) -> str | None:

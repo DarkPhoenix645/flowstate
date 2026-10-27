@@ -6,7 +6,6 @@
 	mr-package yarn-probe test lint \
 
 PYTHON ?= uv run python
-TOPIC ?= flowstate.ridehail.activity.v1
 DATASET ?= all
 SPARK_MASTER ?= spark://spark:7077
 COMPOSE = docker compose --env-file infra/kafka/cluster.env

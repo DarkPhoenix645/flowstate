@@ -132,7 +132,7 @@ def from_disk(
     code_to_rti: dict[str, str],
     august_index: dict[tuple[str, str, str, str], int],
 ) -> TableBuild:
-    ensure_sources([profile.rti_dataset])
+    ensure_sources([profile.rti_dataset], datasets)
     path = dataset_path(datasets, profile.rti_dir) / profile.od_book
     frame = pd.read_excel(path)
     return build_od_profile(frame, code_to_rti, august_index)

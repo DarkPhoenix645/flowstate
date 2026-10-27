@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # BMTC boarding prior (#40, ADR-0012). Empty env means the default;
@@ -37,8 +37,8 @@ class Settings(BaseSettings):
     )
 
     data_dir: Path = Path("data")
-    # Source extracts. Same directory as raw_dir.
-    datasets_dir: Path = Path("data/raw")
+    # Source extracts. Unset means data_dir / "raw".
+    datasets_dir: Path | None = None
     kafka_bootstrap_servers: str = "localhost:9094"
     spark_master: str = "spark://spark:7077"
     hdfs_namenode: str = "hdfs://namenode:9000"
@@ -66,6 +66,28 @@ class Settings(BaseSettings):
     )
     config_api_host: str = "127.0.0.1"
     config_api_port: int = 8090
+
+    @field_validator("datasets_dir", mode="before")
+    @classmethod
+    def _blank_datasets_dir(cls, value: object) -> object:
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        return value
+
+    @model_validator(mode="after")
+    def _bind_paths(self) -> Settings:
+        """Relative paths are from the repo root, not the working directory."""
+        data = self.data_dir
+        if not data.is_absolute():
+            data = repo_root() / data
+        datasets = self.datasets_dir
+        if datasets is None:
+            datasets = data / "raw"
+        elif not datasets.is_absolute():
+            datasets = repo_root() / datasets
+        self.data_dir = data
+        self.datasets_dir = datasets
+        return self
 
     @field_validator("config_database_url", mode="before")
     @classmethod
@@ -137,11 +159,27 @@ class Settings(BaseSettings):
             p.mkdir(parents=True, exist_ok=True)
 
 
-def get_settings() -> Settings:
-    # Load .env into os.environ so non-FLOWSTATE keys (e.g. KAGGLE_API_TOKEN)
-    # are visible to kagglehub and other clients.
-    load_dotenv()
-    return Settings()
+def repo_root() -> Path:
+    """Directory that holds pyproject.toml."""
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "pyproject.toml").is_file():
+            return parent
+    return Path.cwd()
+
+
+def get_settings(env_file: Path | None = None) -> Settings:
+    """Load deploy settings.
+
+    ``.env`` is the repo-root file, or ``env_file`` when that path is
+    passed. Non-FLOWSTATE keys (for example KAGGLE_API_TOKEN) are
+    loaded into the process environment for other clients.
+    """
+    path = repo_root() / ".env" if env_file is None else env_file
+    load_dotenv(path)
+    if path.is_file():
+        return Settings(_env_file=path)
+    return Settings(_env_file=None)
 
 
 def check() -> int:
