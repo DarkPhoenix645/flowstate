@@ -69,6 +69,11 @@ from flowstate.resample.window import (
     ride_lookup,
     window_days,
 )
+from flowstate.streaming.control import (
+    StartRequest,
+    default_window,
+    start_default,
+)
 from flowstate.streaming.ride_event_schema import RideEvent
 from flowstate.streaming.topics import (
     AUDIT_TOPIC,
@@ -609,13 +614,43 @@ def _acks(futures: list[Any]) -> tuple[int, list[BaseException]]:
 
 def _parse(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="flowstate.streaming.producer")
-    parser.add_argument("--mode", choices=MODES, default=None)
-    parser.add_argument("--events-per-sec", type=float, default=None)
-    parser.add_argument("--rows", type=int, default=None)
-    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument(
+        "--mode",
+        choices=MODES,
+        default=None,
+        help=f"historical, replay, or live (default {start_default('mode')})",
+    )
+    parser.add_argument(
+        "--events-per-sec",
+        "--max-eps",
+        dest="max_eps",
+        type=float,
+        default=None,
+        help=f"event cap (default {start_default('max_eps')})",
+    )
+    parser.add_argument(
+        "--rows",
+        type=int,
+        default=None,
+        help=f"events in the plan (default {start_default('rows')})",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help=f"generator seed (default {start_default('seed')})",
+    )
     parser.add_argument("--window-start", default=None)
     parser.add_argument("--window-end", default=None)
-    parser.add_argument("--acceleration", type=float, default=None)
+    parser.add_argument(
+        "--acceleration",
+        type=float,
+        default=None,
+        help=(
+            "event-time acceleration "
+            f"(default {start_default('acceleration')})"
+        ),
+    )
     parser.add_argument("--seek", default=None)
     parser.add_argument("--command", action="append", default=[])
     parser.add_argument(
@@ -631,63 +666,85 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _settings_from(args: argparse.Namespace) -> dict[str, Any]:
-    """CLI flags over the request file over the defaults."""
-    values: dict[str, Any] = {
-        "mode": "replay",
-        "events_per_sec": 500.0,
-        "rows": 10_000,
-        "seed": 42,
-        "window_start": None,
-        "window_end": None,
-        "acceleration": 60.0,
-        "seek": None,
+def parse_producer(
+    argv: list[str] | None = None,
+) -> tuple[str, StartRequest, bool]:
+    """Flags over the request file over ``StartRequest`` defaults.
+
+    ``--events-per-sec`` and ``--max-eps`` set ``max_eps``.
+    ``historical`` is a producer mode. It is not a ``StartRequest.mode``.
+    """
+    args = _parse(argv)
+    base = StartRequest()
+    mode = base.mode
+    fields: dict[str, Any] = {
+        "rows": base.rows,
+        "seed": base.seed,
+        "window_start": base.window_start,
+        "window_end": base.window_end,
+        "acceleration": base.acceleration,
+        "max_eps": base.max_eps,
+        "seek": base.seek,
         "commands": [],
     }
     if args.request:
         raw = json.loads(Path(args.request).read_text())
-        for key, dest in (
-            ("mode", "mode"),
-            ("max_eps", "events_per_sec"),
-            ("rows", "rows"),
-            ("seed", "seed"),
-            ("window_start", "window_start"),
-            ("window_end", "window_end"),
-            ("acceleration", "acceleration"),
-            ("seek", "seek"),
-            ("commands", "commands"),
+        if raw.get("mode"):
+            mode = raw["mode"]
+        for key in (
+            "rows",
+            "seed",
+            "window_start",
+            "window_end",
+            "acceleration",
+            "max_eps",
+            "seek",
         ):
             if key in raw and raw[key] is not None:
-                values[dest] = raw[key]
-    for name in (
-        "mode",
-        "events_per_sec",
+                fields[key] = raw[key]
+        if raw.get("commands"):
+            fields["commands"] = raw["commands"]
+    if args.mode is not None:
+        mode = args.mode
+    for key in (
         "rows",
         "seed",
         "window_start",
         "window_end",
         "acceleration",
+        "max_eps",
         "seek",
     ):
-        flag = getattr(args, name)
+        flag = getattr(args, key)
         if flag is not None:
-            values[name] = flag
+            fields[key] = flag
     if args.command:
-        values["commands"] = [json.loads(item) for item in args.command]
-    return values
+        fields["commands"] = [json.loads(item) for item in args.command]
+    start_mode = mode if mode in ("replay", "live") else base.mode
+    return mode, StartRequest(mode=start_mode, **fields), bool(args.dry_run)
 
 
 def main(argv: list[str] | None = None) -> None:
     configure_logging()
-    args = _parse(argv)
-    wanted = _settings_from(args)
+    mode, start, dry_run = parse_producer(argv)
+    produce(start, mode=mode, dry_run=dry_run)
+
+
+def produce(
+    start: StartRequest,
+    *,
+    mode: str | None = None,
+    dry_run: bool = False,
+) -> Emission:
+    """Run one producer plan from a request. No argv."""
+    mode = mode or start.mode
     settings = get_settings()
     log.info(
         "producer mode=%s seed=%s rows=%s max_eps=%s bootstrap=%s",
-        wanted["mode"],
-        wanted["seed"],
-        wanted["rows"],
-        wanted["events_per_sec"],
+        mode,
+        start.seed,
+        start.rows,
+        start.max_eps,
         settings.kafka_bootstrap_servers,
     )
     require_station_reviews(settings.data_dir, DEFAULT_CITY_ID)
@@ -710,39 +767,40 @@ def main(argv: list[str] | None = None) -> None:
         inputs,
         spec,
         resolved.model.resample_config,
-        seed=wanted["seed"],
+        seed=start.seed,
         config_hash=resolved.config_hash,
     )
-    window_start = wanted["window_start"] or spec.window_start.isoformat()
-    window_end = wanted["window_end"] or window_start
-    commands = [
-        ScenarioCommand.model_validate(item) for item in wanted["commands"]
-    ]
+    window_start, window_end = default_window(
+        spec.window_start.isoformat(),
+        start.window_start,
+        start.window_end,
+    )
+    commands = list(start.commands)
     request = ReplayRequest(
         bundle_version=bundle.version,
-        seed=wanted["seed"],
+        seed=start.seed,
         window_start=window_start,
         window_end=window_end,
-        acceleration=wanted["acceleration"],
-        max_eps=wanted["events_per_sec"],
+        acceleration=start.acceleration,
+        max_eps=start.max_eps,
         commands=commands,
     )
-    if wanted["mode"] == "live":
-        log.info("planning today on the wall clock rows=%s", wanted["rows"])
+    if mode == "live":
+        log.info("planning today on the wall clock rows=%s", start.rows)
     else:
         log.info(
             "planning window %s..%s rows=%s",
             window_start,
             window_end,
-            wanted["rows"],
+            start.rows,
         )
     emission = emit_plan(
         bundle,
         inputs,
         request,
-        mode=wanted["mode"],
-        rows=wanted["rows"],
-        seek=wanted["seek"],
+        mode=mode,
+        rows=start.rows,
+        seek=start.seek,
         pins=pins,
         resolved=resolved,
     )
@@ -761,11 +819,11 @@ def main(argv: list[str] | None = None) -> None:
         len(emission.qa_failures),
         emission.audit[1]["pins_missing"],
     )
-    if args.dry_run:
+    if dry_run:
         if emission.qa_failures:
             raise SystemExit(1)
-        return
-    if wanted["mode"] == "live":
+        return emission
+    if mode == "live":
         emission = refresh_live(
             emission, request, _wall_clock(bundle)()
         )
@@ -802,6 +860,7 @@ def main(argv: list[str] | None = None) -> None:
         producer.close()
     if emission.qa_failures:
         raise SystemExit(1)
+    return emission
 
 
 def _wall_clock(bundle: ModelBundle) -> Clock:

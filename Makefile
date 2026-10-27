@@ -6,10 +6,7 @@
 	mr-package yarn-probe test lint \
 
 PYTHON ?= uv run python
-ROWS ?= 1000000
-SEED ?= 42
 TOPIC ?= flowstate.ridehail.activity.v1
-RATE ?= 500
 DATASET ?= all
 SPARK_MASTER ?= spark://spark:7077
 COMPOSE = docker compose --env-file infra/kafka/cluster.env
@@ -24,7 +21,7 @@ help:
 	@echo "  make normalize          analysis tables from files already on disk"
 	@echo "  make stage              parquet from cold extracts. aviation is DGCA only, not OpenSky"
 	@echo "  make lake               put staged ride-hail parquet on HDFS"
-	@echo "  make amplify            1M corpus, lake put, rollup_conservation"
+	@echo "  make amplify            corpus, lake put, rollup_conservation (ROWS, SEED)"
 	@echo "  make evaluate           fit + record the held-out resampler evaluation"
 	@echo "  make up                 mint Kafka CLUSTER_ID if needed, start stack"
 	@echo "  make down               stop stack (keeps volumes + CLUSTER_ID)"
@@ -61,7 +58,7 @@ lake:
 	PYTHONUNBUFFERED=1 $(PYTHON) -m flowstate.lake
 
 amplify:
-	$(PYTHON) -m flowstate.ingest.amplify --rows $(ROWS) --seed $(SEED)
+	$(PYTHON) -m flowstate.ingest.amplify $(if $(ROWS),--rows $(ROWS)) $(if $(SEED),--seed $(SEED))
 	$(PYTHON) -m flowstate.lake.amplify
 	$(SPARK_SUBMIT) /opt/src/flowstate/batch/spark_jobs/conservation_check.py
 	$(COMPOSE) exec -T hiveserver2 beeline \
@@ -109,15 +106,14 @@ stream-serve:
 stream-ctl:
 	$(PYTHON) -m flowstate.streaming.ctl $(ARGS)
 
-# REQUEST is a replay request JSON (ADR-0017). Without it the flags apply.
-PRODUCE_ROWS ?= 10000
+# REQUEST is a replay request JSON (ADR-0017).
+# RATE, SEED, and PRODUCE_ROWS are passed only when set.
+# Otherwise the producer uses StartRequest.
 stream-produce:
 ifdef REQUEST
 	$(PYTHON) -m flowstate.streaming.producer --request $(REQUEST)
 else
-	$(PYTHON) -m flowstate.streaming.producer \
-		--mode replay --events-per-sec $(RATE) --seed $(SEED) \
-		--rows $(PRODUCE_ROWS)
+	$(PYTHON) -m flowstate.streaming.producer --mode replay $(if $(RATE),--events-per-sec $(RATE)) $(if $(SEED),--seed $(SEED)) $(if $(PRODUCE_ROWS),--rows $(PRODUCE_ROWS))
 endif
 
 stream-consume:

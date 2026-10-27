@@ -477,7 +477,7 @@ def test_short_waits_add_up_and_the_cap_holds():
 def test_request_file_feeds_the_cli(tmp_path):
     import json
 
-    from flowstate.streaming.producer import _parse, _settings_from
+    from flowstate.streaming.producer import parse_producer
 
     path = tmp_path / "request.json"
     path.write_text(
@@ -489,17 +489,28 @@ def test_request_file_feeds_the_cli(tmp_path):
                 "seed": 9,
                 "window_start": "2025-08-01",
                 "seek": "2025-08-01T12:00:00+05:30",
-                "commands": [{"scenario_id": "x"}],
+                "commands": [
+                    {
+                        "mode": "ride_hail",
+                        "scenario_type": "custom_shock",
+                        "location_ref": "b_1",
+                        "start": "2025-08-01T12:00:00+05:30",
+                        "duration": "PT1H",
+                        "scenario_id": "x",
+                    }
+                ],
             }
         )
     )
-    values = _settings_from(_parse(["--request", str(path), "--seed", "11"]))
-    assert values["mode"] == "historical"
-    assert values["rows"] == 5000
-    assert values["events_per_sec"] == 77
-    assert values["seed"] == 11  # a flag wins over the file
-    assert values["seek"] == "2025-08-01T12:00:00+05:30"
-    assert values["commands"] == [{"scenario_id": "x"}]
+    mode, start, _dry = parse_producer(
+        ["--request", str(path), "--seed", "11"]
+    )
+    assert mode == "historical"
+    assert start.rows == 5000
+    assert start.max_eps == 77
+    assert start.seed == 11
+    assert start.seek == "2025-08-01T12:00:00+05:30"
+    assert start.commands[0].scenario_id == "x"
 
 
 def test_shipped_metro_shares_are_evidence_bounded():
