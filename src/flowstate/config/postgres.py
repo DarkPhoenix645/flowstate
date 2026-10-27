@@ -28,7 +28,7 @@ from flowstate.config.resolve import (
     resolve_models,
 )
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 KINDS = ("scenario_policy", "resample_config")
 _CONNECT_TIMEOUT = 3
 
@@ -83,6 +83,10 @@ class ConfigStore:
 
     def __init__(self, database_url: str) -> None:
         self._url = database_url
+
+    @property
+    def database_url(self) -> str | None:
+        return self._url
 
     def __repr__(self) -> str:
         return "ConfigStore(url hidden)"

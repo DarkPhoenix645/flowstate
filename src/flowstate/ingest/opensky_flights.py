@@ -374,6 +374,25 @@ def _write_window(path: Path, flights: list) -> None:
     os.replace(partial, path)
 
 
+def window_counts(direction: str) -> dict[str, int | str]:
+    """Cached windows the fetcher would see. Does not write links."""
+    needed = windows()
+    cached = 0
+    for start, end in needed:
+        if window_file(direction, start, end) is not None:
+            cached += 1
+            continue
+        legacy = LEGACY_CACHE / cache_path(direction, start, end).name
+        if _nonempty(legacy):
+            cached += 1
+    return {
+        "direction": direction,
+        "windows_required": len(needed),
+        "windows_cached": cached,
+        "gap": len(needed) - cached,
+    }
+
+
 def coverage(direction: str = "arrival") -> dict:
     needed = windows()
     cached = 0

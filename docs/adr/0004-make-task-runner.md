@@ -10,7 +10,9 @@ Early planning used Just recipes. The team needs one entrypoint that works on Li
 
 ## Decision
 
-Use **Make** as the only task runner for documented workflows.
+Use **Make** for dev work, one-time setup, and quick checks. User-facing runs go through the API ([ADR-0020](0020-job-backend.md)).
+
+Make remains the task runner for documented dev workflows.
 
 Locked targets and variables include: `setup`, `ingest`, `amplify`, `hotspots`, `up` / `down`, `stream-produce`, `stream-consume`, `hive-ddl`, `mr-package`, `yarn-probe`, `test`, `lint`, plus `DATASET`, `ROWS`, `TOPIC`, `RATE`.
 

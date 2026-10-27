@@ -1,0 +1,15 @@
+meta {
+  name: Cancel run
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/runs/{{runId}}/cancel
+  body: none
+  auth: none
+}
+
+docs {
+  Cancels a queued or running run. A finished run is 422.
+}

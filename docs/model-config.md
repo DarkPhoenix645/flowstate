@@ -10,7 +10,7 @@ Hive still uses Derby for the metastore. Derby records Hive table names and part
 
 1. `make up`
 2. `make config-seed`
-3. `make config-api`
+3. `make api`
 
 The API listens on `http://127.0.0.1:8090`. Bruno collection: `bruno/`. Select the `DEV` environment.
 
@@ -29,8 +29,8 @@ These values stay in the environment. They are not model config. A blank `FLOWST
 | `FLOWSTATE_HDFS_NAMENODE` | `hdfs://namenode:9000` | Lake URI. |
 | `FLOWSTATE_GOOGLE_MAPS_API_KEY` | empty | Geocode key for station and airport pins. Cached under `data/geocode/`. |
 | `FLOWSTATE_CONFIG_DATABASE_URL` | `postgresql://flowstate:flowstate@127.0.0.1:5432/flowstate` | Postgres URL. The password is the Compose `POSTGRES_PASSWORD`. |
-| `FLOWSTATE_CONFIG_API_HOST` | `127.0.0.1` | API bind address. |
-| `FLOWSTATE_CONFIG_API_PORT` | `8090` | API port. |
+| `FLOWSTATE_API_HOST` | `127.0.0.1` | API bind address. |
+| `FLOWSTATE_API_PORT` | `8090` | API port. |
 | `FLOWSTATE_OPENSKY_CLIENT_ID` | empty | OpenSky client id. Pair 1. |
 | `FLOWSTATE_OPENSKY_CLIENT_SECRET` | empty | OpenSky client secret. Pair 1. |
 
@@ -117,10 +117,15 @@ No auth in v1. An invalid document is HTTP 422 and writes no row.
 | `GET` | `/api/datasets` | Rows from `datasets_dir/provenance/manifest.json`. |
 | `GET` | `/api/datasets/opensky?direction=arrivals\|departures` | Cached window count. Incomplete departures are HTTP 409. |
 | `GET` | `/api/benchmarks` | Rows from `benchmark`. HTTP 404 when the table is empty. |
-| `GET` | `/api/events/snapshot` | One ADR-0008 envelope. `fixture` is true. |
+| `GET` | `/api/events/snapshot` | One ADR-0008 envelope. The response `fixture` is true. The event stays a valid envelope. |
+| `GET` | `/api/jobs` | The job registry and each parameter schema. |
+| `POST` | `/api/runs` | Body `{kind, job, params, backend?}`. HTTP 202 and the `run_id`. |
+| `GET` | `/api/runs` | Runs. Optional `kind` and `status` queries. |
+| `GET` | `/api/runs/{run_id}` | One run. |
+| `POST` | `/api/runs/{run_id}/cancel` | Cancel a queued or running run. |
 
 `{kind}` is `scenario_policy` or `resample_config`.
 
-`init.sql` is schema version 2. It runs only on a fresh volume. A volume from version 1 has no `run_config` table and no `benchmark` table. Recreate that volume.
+`init.sql` is schema version 3. It runs only on a fresh volume. A volume from an older version does not gain `run`. Recreate that volume.
 
 Writable knobs are `assumed_weekday_boardings` (`4600000`, `4000000`, `4800000`, `3310000`), `assumed_bus_capacity` (`41.3`), and `assumed_max_load_factor` (`1.0`, `1.2`, `1.4`). `replay_seed` is an integer. Any other field is HTTP 422 and writes no row.

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import socket
-from pathlib import Path
 from typing import Any
 
 from flowstate.config import get_settings
@@ -14,13 +13,11 @@ from flowstate.config.model import (
     CONFIG_SHOWN,
     CONFIG_WRITABLE,
     ResampleConfig,
+    config_hash_from,
     config_knob_allowed,
 )
-from flowstate.config.postgres import ConfigStore, resolve_active
-from flowstate.config.resolve import (
-    ConfigNotActiveError,
-    ConfigValidationError,
-)
+from flowstate.config.postgres import ConfigStore
+from flowstate.config.resolve import ConfigValidationError
 from flowstate.provenance import manifest_path
 from flowstate.resample.envelope import to_envelope
 from flowstate.streaming.control import start_default
@@ -101,7 +98,7 @@ def config_view(store: ConfigStore) -> dict[str, Any]:
             "editable": False,
         },
         "resample_config_version_id": version_id,
-        "config_hash": _config_hash(store),
+        "config_hash": active_config_hash(store),
     }
     return payload
 
@@ -110,13 +107,12 @@ def put_config(store: ConfigStore, raw: bytes) -> tuple[int, dict[str, Any]]:
     body = _object(raw)
     seed, changes = _parse_config_put(body)
     model, _sources, _version = _resample(store)
-    if changes:
-        updated = model.model_copy(update=changes)
-        store.put_version(
-            "resample_config",
-            updated.model_dump(mode="json"),
-            note="api/config",
-        )
+    updated = model.model_copy(update=changes)
+    store.put_version(
+        "resample_config",
+        updated.model_dump(mode="json"),
+        note="api/config",
+    )
     if seed is not None:
         store.set_replay_seed(seed)
     return 200, config_view(store)
@@ -151,27 +147,16 @@ def opensky_view(settings: Any, direction: str) -> tuple[int, dict[str, Any]]:
         raise ConfigValidationError(
             "direction must be arrivals or departures"
         )
-    from flowstate.ingest import opensky_flights as sky
+    from flowstate.ingest.opensky_flights import window_counts
 
-    required = sky.windows()
-    cache = settings.datasets_dir / "opensky" / "windows"
-    cached = 0
-    for start, end in required:
-        name = (
-            f"{sky.AIRPORT}_{start:%Y%m%dT%H%M}_{end:%Y%m%dT%H%M}Z.json"
-        )
-        nested = cache / key / name
-        flat = cache / name
-        if _nonempty(nested) or (key == "arrival" and _nonempty(flat)):
-            cached += 1
-    gap = len(required) - cached
+    counted = window_counts(key)
     payload = {
         "direction": direction,
-        "windows_cached": cached,
-        "windows_required": len(required),
-        "gap": gap,
+        "windows_cached": counted["windows_cached"],
+        "windows_required": counted["windows_required"],
+        "gap": counted["gap"],
     }
-    if key == "departure" and gap:
+    if key == "departure" and counted["gap"]:
         return 409, payload
     return 200, payload
 
@@ -194,9 +179,7 @@ def snapshot_events() -> list[dict[str, Any]]:
         "pickup_zone": "b_1",
         "drop_zone": "b_2",
     }
-    event = to_envelope(row)
-    event["fixture"] = True
-    return [event]
+    return [to_envelope(row)]
 
 
 def _resample(
@@ -242,11 +225,16 @@ def _parse_config_put(
     return seed, changes
 
 
-def _config_hash(store: ConfigStore) -> str | None:
-    try:
-        return resolve_active(store).config_hash
-    except ConfigNotActiveError:
+def active_config_hash(store: ConfigStore) -> str | None:
+    active = store.active()
+    parts = {
+        kind: active[kind].sha256
+        for kind in ("resample_config", "scenario_policy")
+        if kind in active
+    }
+    if not parts:
         return None
+    return config_hash_from(parts)
 
 
 def _env_present(name: str) -> bool:
@@ -269,7 +257,3 @@ def _port_open(host: str, port: int) -> bool:
             return True
     except OSError:
         return False
-
-
-def _nonempty(path: Path) -> bool:
-    return path.is_file() and path.stat().st_size > 0

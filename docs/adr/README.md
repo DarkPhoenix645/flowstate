@@ -23,3 +23,4 @@ Accepted choices for FlowState. Read these before you change stack, schema, or r
 | [0017](0017-producer-as-a-realtime-twin-source.md)    | Producer as a realtime twin source                                       |
 | [0018](0018-postgres-for-model-config.md)             | Postgres for model config                                                |
 | [0019](0019-analytics-catalog.md)                     | Analytics catalog                                                        |
+| [0020](0020-job-backend.md)                           | Job backend                                                              |

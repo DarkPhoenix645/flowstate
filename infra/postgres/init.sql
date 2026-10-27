@@ -1,4 +1,4 @@
--- Schema version 2. init.sql runs only on a fresh volume.
+-- Schema version 3. init.sql runs only on a fresh volume.
 -- The process checks schema_version on connect.
 
 CREATE TABLE schema_version (
@@ -6,7 +6,7 @@ CREATE TABLE schema_version (
     applied_at timestamptz NOT NULL DEFAULT now()
 );
 
-INSERT INTO schema_version (version) VALUES (2);
+INSERT INTO schema_version (version) VALUES (3);
 
 CREATE TABLE config_version (
     id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -55,4 +55,33 @@ CREATE TABLE benchmark (
     seed integer,
     elapsed_seconds double precision,
     created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- One API unit of work. #88 and later jobs add rows of their kinds.
+CREATE TABLE run (
+    run_id text PRIMARY KEY,
+    kind text NOT NULL CHECK (
+        kind IN (
+            'amplify', 'analytics', 'benchmark', 'replay', 'stream'
+        )
+    ),
+    job text NOT NULL,
+    params jsonb NOT NULL,
+    config_snapshot jsonb NOT NULL,
+    config_hash text,
+    scenario_policy_version_id text,
+    resample_config_version_id text,
+    backend text NOT NULL,
+    status text NOT NULL CHECK (
+        status IN (
+            'queued', 'running', 'succeeded', 'failed', 'cancelled'
+        )
+    ),
+    external_id text,
+    result_location text,
+    grafana_url text,
+    error text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    started_at timestamptz,
+    finished_at timestamptz
 );
