@@ -99,10 +99,20 @@ def unacceptable_create_errors(
 
 
 def ensure_topics(admin: KafkaAdminClient) -> None:
-    response = admin.create_topics(topic_specs(), timeout_ms=10_000)
-    bad = unacceptable_create_errors(create_error_codes(response))
-    if bad:
-        raise SystemExit(f"topic create failed: {bad}")
+    """Create the eight topics. Already existing is success.
+
+    ``kafka-python`` raises ``TopicAlreadyExistsError`` instead of
+    returning error code 36, and it raises on the first such topic.
+    The broker has already created the others. A second run must exit 0.
+    """
+    try:
+        response = admin.create_topics(topic_specs(), timeout_ms=10_000)
+    except TopicAlreadyExistsError:
+        response = None
+    if response is not None:
+        bad = unacceptable_create_errors(create_error_codes(response))
+        if bad:
+            raise SystemExit(f"topic create failed: {bad}")
     described = admin.describe_topics(list(v1_topics()))
     require_one_partition(partition_counts(described), v1_topics())
 

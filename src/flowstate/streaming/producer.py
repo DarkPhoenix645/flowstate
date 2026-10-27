@@ -197,8 +197,25 @@ def conservation_report(
         "parents_match_children": (
             ride_rows == ride_parents and aviation_rows == aviation_parents
         ),
-        "observed_and_synthetic_are_separate": True,
+        "observed_and_synthetic_are_separate": (
+            _aviation_provenances_do_not_share_a_parent(rows)
+        ),
     }
+
+
+def _aviation_provenances_do_not_share_a_parent(
+    rows: list[dict[str, Any]],
+) -> bool:
+    """True when no aviation parent is both observed-proxy and synthetic."""
+    seen: dict[str, set[str]] = {}
+    for row in rows:
+        if row.get("mode") != "aviation":
+            continue
+        status = row.get("provenance_status")
+        if status not in ("observed_proxy", "synthetic"):
+            continue
+        seen.setdefault(str(row["parent_id"]), set()).add(status)
+    return all(len(statuses) == 1 for statuses in seen.values())
 
 
 def merge_sequence(

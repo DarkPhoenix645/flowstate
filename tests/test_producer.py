@@ -7,6 +7,7 @@ from datetime import datetime
 
 import pyarrow as pa
 import pytest
+from kafka.errors import TopicAlreadyExistsError
 
 import resample_fixtures as fx
 from flowstate.resample import build_bundle, bundle_hash, to_envelope
@@ -35,6 +36,7 @@ from flowstate.schema import resolve_vehicle_type
 from flowstate.stage.events import metro_station_hour_event
 from flowstate.streaming.producer import (
     ReplayRequest,
+    conservation_report,
     emit_plan,
     order_failures,
     pace_delays,
@@ -47,6 +49,7 @@ from flowstate.streaming.ride_event_schema import (
     envelope_spark_schema,
 )
 from flowstate.streaming.topics import (
+    ensure_topics,
     partition_counts,
     require_one_partition,
     topic_specs,
@@ -541,6 +544,114 @@ def test_sparse_and_failed_windows_are_synthetic(bundle):
     assert {row["provenance_status"] for row in failed_rows} == {"synthetic"}
 
 
+def _flight_rows(
+    day: str, direction: str, count: int
+) -> list[dict[str, object]]:
+    return [
+        {
+            "direction": direction,
+            "local_date": day,
+            "event_time_unix": 1_754_000_000 + index,
+            "icao24": f"{index:06x}",
+            "callsign": "TST",
+        }
+        for index in range(count)
+    ]
+
+
+def test_covered_window_is_not_topped_up_with_synthetic(bundle):
+    """Budget above the fetch must not mix provenances on one parent.
+
+    40 arrivals and 40 departures, budget 200. The old path emitted
+    80 observed-proxy rows and 120 synthetic rows on the same parents.
+    """
+    day = "2025-08-01"
+    table = pa.Table.from_pylist(
+        _flight_rows(day, "arrival", 40) + _flight_rows(day, "departure", 40)
+    )
+    parents = ParentTotals()
+    stream, summary = aviation_events(
+        bundle,
+        rng_for(1, "aviation"),
+        table,
+        day_pool=[day],
+        budget_rows=200,
+        parents=parents,
+    )
+    emitted = [row for batch in stream for row in batch]
+    by_parent: dict[str, set[str]] = {}
+    for row in emitted:
+        by_parent.setdefault(row["parent_id"], set()).add(
+            row["provenance_status"]
+        )
+    assert summary["observed_rows"] == 80
+    assert summary["synthetic_rows"] == 0
+    assert len(emitted) == 80
+    assert all(
+        statuses == {"observed_proxy"} for statuses in by_parent.values()
+    )
+    assert conservation_report(emitted, parents)[
+        "observed_and_synthetic_are_separate"
+    ]
+
+
+def test_surplus_budget_lands_on_a_gap_not_the_covered_window(bundle):
+    covered = "2025-08-01"
+    gap = "2025-08-02"
+    table = pa.Table.from_pylist(
+        _flight_rows(covered, "arrival", 40)
+        + _flight_rows(covered, "departure", 40)
+        + _flight_rows(gap, "arrival", 2)
+    )
+    stream, _summary = aviation_events(
+        bundle,
+        rng_for(1, "aviation"),
+        table,
+        day_pool=[covered, gap],
+        budget_rows=200,
+        parents=ParentTotals(),
+    )
+    emitted = [row for batch in stream for row in batch]
+    by_parent: dict[str, set[str]] = {}
+    for row in emitted:
+        by_parent.setdefault(row["parent_id"], set()).add(
+            row["provenance_status"]
+        )
+    assert all(len(statuses) == 1 for statuses in by_parent.values())
+    covered_parents = {
+        parent: statuses
+        for parent, statuses in by_parent.items()
+        if f":{covered}:" in parent
+    }
+    assert covered_parents
+    assert all(
+        statuses == {"observed_proxy"} for statuses in covered_parents.values()
+    )
+    assert any(
+        statuses == {"synthetic"}
+        for parent, statuses in by_parent.items()
+        if f":{gap}:" in parent
+    )
+
+
+def test_conservation_report_flags_a_mixed_aviation_parent():
+    parent = "flight_events:2025-08-01:arrival"
+    rows = [
+        {
+            "mode": "aviation",
+            "provenance_status": "observed_proxy",
+            "parent_id": parent,
+        },
+        {
+            "mode": "aviation",
+            "provenance_status": "synthetic",
+            "parent_id": parent,
+        },
+    ]
+    report = conservation_report(rows, ParentTotals())
+    assert report["observed_and_synthetic_are_separate"] is False
+
+
 def test_scrub_matches_the_suffix(bundle, inputs):
     request = _request(bundle)
     full = emit_plan(bundle, inputs, request, mode="replay", rows=ROWS)
@@ -574,6 +685,30 @@ def test_topics_are_one_partition():
         require_one_partition(counts, v1_topics())
     assert unacceptable_create_errors([("a", 0), ("b", 36)]) == []
     assert unacceptable_create_errors([("a", 1)]) == [("a", 1)]
+
+
+def test_ensure_topics_treats_already_exists_as_success():
+    class Admin:
+        def __init__(self):
+            self.described = False
+
+        def create_topics(self, specs, timeout_ms=None):
+            raise TopicAlreadyExistsError("metro and bus already exist")
+
+        def describe_topics(self, topics):
+            self.described = True
+            return [
+                {
+                    "topic": name,
+                    "error_code": 0,
+                    "partitions": [{"partition": 0}],
+                }
+                for name in topics
+            ]
+
+    admin = Admin()
+    ensure_topics(admin)
+    assert admin.described
 
 
 def test_send_batches_flushes_on_the_cap():

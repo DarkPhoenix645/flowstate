@@ -1039,31 +1039,13 @@ def aviation_events(
             if (day, direction) in gated:
                 events = []
             if events:
+                # A covered window is observed-proxy only. Topping the
+                # same parent up with synthetic rows is a double count.
                 if len(events) > take:
                     picked = rng.choice(
                         len(events), size=take, replace=False
                     )
                     events = [events[int(i)] for i in sorted(picked)]
-                elif len(events) < take:
-                    rows.extend(
-                        _aviation_observed_rows(
-                            bundle, day, direction, events, parents
-                        )
-                    )
-                    gap = take - len(events)
-                    synthetic_days.append(f"{day}:{direction}")
-                    rows.extend(
-                        _aviation_synthetic_rows(
-                            bundle,
-                            rng,
-                            day=day,
-                            direction=direction,
-                            parents=parents,
-                            span=span,
-                            count=gap,
-                        )
-                    )
-                    continue
                 rows.extend(
                     _aviation_observed_rows(
                         bundle, day, direction, events, parents
@@ -1098,19 +1080,22 @@ def aviation_events(
             )
     elif emitted < budget_rows:
         gap = budget_rows - emitted
-        fill_day = days[-1] if days else pool[-1]
-        rows.extend(
-            _aviation_synthetic_rows(
-                bundle,
-                rng,
-                day=fill_day,
-                direction="departure",
-                parents=parents,
-                span=span,
-                count=gap,
+        slot = _synthetic_fill_slot(observed, gated, days, pool)
+        if slot is not None:
+            fill_day, fill_direction = slot
+            synthetic_days.append(f"{fill_day}:{fill_direction}")
+            rows.extend(
+                _aviation_synthetic_rows(
+                    bundle,
+                    rng,
+                    day=fill_day,
+                    direction=fill_direction,
+                    parents=parents,
+                    span=span,
+                    count=gap,
+                )
             )
-        )
-        emitted = len(rows)
+            emitted = len(rows)
     summary = {
         "days": days,
         "observed_rows": sum(
@@ -1129,6 +1114,29 @@ def aviation_events(
             yield rows[start : start + BATCH_ROWS]
 
     return batches(), summary
+
+
+def _synthetic_fill_slot(
+    observed: dict[tuple[str, str], list[Any]],
+    gated: set[tuple[str, str]],
+    days: list[str],
+    pool: list[str],
+) -> tuple[str, str] | None:
+    """A day/direction that is a gap, not a covered window.
+
+    Surplus budget can land here. It cannot land on a parent that
+    already holds observed-proxy flights.
+    """
+    ordered: list[str] = []
+    for day in [*reversed(days), *reversed(pool)]:
+        if day not in ordered:
+            ordered.append(day)
+    for day in ordered:
+        for direction in ("departure", "arrival"):
+            key = (day, direction)
+            if not observed.get(key) or key in gated:
+                return day, direction
+    return None
 
 
 def _aviation_observed_rows(
