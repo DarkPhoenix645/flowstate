@@ -1,4 +1,4 @@
-"""The file-backed model-config seam. No Postgres."""
+"""Model-config hashes. The process reads Postgres, not these files."""
 
 from __future__ import annotations
 
@@ -13,11 +13,7 @@ from flowstate.config.model import (
     ResampleConfig,
     canonical_json,
 )
-from flowstate.config.resolve import (
-    FileConfigSource,
-    MemoryConfigSource,
-    resolve_models,
-)
+from flowstate.config.resolve import MemoryConfigSource, resolve_models
 from flowstate.resample.bundle import BundleCache
 from flowstate.resample.scenario import POLICY_PATH, load_policy
 
@@ -31,35 +27,38 @@ def _clear_prior(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(key, raising=False)
 
 
+def _resolved(policy, resample=None):
+    return resolve_models(
+        policy,
+        resample if resample is not None else ResampleConfig(),
+        source="db",
+        version_id="1",
+    )
+
+
 def test_whitespace_does_not_change_the_config_hash(tmp_path):
     raw = json.loads(POLICY_PATH.read_text())
     pretty = tmp_path / "policy.json"
     pretty.write_text(json.dumps(raw, indent=4))
     tight = tmp_path / "tight.json"
     tight.write_text(json.dumps(raw, separators=(",", ":")))
-    settings = Settings(_env_file=None)
-    left = FileConfigSource(settings, pretty).load()
-    right = FileConfigSource(settings, tight).load()
+    left = _resolved(load_policy(pretty))
+    right = _resolved(load_policy(tight))
     assert left.config_hash == right.config_hash
-    assert left.kinds["scenario_policy"].source == "file"
-    assert left.version_id("scenario_policy") is None
     raw["notes"] = raw.get("notes", "") + " edited"
     changed = tmp_path / "changed.json"
     changed.write_text(json.dumps(raw))
-    edited = FileConfigSource(settings, changed).load()
+    edited = _resolved(load_policy(changed))
     assert edited.config_hash != left.config_hash
 
 
-def test_env_marks_only_the_bus_prior_field(monkeypatch):
+def test_a_settings_object_can_build_a_prior(monkeypatch):
     _clear_prior(monkeypatch)
     monkeypatch.setenv("FLOWSTATE_ASSUMED_WEEKDAY_BOARDINGS", "3310000")
     settings = Settings(_env_file=None)
-    resolved = FileConfigSource(settings).load()
-    config = resolved.model.resample_config
+    config = ResampleConfig.from_settings(settings)
     assert config.assumed_weekday_boardings == 3_310_000
-    assert resolved.field_sources["assumed_weekday_boardings"] == "env"
-    assert resolved.field_sources["assumed_bus_capacity"] == "default"
-    assert resolved.field_sources["outside_widen"] == "default"
+    assert config.assumed_bus_capacity == 41.3
     assert "google_maps_api_key" not in type(config).model_fields
     assert "secret" not in canonical_json(config)
 
@@ -67,9 +66,7 @@ def test_env_marks_only_the_bus_prior_field(monkeypatch):
 def test_unset_env_leaves_the_defaults(monkeypatch):
     _clear_prior(monkeypatch)
     settings = Settings(_env_file=None)
-    resolved = FileConfigSource(settings).load()
-    assert resolved.model.resample_config == ResampleConfig()
-    assert set(resolved.field_sources.values()) == {"default"}
+    assert ResampleConfig.from_settings(settings) == ResampleConfig()
 
 
 def test_a_low_above_a_high_is_rejected():

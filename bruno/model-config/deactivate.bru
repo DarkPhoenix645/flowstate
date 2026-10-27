@@ -1,0 +1,16 @@
+meta {
+  name: Deactivate
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/model-config/{{kind}}/deactivate
+  body: none
+  auth: none
+}
+
+docs {
+  Clears the active pointer for {{kind}}. Versions stay.
+  The next run stops until you activate a version or run make config-seed.
+}

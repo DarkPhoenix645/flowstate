@@ -1,0 +1,31 @@
+vars {
+  @description('''Model-config API.''')
+  baseUrl: https://flowstate.example
+
+  @description('''scenario_policy or resample_config.''')
+  kind: scenario_policy
+
+  @description('''Set this to a real version id before activate.''')
+  versionId: 1
+
+  @description('''Older version id for diff.''')
+  fromId: 1
+
+  @description('''Newer version id for diff.''')
+  toId: 1
+
+  @description('''Replace the password. Do not use the Compose default.''')
+  databaseUrl: postgresql://flowstate:change-me@postgres:5432/flowstate
+
+  @description('''Broker address inside the production network.''')
+  kafkaBootstrap: kafka:9092
+
+  @description('''Spark master.''')
+  sparkMaster: spark://spark:7077
+
+  @description('''HDFS name node.''')
+  hdfsNamenode: hdfs://namenode:9000
+
+  @description('''Grafana UI.''')
+  grafanaUrl: https://grafana.example
+}

@@ -1,0 +1,26 @@
+meta {
+  name: Put invalid resample config
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{baseUrl}}/api/model-config/resample_config
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "bus_peak_share_low": 0.9,
+    "bus_peak_share_high": 0.1
+  }
+}
+
+docs {
+  Expect 422. The low peak share is above the high share. No row is written.
+}

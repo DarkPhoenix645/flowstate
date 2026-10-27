@@ -1,0 +1,25 @@
+meta {
+  name: Activate
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/model-config/{{kind}}/activate
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "version_id": "{{versionId}}"
+  }
+}
+
+docs {
+  Makes versionId active for {{kind}}. The version must be that kind.
+}

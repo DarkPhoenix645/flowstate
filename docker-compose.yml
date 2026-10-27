@@ -175,6 +175,18 @@ services:
       - datanode
     restart: on-failure
 
+  postgres:
+    image: postgres:16.10
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: flowstate
+      POSTGRES_PASSWORD: flowstate
+      POSTGRES_DB: flowstate
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
   grafana:
     image: grafana/grafana:13.2.0
     ports:
@@ -193,3 +205,4 @@ volumes:
   kafka_data:
   hive_metastore:
   grafana_data:
+  postgres_data:

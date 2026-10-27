@@ -38,7 +38,7 @@ Stack summary:
 
 ## Consequences
 
-- New storage or bus choices need a new ADR. Do not add Postgres, Flink, or host-native clusters as the primary path without one.
+- New storage or bus choices need a new ADR. Do not add Flink or host-native clusters as the primary path without one. Postgres holds model config only ([ADR-0018](0018-postgres-for-model-config.md)). It is not the lake, the warehouse, or the bus.
 - The Hive warehouse directory is `hdfs://namenode:9000/user/hive/warehouse`. Derby remains the metastore database. Detail: [spikes.md](../agents/spikes.md).
 - Cite CityPulse as real-time stream processing and large-scale data analytics (speed + batch). Do not run CityPulse repos (ADR-0001).
 

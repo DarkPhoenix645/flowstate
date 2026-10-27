@@ -1,0 +1,16 @@
+meta {
+  name: Get active
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/model-config/{{kind}}
+  body: none
+  auth: none
+}
+
+docs {
+  Active version for {{kind}}. source is db.
+  config_hash is present when both kinds have an active version.
+}

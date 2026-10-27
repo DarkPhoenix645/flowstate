@@ -165,7 +165,10 @@ class PartWriter:
 
 
 def run_amplify(
-    settings: Settings, rows: int, seed: int = 42
+    settings: Settings,
+    rows: int,
+    seed: int = 42,
+    resolved: Any = None,
 ) -> dict[str, Any]:
     """Build the bundle, unfold the corpus, write, validate."""
     if rows < MIN_ROWS:
@@ -175,11 +178,11 @@ def run_amplify(
         )
     inputs = load_inputs(settings)
     spec = city_spec(load(DEFAULT_CITY_ID))
-    # The #40 boarding prior is FLOWSTATE_ settings (ADR-0012).
-    # The bus summary and bundle.json quote the values in force.
-    from flowstate.config.resolve import FileConfigSource
+    # The boarding prior is the active resample_config document.
+    if resolved is None:
+        from flowstate.config.resolve import open_config_source
 
-    resolved = FileConfigSource(settings).load()
+        resolved = open_config_source(settings).load()
     bundle = build_bundle(
         inputs,
         spec,
@@ -528,11 +531,11 @@ def _write_json(path: Path, payload: Any) -> None:
 
 def write_evaluation(settings: Settings) -> dict[str, Any]:
     """Fit and record the frozen evaluation. Commits as evidence."""
-    from flowstate.config.resolve import FileConfigSource
+    from flowstate.config.resolve import open_config_source
 
     inputs = load_inputs(settings)
     spec = city_spec(load(DEFAULT_CITY_ID))
-    resolved = FileConfigSource(settings).load()
+    resolved = open_config_source(settings).load()
     bundle = build_bundle(
         inputs,
         spec,

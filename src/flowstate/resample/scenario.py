@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from flowstate.resample.bundle import ModelBundle
 from flowstate.resample.pins import PinBook
@@ -36,6 +36,15 @@ from flowstate.resample.unfold import (
 from flowstate.schema import resolve_vehicle_type
 
 POLICY_PATH = Path(__file__).with_name("scenario_policy.json")
+_SCENARIO_TYPES = frozenset(
+    {
+        "flight_arrival",
+        "flight_departure",
+        "metro_disruption",
+        "custom_shock",
+        "local_holiday_event",
+    }
+)
 _DURATION = re.compile(
     r"^PT(?:(?P<h>\d+)H)?(?:(?P<m>\d+)M)?(?:(?P<s>\d+)S)?$"
 )
@@ -76,6 +85,20 @@ class ScenarioPolicy(BaseModel):
     notes: str = ""
     multiplier_floor: float = Field(default=0.2, gt=0)
     scenarios: dict[str, ScenarioSpec]
+
+    @model_validator(mode="after")
+    def _known_scenarios(self) -> ScenarioPolicy:
+        for name, spec in self.scenarios.items():
+            if name not in _SCENARIO_TYPES or spec.scenario_type != name:
+                raise ValueError(f"unknown scenario type {name}")
+            shares = list((spec.shift_shares or {}).values())
+            shares.append(spec.shift_fraction)
+            if any(share < 0 or share > 1 for share in shares):
+                raise ValueError("shift shares must be in [0, 1]")
+            total = sum((spec.shift_shares or {}).values())
+            if total > 1:
+                raise ValueError("shift shares sum above 1")
+        return self
 
 
 class ScenarioCommand(BaseModel):

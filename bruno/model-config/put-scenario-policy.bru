@@ -1,0 +1,51 @@
+meta {
+  name: Put scenario policy
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{baseUrl}}/api/model-config/scenario_policy
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "note": "bruno",
+    "content": {
+      "schema_version": "1",
+      "kia_catchment_wards": ["b_1"],
+      "notes": "bruno example",
+      "scenarios": {
+        "custom_shock": {
+          "scenario_type": "custom_shock",
+          "enabled": true,
+          "affected_modes": ["ride_hail"],
+          "time_lag_profile": {"min_minutes": 0, "max_minutes": 0},
+          "intensity_multiplier": 1.0,
+          "shift_fraction": 0.0,
+          "maximum_multiplier": 3.0,
+          "evidence_grade": "assumption_driven"
+        }
+      }
+    }
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 200 && body.version_id) {
+    bru.setVar("versionId", String(body.version_id));
+    bru.setVar("kind", "scenario_policy");
+  }
+}
+
+docs {
+  Inserts this policy and makes it active. This replaces the seeded policy.
+  Restore the seed by deactivating this kind and running make config-seed.
+}

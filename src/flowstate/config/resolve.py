@@ -1,20 +1,17 @@
-"""Resolve model config from files and env, or from objects in tests.
+"""Resolve model config from Postgres, or from objects in tests.
 
-A file source reports ``file`` and no version id. Each
-``resample_config`` field is ``default`` or ``env``.
+The process reads active versions only. ``make config-seed`` loads
+the first versions. There is no file source.
 """
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
 from flowstate.config.model import (
-    BUS_PRIOR_FIELDS,
     ResampleConfig,
     config_hash_from,
     content_sha256,
@@ -50,22 +47,25 @@ class Resolved:
         return self.kinds[kind].version_id
 
 
+class ConfigValidationError(Exception):
+    """Invalid model config. No row is written."""
+
+
+class ConfigUnavailableError(Exception):
+    """Postgres cannot be used."""
+
+
+class ConfigNotActiveError(ConfigUnavailableError):
+    """A kind has no active version."""
+
+
 class ConfigSource(Protocol):
     def load(self) -> Resolved:
         """Return the resolved config."""
 
 
-def _field_sources_from_env() -> dict[str, str]:
-    sources: dict[str, str] = {}
-    for name in ResampleConfig.model_fields:
-        env = "FLOWSTATE_" + name.upper()
-        raw = os.environ.get(env)
-        present = raw is not None and raw.strip() != ""
-        if name in BUS_PRIOR_FIELDS and present:
-            sources[name] = "env"
-        else:
-            sources[name] = "default"
-    return sources
+def _db_fields() -> dict[str, str]:
+    return {name: "db" for name in ResampleConfig.model_fields}
 
 
 def resolve_models(
@@ -75,6 +75,7 @@ def resolve_models(
     source: str,
     version_id: str | None,
     field_sources: dict[str, str] | None = None,
+    kind_meta: dict[str, tuple[str, str | None]] | None = None,
 ) -> Resolved:
     policy_sha = content_sha256(policy)
     resample_sha = content_sha256(resample)
@@ -82,46 +83,26 @@ def resolve_models(
         "resample_config": resample_sha,
         "scenario_policy": policy_sha,
     }
-    kinds = {
-        kind: KindInfo(parts[kind], source, version_id) for kind in parts
-    }
+    if kind_meta is None:
+        kinds = {
+            kind: KindInfo(parts[kind], source, version_id)
+            for kind in parts
+        }
+    else:
+        kinds = {
+            kind: KindInfo(
+                parts[kind], kind_meta[kind][0], kind_meta[kind][1]
+            )
+            for kind in parts
+        }
     return Resolved(
         model=ModelConfig(
             scenario_policy=policy, resample_config=resample
         ),
         kinds=kinds,
         config_hash=config_hash_from(parts),
-        field_sources=field_sources or _field_sources_from_env(),
+        field_sources=field_sources or _db_fields(),
     )
-
-
-class FileConfigSource:
-    """Today's behaviour. Policy file plus env on the nine prior fields."""
-
-    def __init__(
-        self,
-        settings: Any | None = None,
-        policy_path: Path | None = None,
-    ) -> None:
-        self.settings = settings
-        self.policy_path = policy_path
-
-    def load(self) -> Resolved:
-        from flowstate.config import get_settings
-        from flowstate.resample.scenario import load_policy
-
-        settings = self.settings
-        if settings is None:
-            settings = get_settings()
-        policy = load_policy(self.policy_path)
-        resample = ResampleConfig.from_settings(settings)
-        return resolve_models(
-            policy,
-            resample,
-            source="file",
-            version_id=None,
-            field_sources=_field_sources_from_env(),
-        )
 
 
 class MemoryConfigSource:
@@ -148,3 +129,14 @@ class MemoryConfigSource:
             version_id=None,
             field_sources=sources,
         )
+
+
+def open_config_source(settings: Any | None = None) -> ConfigSource:
+    """The Postgres source. This is the only runtime source."""
+    if settings is None:
+        from flowstate.config import get_settings
+
+        settings = get_settings()
+    from flowstate.config.postgres import PostgresConfigSource
+
+    return PostgresConfigSource(settings)
