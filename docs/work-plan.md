@@ -111,7 +111,7 @@ Done when: a scenario command shows on the stream, consumers filter by `scenario
 
 ### 7. Findings jobs, benchmark, Grafana, demo UI
 
-The six analytical questions, their grains, and their Hive tables are [ADR-0019](adr/0019-analytics-catalog.md). Spark jobs (#18–#21) and MapReduce (#24) implement Q1–Q5. They do not add a question. Q6 is #90. Q1–Q5 read `/lake/rides_amplified/`. Q6 reads the stream archive. The Kafka smoke (#17) is covered by #39 and the replay API (#88). Do not implement it again. #26 and #31 write timing rows. #12 names the Grafana split ([agents/city-dashboard.md](agents/city-dashboard.md)). #27 and #28 wire the corpus panels. #91 wires one dashboard per question. Grafana stays the City Dashboard. The map draws envelope events. It does not replace Grafana.
+The six analytical questions, their grains, and their Hive tables are [ADR-0019](adr/0019-analytics-catalog.md). Spark jobs (#18–#21) and MapReduce (#24) implement Q1–Q5. They do not add a question. Q6 is #90. Q1–Q5 read `/lake/rides_amplified/`. Q6 reads the stream archive. The Kafka smoke (#17) is covered by #39 and the replay API (#88). Do not implement it again. #26 writes a 1M timing row for `demand_hotspots`, `cancellation_analysis`, `ridership_trends`, and `cross_modal`, on Spark and on MapReduce. #31 repeats that set at 10M and 100M. #12 names the Grafana split ([agents/city-dashboard.md](agents/city-dashboard.md)). #27 and #28 wire the corpus panels. #91 wires one dashboard per question. Grafana stays the City Dashboard. The map draws envelope events. It does not replace Grafana.
 
 ## What the twin models
 
