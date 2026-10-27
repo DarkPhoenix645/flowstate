@@ -49,21 +49,18 @@ def start_run(
         "replay_seed": configs.replay_seed(),
     }
     run_id = str(uuid.uuid4())
-    runs.insert(
-        {
-            "run_id": run_id,
-            "kind": spec.kind,
-            "job": spec.name,
-            "params": params,
-            "config_snapshot": snapshot,
-            "config_hash": active_config_hash(configs),
-            "scenario_policy_version_id": (
-                None if policy is None else policy.id
-            ),
-            "resample_config_version_id": resample.id,
-            "backend": str(backend_name),
-            "grafana_url": grafana_link(settings, spec.name, run_id),
-        }
+    _insert(
+        runs,
+        run_id=run_id,
+        kind=spec.kind,
+        job=spec.name,
+        params=params,
+        snapshot=snapshot,
+        config_hash=active_config_hash(configs),
+        policy_id=None if policy is None else policy.id,
+        resample_id=resample.id,
+        backend=str(backend_name),
+        grafana=grafana_link(settings, spec.name, run_id),
     )
     if wait:
         _execute(runs, backend, spec, params, run_id)
@@ -78,12 +75,85 @@ def start_run(
     return saved
 
 
+def record_run(
+    configs: ConfigStore,
+    runs: RunStore,
+    settings: Any,
+    *,
+    run_id: str,
+    kind: str,
+    job: str,
+    params: dict[str, Any],
+) -> dict[str, Any]:
+    """Store one run with the config snapshot before any work starts."""
+    active = configs.active()
+    resample = active.get("resample_config")
+    if resample is None:
+        raise ConfigNotActiveError(
+            "no active resample_config. Run make config-seed."
+        )
+    policy = active.get("scenario_policy")
+    snapshot = {
+        "resample_config": resample.content,
+        "scenario_policy": None if policy is None else policy.content,
+        "replay_seed": configs.replay_seed(),
+    }
+    _insert(
+        runs,
+        run_id=run_id,
+        kind=kind,
+        job=job,
+        params=params,
+        snapshot=snapshot,
+        config_hash=active_config_hash(configs),
+        policy_id=None if policy is None else policy.id,
+        resample_id=resample.id,
+        backend="replay",
+        grafana=grafana_link(settings, job, run_id),
+    )
+    saved = runs.get(run_id)
+    assert saved is not None
+    return saved
+
+
+def _insert(
+    runs: RunStore,
+    *,
+    run_id: str,
+    kind: str,
+    job: str,
+    params: dict[str, Any],
+    snapshot: dict[str, Any],
+    config_hash: str | None,
+    policy_id: str | None,
+    resample_id: str,
+    backend: str,
+    grafana: str | None,
+) -> None:
+    runs.insert(
+        {
+            "run_id": run_id,
+            "kind": kind,
+            "job": job,
+            "params": params,
+            "config_snapshot": snapshot,
+            "config_hash": config_hash,
+            "scenario_policy_version_id": policy_id,
+            "resample_config_version_id": resample_id,
+            "backend": backend,
+            "grafana_url": grafana,
+        }
+    )
+
+
 def reconcile(runs: RunStore, backends: dict[str, JobBackend]) -> None:
     """Match every running row to its backend. Unknown ids fail."""
     for row in runs.running():
         backend = backends.get(str(row["backend"]))
         external_id = row.get("external_id")
-        if backend is None or not external_id:
+        if backend is None:
+            continue
+        if not external_id:
             runs.finish(
                 row["run_id"],
                 "failed",

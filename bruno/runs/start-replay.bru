@@ -1,0 +1,36 @@
+meta {
+  name: Start replay
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/runs
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "kind": "replay",
+    "rows": 1000,
+    "seed": 42
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 202 && body.run_id) {
+    bru.setVar("runId", String(body.run_id));
+  }
+}
+
+docs {
+  Starts the producer and one replay. Returns 202.
+  A second start while this session runs is 409.
+  The script stores runId for Pause replay and Send command.
+}

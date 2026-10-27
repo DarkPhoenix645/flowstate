@@ -41,7 +41,7 @@ A day that has no city-day row freezes at the latest source day with the same we
 
 ### Order and runtime
 
-The producer is a long-running service (`make stream-serve`). It loads the inputs, the pins, and the fitted model once. A restart of a one-shot process cost about 70 s, of which about 30 to 55 s was the model fit. The service pays that once.
+The producer is a long-running service. The API starts it for a replay run and sends `shutdown` when the API stops. It loads the inputs, the pins, and the fitted model once. A restart of a one-shot process cost about 70 s, of which about 30 to 55 s was the model fit. The service pays that once.
 
 The service reads two topics. `flowstate.simulation.control.v1` is new. It carries `start`, `pause`, `resume`, `speed`, `seek`, `stop`, and `shutdown` (`ControlMessage`, schema in `control.py`). `flowstate.scenario.command.v1` carries scenario commands, as ADR-0008 says. A `start` message holds the replay request: window, seed, rows, acceleration, `max_eps`, optional seek, optional commands, and an optional session id. Each message gets a `control` record on the audit topic with the same `request_id`, `accepted`, the state, the play head, and the requested and effective acceleration. A `status` record goes out about every second while a session runs. A `start` record opens a session and a `stop` record closes it, with `sent`, `acked`, `failed`, and the QA failures.
 

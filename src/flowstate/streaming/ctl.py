@@ -1,8 +1,7 @@
 """Send one control message or command to the running producer.
 
-``make stream-ctl ARGS='start --rows 20000 --acceleration 3600'``. The
-demo API sends the same messages. This is the shell version for tests
-and demos. The service answers on the audit topic.
+The demo API sends the same messages. This module is the one publisher.
+The service answers on the audit topic.
 """
 
 from __future__ import annotations
@@ -113,9 +112,8 @@ def build(argv: list[str] | None = None) -> tuple[str, str, dict]:
     )
 
 
-def main(argv: list[str] | None = None) -> None:
-    configure_logging()
-    topic, key, value = build(argv)
+def publish(topic: str, key: str, value: dict) -> None:
+    """Send one record. The CLI and the API both use this."""
     from kafka import KafkaProducer
 
     settings = get_settings()
@@ -128,6 +126,33 @@ def main(argv: list[str] | None = None) -> None:
         producer.send(topic, key=key, value=value).get(timeout=30)
     finally:
         producer.close()
+
+
+def send_control(message: ControlMessage) -> str:
+    """Publish one control message. Return its request id."""
+    request_id = message.request_id or uuid.uuid4().hex[:8]
+    payload = json.loads(
+        message.model_copy(update={"request_id": request_id}).model_dump_json(
+            exclude_none=True
+        )
+    )
+    publish(CONTROL_TOPIC, request_id, payload)
+    return request_id
+
+
+def send_command(command: ScenarioCommand) -> None:
+    """Publish one scenario command."""
+    publish(
+        COMMAND_TOPIC,
+        command.scenario_id,
+        json.loads(command.model_dump_json()),
+    )
+
+
+def main(argv: list[str] | None = None) -> None:
+    configure_logging()
+    topic, key, value = build(argv)
+    publish(topic, key, value)
     log.info("sent to %s: %s", topic, value.get("op", "command"))
 
 

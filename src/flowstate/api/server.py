@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import signal
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -28,6 +29,7 @@ from flowstate.config.resolve import (
     ConfigUnavailableError,
     ConfigValidationError,
 )
+from flowstate.jobs.replay import ReplayBusy
 from flowstate.log import configure_logging
 
 log = logging.getLogger(__name__)
@@ -45,6 +47,7 @@ def dispatch(
     raw: bytes,
     settings: Any = None,
     backends: dict[str, Any] | None = None,
+    replay: Any = None,
 ) -> tuple[int, dict[str, Any]]:
     """One request. Returns a status code and a JSON object."""
     if settings is None:
@@ -53,7 +56,14 @@ def dispatch(
     path = split.path.rstrip("/") or "/"
     try:
         handled = run_dispatch(
-            store, method, path, split.query, raw, settings, backends
+            store,
+            method,
+            path,
+            split.query,
+            raw,
+            settings,
+            backends,
+            replay,
         )
         if handled is not None:
             return handled
@@ -78,6 +88,8 @@ def dispatch(
         return 404, {"error": str(exc)}
     except ConfigUnavailableError as exc:
         return 503, {"error": str(exc)}
+    except ReplayBusy as exc:
+        return 409, {"error": str(exc)}
     except json.JSONDecodeError:
         return 400, {"error": "body is not JSON"}
 
@@ -113,9 +125,18 @@ def main() -> None:
     server = serve(store, settings.api_host, settings.api_port)
     host, port = server.server_address[:2]
     log.info("demo API on http://%s:%s", host, port)
+    from flowstate.jobs.replay import process_gate
+
+    def _stop(_signum: int, _frame: Any) -> None:
+        process_gate().shutdown()
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, _stop)
+    signal.signal(signal.SIGINT, _stop)
     try:
         server.serve_forever()
     finally:
+        process_gate().shutdown()
         server.server_close()
 
 

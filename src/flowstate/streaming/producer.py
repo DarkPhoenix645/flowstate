@@ -2,7 +2,7 @@
 
 ``python -m flowstate.streaming.producer`` plans one window and sends it
 once. Use it for bulk runs and tests. The long-running producer is
-``flowstate.streaming.service`` (``make stream-serve``). It builds on
+``flowstate.streaming.service``. It builds on
 ``build_base_plan`` and ``build_fork`` below, so there is one planner.
 
 Modes:
