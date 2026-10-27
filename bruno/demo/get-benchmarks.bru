@@ -1,0 +1,15 @@
+meta {
+  name: Get benchmarks
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/benchmarks
+  body: none
+  auth: none
+}
+
+docs {
+  Rows from the benchmark table. Expect 404 until a comparison has been run.
+}

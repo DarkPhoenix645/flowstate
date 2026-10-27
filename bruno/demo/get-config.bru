@@ -1,0 +1,17 @@
+meta {
+  name: Get config
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/config
+  body: none
+  auth: none
+}
+
+docs {
+  Each knob has value, source, and editable.
+  source is db, env, or default.
+  config_hash is null until both model-config kinds are active.
+}

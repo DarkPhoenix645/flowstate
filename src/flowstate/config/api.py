@@ -1,6 +1,7 @@
-"""HTTP API for the two model-config kinds.
+"""Demo HTTP API. Model config, the config facade, and read-only status.
 
 Bind is loopback by default. There is no auth in v1.
+Run routes are not in this process.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from flowstate.config import get_settings
+from flowstate.config.demo import demo_dispatch
 from flowstate.config.postgres import (
     KINDS,
     ConfigStore,
@@ -35,18 +37,32 @@ _MAX_BODY = 1_000_000
 
 
 def dispatch(
-    store: ConfigStore, method: str, target: str, raw: bytes
+    store: ConfigStore,
+    method: str,
+    target: str,
+    raw: bytes,
+    settings: Any = None,
 ) -> tuple[int, dict[str, Any]]:
     """One request. Returns a status code and a JSON object."""
+    if settings is None:
+        settings = get_settings()
     split = urlsplit(target)
-    match = _PATH.fullmatch(split.path.rstrip("/") or "/")
-    if match is None:
-        return 404, {"error": "not found"}
-    kind = match.group("kind")
-    tail = match.group("tail")
-    if kind not in KINDS:
-        return 422, {"error": f"unknown kind {kind}"}
+    path = split.path.rstrip("/") or "/"
     try:
+        if not path.startswith("/api/model-config"):
+            handled = demo_dispatch(
+                store, method, path, split.query, raw, settings
+            )
+            if handled is not None:
+                return handled
+            return 404, {"error": "not found"}
+        match = _PATH.fullmatch(path)
+        if match is None:
+            return 404, {"error": "not found"}
+        kind = match.group("kind")
+        tail = match.group("tail")
+        if kind not in KINDS:
+            return 422, {"error": f"unknown kind {kind}"}
         return _route(store, method, kind, tail, split.query, raw)
     except ConfigValidationError as exc:
         return 422, {"error": str(exc)}
@@ -74,7 +90,7 @@ def main() -> None:
     store.active()
     server = serve(store, settings.config_api_host, settings.config_api_port)
     host, port = server.server_address[:2]
-    log.info("model config API on http://%s:%s", host, port)
+    log.info("demo API on http://%s:%s", host, port)
     try:
         server.serve_forever()
     finally:

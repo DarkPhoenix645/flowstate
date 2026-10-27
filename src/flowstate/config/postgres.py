@@ -28,7 +28,7 @@ from flowstate.config.resolve import (
     resolve_models,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 KINDS = ("scenario_policy", "resample_config")
 _CONNECT_TIMEOUT = 3
 
@@ -174,6 +174,60 @@ class ConfigStore:
             _check_stored(version)
             found[version.kind] = version
         return found
+
+    def replay_seed(self) -> int | None:
+        with self._session() as conn:
+            row = conn.execute(
+                "SELECT replay_seed FROM run_config WHERE id = 1"
+            ).fetchone()
+        if row is None:
+            return None
+        return int(row["replay_seed"])
+
+    def set_replay_seed(self, seed: int) -> None:
+        with self._session() as conn:
+            with conn.transaction():
+                conn.execute(
+                    """
+                    INSERT INTO run_config (id, replay_seed)
+                    VALUES (1, %s)
+                    ON CONFLICT (id)
+                    DO UPDATE SET replay_seed = EXCLUDED.replay_seed
+                    """,
+                    (seed,),
+                )
+
+    def clear_run_config(self) -> None:
+        with self._session() as conn:
+            with conn.transaction():
+                conn.execute("DELETE FROM run_config")
+
+    def benchmarks(self) -> list[dict[str, Any]]:
+        with self._session() as conn:
+            rows = conn.execute(
+                """
+                SELECT run_id, engine, corpus_rows, seed,
+                       elapsed_seconds, created_at
+                FROM benchmark
+                ORDER BY id DESC
+                """
+            ).fetchall()
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            created = row["created_at"]
+            if hasattr(created, "isoformat"):
+                created = created.isoformat()
+            out.append(
+                {
+                    "run_id": row["run_id"],
+                    "engine": row["engine"],
+                    "corpus_rows": row["corpus_rows"],
+                    "seed": row["seed"],
+                    "elapsed_seconds": row["elapsed_seconds"],
+                    "created_at": str(created),
+                }
+            )
+        return out
 
     @contextmanager
     def _session(self):

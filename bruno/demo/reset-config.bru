@@ -1,0 +1,16 @@
+meta {
+  name: Reset config
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/config/reset
+  body: none
+  auth: none
+}
+
+docs {
+  Clears the active resample_config pointer and the run_config row.
+  Versions stay. scenario_policy stays.
+}

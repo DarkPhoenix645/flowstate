@@ -36,7 +36,7 @@ These values stay in the environment. They are not model config. A blank `FLOWST
 
 Pairs 2–10 use the same names with a `_2` … `_10` suffix. Set both values or neither.
 
-`FLOWSTATE_ASSUMED_*` still parse into the settings object. A run does not read them. Change those numbers with `PUT /api/model-config/resample_config`.
+`FLOWSTATE_ASSUMED_*` still parse into the settings object. A run does not read them. `GET /api/config` reads them only when `resample_config` has no active version. Change those numbers with `PUT /api/config` or `PUT /api/model-config/resample_config`.
 
 ## Kinds
 
@@ -110,5 +110,17 @@ No auth in v1. An invalid document is HTTP 422 and writes no row.
 | `PUT` | `/api/model-config/{kind}` | Validate, insert, and activate. Body is the document, or `{"content": {...}, "note": "..."}`. |
 | `POST` | `/api/model-config/{kind}/activate` | Body `{"version_id": "1"}`. Same kind only. |
 | `POST` | `/api/model-config/{kind}/deactivate` | Clear the active pointer. Versions stay. The next run stops until you activate or seed again. |
+| `GET` | `/api/config` | Knobs. Each knob has `value`, `source` (`db`, `env`, or `default`), and `editable`. |
+| `PUT` | `/api/config` | Merge writable fields into the resolved resample document and save a new version. `replay_seed` is stored on `run_config`. |
+| `POST` | `/api/config/reset` | Clear the `resample_config` pointer and the `run_config` row. Versions stay. |
+| `GET` | `/api/system` | TCP check of the namenode, Kafka, Spark, Hive, and Grafana host ports. |
+| `GET` | `/api/datasets` | Rows from `datasets_dir/provenance/manifest.json`. |
+| `GET` | `/api/datasets/opensky?direction=arrivals\|departures` | Cached window count. Incomplete departures are HTTP 409. |
+| `GET` | `/api/benchmarks` | Rows from `benchmark`. HTTP 404 when the table is empty. |
+| `GET` | `/api/events/snapshot` | One ADR-0008 envelope. `fixture` is true. |
 
 `{kind}` is `scenario_policy` or `resample_config`.
+
+`init.sql` is schema version 2. It runs only on a fresh volume. A volume from version 1 has no `run_config` table and no `benchmark` table. Recreate that volume.
+
+Writable knobs are `assumed_weekday_boardings` (`4600000`, `4000000`, `4800000`, `3310000`), `assumed_bus_capacity` (`41.3`), and `assumed_max_load_factor` (`1.0`, `1.2`, `1.4`). `replay_seed` is an integer. Any other field is HTTP 422 and writes no row.
