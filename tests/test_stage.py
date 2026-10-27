@@ -73,7 +73,7 @@ def test_metro_event_is_observed_and_bus_ridership_is_synthetic():
     assert metro["provenance"]["status"] == "observed"
     assert metro["entries_count"] == 12
     assert metro["exits_count"] is None
-    assert metro["location_ref"]["station_id"] == "11-Baiyappanahalli"
+    assert metro["location_ref"]["at"]["station_id"] == "11-Baiyappanahalli"
     assert METRO_TOPIC == "flowstate.metro.station_hour.v1"
 
     bus = bus_scheduled_stop_event(

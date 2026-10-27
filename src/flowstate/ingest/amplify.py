@@ -11,14 +11,19 @@ second generator.
 from __future__ import annotations
 
 import argparse
+import logging
 
 from flowstate.config import get_settings
+from flowstate.log import configure_logging
 from flowstate.normalize.cities import DEFAULT_CITY_ID
 from flowstate.normalize.places.review import require_station_reviews
 from flowstate.resample import run_amplify
 
+log = logging.getLogger(__name__)
+
 
 def main(argv: list[str] | None = None) -> None:
+    configure_logging()
     parser = argparse.ArgumentParser(prog="flowstate.ingest.amplify")
     parser.add_argument("--rows", type=int, default=1_000_000)
     parser.add_argument("--seed", type=int, default=42)
@@ -28,15 +33,17 @@ def main(argv: list[str] | None = None) -> None:
     # station ids, so an unresolved station pin stops the run.
     require_station_reviews(settings.data_dir, DEFAULT_CITY_ID)
     manifest = run_amplify(settings, args.rows, args.seed)
-    print(
-        f"amplified {manifest['rows']} events to "
-        f"{settings.staged_dir}/rides_amplified/ "
-        f"(seed={args.seed}, bundle={manifest['bundle_version']})"
+    log.info(
+        "amplified %s events to %s/rides_amplified/ seed=%s bundle=%s",
+        manifest["rows"],
+        settings.staged_dir,
+        args.seed,
+        manifest["bundle_version"],
     )
     for mode, count in sorted(manifest["mode_counts"].items()):
-        print(f"  {mode}: {count}")
+        log.info("mode %s %s", mode, count)
     for status, count in sorted(manifest["provenance_counts"].items()):
-        print(f"  provenance {status}: {count}")
+        log.info("provenance %s %s", status, count)
 
 
 if __name__ == "__main__":

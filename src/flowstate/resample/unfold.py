@@ -22,6 +22,7 @@ from typing import Any
 import numpy as np
 import pyarrow as pa
 
+from flowstate.resample.aviation_coverage import gated_keys
 from flowstate.resample.bundle import (
     FARE_BASIS,
     ModelBundle,
@@ -30,7 +31,7 @@ from flowstate.resample.bundle import (
 )
 from flowstate.resample.clocks import aviation_mean_for
 from flowstate.resample.nb2 import nb_quantile
-from flowstate.resample.profiles import is_weekend, to_date
+from flowstate.resample.profiles import freeze_day, is_weekend, to_date
 from flowstate.schema import (
     resolve_vehicle_type,
 )
@@ -273,6 +274,7 @@ def ridehail_day_events(
     *,
     parent_source: str = "observed",
     partial_rows: int | None = None,
+    widen: float = 0.0,
 ) -> Iterator[list[dict[str, Any]]]:
     """One ride-hail day as activity events, hour-mixed by the prior.
 
@@ -310,6 +312,8 @@ def ridehail_day_events(
                 continue
             wards, weights = bundle.ward_shares[hour]
             shares = weights / weights.sum()
+            if widen:
+                shares = (1.0 - widen) * shares + widen / len(shares)
             seconds = rng.integers(0, 3600, size=per_hour)
             pickups = rng.choice(wards, size=per_hour, p=shares)
             drops = rng.choice(wards, size=per_hour, p=shares)
@@ -576,8 +580,14 @@ def bus_events(
     feed_date: str,
     budget_rows: int,
     parents: ParentTotals,
+    id_prefix: str = "",
 ) -> tuple[Iterator[list[dict[str, Any]]], dict[str, Any]]:
     """Scheduled stop calls with synthetic ridership (plan §7.4).
+
+    ``feed_date`` is the service day the stop calls are stamped on.
+    Amplify passes the GTFS feed date. The producer passes the replay
+    day (ADR-0017). ``id_prefix`` keeps the event id and the parent
+    key unique when one trip is drawn on several days.
 
     Whole trips are sampled so per-trip conservation stays
     checkable. Boardings concentrate on early stops, alightings on
@@ -706,6 +716,7 @@ def bus_events(
             boardings=trip_boardings,
             capacity=capacity,
             parents=parents,
+            id_prefix=id_prefix,
         )
         displaced += cap_displaced
         if cap_displaced:
@@ -714,7 +725,8 @@ def bus_events(
     summary["capped_trips"] = capped_trips
     summary["boardings_displaced_by_cap"] = displaced
     summary["boardings_emitted"] = sum(
-        parents.bus.get((f"bmtc_gtfs:{t}", "boardings"), 0) for t in sampled
+        parents.bus.get((f"bmtc_gtfs:{id_prefix}{t}", "boardings"), 0)
+        for t in sampled
     )
     summary["prior"] = _bus_prior_audit(
         config, rows_by_trip, sampled
@@ -829,6 +841,7 @@ def _bus_trip_rows(
     boardings: int,
     capacity: float,
     parents: ParentTotals,
+    id_prefix: str = "",
 ) -> tuple[list[dict[str, Any]], int]:
     """Rows plus the count of boardings displaced by the cap.
 
@@ -862,9 +875,13 @@ def _bus_trip_rows(
         else:  # pragma: no cover - peak > 0 implies a spanning pair
             break
         boards, alights, onboard_values = _stop_counts(pairs, n)
-    parent_key = f"bmtc_gtfs:{trip_id}"
+    parent_key = f"bmtc_gtfs:{id_prefix}{trip_id}"
     parents.add_bus(parent_key, "boardings", sum(boards))
     parents.add_bus(parent_key, "alightings", sum(alights))
+    service_day = to_date(feed_date)
+    outside = not (
+        bundle.spec.window_start <= service_day <= bundle.spec.window_end
+    )
     rows = []
     for position, (_, stop) in enumerate(group.iterrows()):
         clock = str(stop["arrival_time"])
@@ -877,7 +894,10 @@ def _bus_trip_rows(
         )
         row = _base_row(
             bundle,
-            trip_id=f"bmtc-{trip_id}-{int(stop['stop_sequence']):05d}",
+            trip_id=(
+                f"bmtc-{id_prefix}{trip_id}-"
+                f"{int(stop['stop_sequence']):05d}"
+            ),
             mode="bus",
             event_type="scheduled_stop",
             hour=moment.hour,
@@ -892,7 +912,7 @@ def _bus_trip_rows(
             source_ids=["bmtc_gtfs"],
             parent_source="assumed",
             parent_id=parent_key,
-            outside=True,
+            outside=outside,
         )
         row["boardings"] = boards[position]
         row["alightings"] = alights[position]
@@ -947,13 +967,11 @@ def aviation_events(
     budget_rows: int,
     parents: ParentTotals,
 ) -> tuple[Iterator[list[dict[str, Any]]], dict[str, Any]]:
-    """Observed-proxy flights inside fetched windows, synthetic outside.
+    """Observed-proxy flights inside healthy fetched windows.
 
-    A day/direction with no observed events gets synthetic draws
-    from the NB2 daily fit and the hour profile. Observed events keep
-    their source timestamps, icao24, and callsign. A day/direction is
-    never emitted both ways: the double-count guard is a validator
-    check.
+    A missing day/direction is synthetic. A failed, quota, or sparse
+    window is synthetic too: its thin rows are not emitted as
+    ``observed_proxy``. A day/direction is never emitted both ways.
     """
     frame = flight_events.select(
         ["direction", "local_date", "event_time_unix", "icao24", "callsign"]
@@ -974,9 +992,7 @@ def aviation_events(
             continue
         key = (str(day)[:10], str(direction))
         observed.setdefault(key, [])
-        observed[key].append(
-            (int(unix or 0), icao, callsign)
-        )
+        observed[key].append((int(unix or 0), icao, callsign))
         day_counts[key[0]] = day_counts.get(key[0], 0) + 1
     pool = [day for day in day_pool if day in day_counts]
     if not pool:
@@ -986,45 +1002,50 @@ def aviation_events(
     span = bundle.span_days()
     rows: list[dict[str, Any]] = []
     synthetic_days: list[str] = []
+    gated = gated_keys(flight_events)
     days = [day for day, _ in assigned]
     for day, need in assigned:
         arr = list(observed.get((day, "arrival"), []))
         dep = list(observed.get((day, "departure"), []))
-        n_arr, n_dep = largest_remainder(
-            need, [max(len(arr), 1e-9), max(len(dep), 1e-9)]
-        )
+        # A direction with no rows, or a gated window, is a gap. Its
+        # share of the day comes from the model, not from the thin count.
+        weights = []
+        for direction, events in (("arrival", arr), ("departure", dep)):
+            if events and (day, direction) not in gated:
+                weights.append(float(len(events)))
+            else:
+                weights.append(
+                    max(
+                        aviation_mean_for(
+                            bundle.clocks.aviation[direction],
+                            freeze_day(
+                                day,
+                                bundle.spec.window_start,
+                                bundle.spec.window_end,
+                            ),
+                            span,
+                            bundle.spec.window_start,
+                        ),
+                        1e-6,
+                    )
+                )
+        n_arr, n_dep = largest_remainder(need, weights)
         for direction, events, take in (
             ("arrival", arr, n_arr),
             ("departure", dep, n_dep),
         ):
             if take <= 0:
                 continue
+            if (day, direction) in gated:
+                events = []
             if events:
+                # A covered window is observed-proxy only. Topping the
+                # same parent up with synthetic rows is a double count.
                 if len(events) > take:
                     picked = rng.choice(
                         len(events), size=take, replace=False
                     )
                     events = [events[int(i)] for i in sorted(picked)]
-                elif len(events) < take:
-                    rows.extend(
-                        _aviation_observed_rows(
-                            bundle, day, direction, events, parents
-                        )
-                    )
-                    gap = take - len(events)
-                    synthetic_days.append(f"{day}:{direction}")
-                    rows.extend(
-                        _aviation_synthetic_rows(
-                            bundle,
-                            rng,
-                            day=day,
-                            direction=direction,
-                            parents=parents,
-                            span=span,
-                            count=gap,
-                        )
-                    )
-                    continue
                 rows.extend(
                     _aviation_observed_rows(
                         bundle, day, direction, events, parents
@@ -1059,19 +1080,22 @@ def aviation_events(
             )
     elif emitted < budget_rows:
         gap = budget_rows - emitted
-        fill_day = days[-1] if days else pool[-1]
-        rows.extend(
-            _aviation_synthetic_rows(
-                bundle,
-                rng,
-                day=fill_day,
-                direction="departure",
-                parents=parents,
-                span=span,
-                count=gap,
+        slot = _synthetic_fill_slot(observed, gated, days, pool)
+        if slot is not None:
+            fill_day, fill_direction = slot
+            synthetic_days.append(f"{fill_day}:{fill_direction}")
+            rows.extend(
+                _aviation_synthetic_rows(
+                    bundle,
+                    rng,
+                    day=fill_day,
+                    direction=fill_direction,
+                    parents=parents,
+                    span=span,
+                    count=gap,
+                )
             )
-        )
-        emitted = len(rows)
+            emitted = len(rows)
     summary = {
         "days": days,
         "observed_rows": sum(
@@ -1090,6 +1114,29 @@ def aviation_events(
             yield rows[start : start + BATCH_ROWS]
 
     return batches(), summary
+
+
+def _synthetic_fill_slot(
+    observed: dict[tuple[str, str], list[Any]],
+    gated: set[tuple[str, str]],
+    days: list[str],
+    pool: list[str],
+) -> tuple[str, str] | None:
+    """A day/direction that is a gap, not a covered window.
+
+    Surplus budget can land here. It cannot land on a parent that
+    already holds observed-proxy flights.
+    """
+    ordered: list[str] = []
+    for day in [*reversed(days), *reversed(pool)]:
+        if day not in ordered:
+            ordered.append(day)
+    for day in ordered:
+        for direction in ("departure", "arrival"):
+            key = (day, direction)
+            if not observed.get(key) or key in gated:
+                return day, direction
+    return None
 
 
 def _aviation_observed_rows(

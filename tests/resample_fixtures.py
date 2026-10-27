@@ -42,6 +42,7 @@ def fixture_spec() -> CitySpec:
         airport_code="TEST",
         opensky_arrivals_id="test_arrivals",
         opensky_departures_id="test_departures",
+        ward_prefix="b",
     )
 
 
@@ -291,3 +292,31 @@ def fixture_inputs() -> BundleInputs:
         stop_times=_stop_times_table(),
         bus_trips=_bus_trips_table(),
     )
+
+
+def fixture_pins(station_ward: dict[str, str] | None = None):
+    """Pins for every id the fixture city can emit."""
+    from flowstate.resample.pins import PinBook
+
+    wards = {
+        ward: (12.90 + index * 0.01, 77.50 + index * 0.01)
+        for index, ward in enumerate(WARDS)
+    }
+    # The corpus uses the station code. The fixture codes are S1..S4.
+    stations = {
+        f"S{index + 1}": (12.95, 77.60 + index * 0.01)
+        for index in range(len(STATIONS_PRE) + 1)
+    }
+    stops = {
+        f"stop_{number:03d}": (12.95 + number * 0.0001, 77.60)
+        for number in range(1, 21)
+    }
+    book = PinBook(
+        wards=wards,
+        stations=stations,
+        stops=stops,
+        airports={"TEST": (13.20, 77.70)},
+    )
+    for station, ward in (station_ward or {}).items():
+        book._station_ward[station] = ward
+    return book

@@ -13,6 +13,7 @@ to any command.
 
 from __future__ import annotations
 
+import logging
 import shutil
 import sys
 from pathlib import Path
@@ -28,6 +29,9 @@ from flowstate.lake.ridehail import (
     _require_unchanged,
     _stamp,
 )
+from flowstate.log import configure_logging
+
+log = logging.getLogger(__name__)
 
 HDFS_AMPLIFIED_DIR = "/lake/rides_amplified"
 META_FILES = ("manifest.json", "bundle.json", "evaluation.json")
@@ -120,13 +124,14 @@ def _remove_copy_in(directory: Path) -> None:
 
 
 def main() -> None:
+    configure_logging()
     try:
         uris = put_amplified(get_settings())
     except FileNotFoundError as exc:
-        print(exc, file=sys.stderr)
+        log.error("%s", exc)
         sys.exit(1)
     for uri in uris:
-        print(uri)
+        log.info("%s", uri)
 
 
 if __name__ == "__main__":

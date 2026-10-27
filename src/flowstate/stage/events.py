@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from flowstate.streaming.ride_event_schema import envelope_json
+
 METRO_TOPIC = "flowstate.metro.station_hour.v1"
 BUS_TOPIC = "flowstate.bus.scheduled_stop.v1"
 
@@ -69,7 +71,7 @@ def bus_scheduled_stop_event(row: dict[str, Any]) -> dict[str, Any]:
     stop_id = str(row["stop_id"])
     event_time = _gtfs_event_time(row["service_date"], row["arrival_time"])
     event_id = f"bmtc-{row['trip_id']}-{row['stop_sequence']}"
-    event = _envelope(
+    return _envelope(
         event_id=event_id,
         mode="bus",
         event_type="scheduled_stop",
@@ -83,18 +85,17 @@ def bus_scheduled_stop_event(row: dict[str, Any]) -> dict[str, Any]:
             "trip_id": str(row["trip_id"]),
             "stop_sequence": int(row["stop_sequence"]),
             "feed_version": row.get("feed_version"),
+            "ridership": {
+                "boardings": None,
+                "alightings": None,
+                "onboard_leaving": None,
+                "provenance": {
+                    "status": "synthetic",
+                    "evidence_grade": "assumption_driven",
+                },
+            },
         },
     )
-    event["ridership"] = {
-        "boardings": None,
-        "alightings": None,
-        "onboard_leaving": None,
-        "provenance": {
-            "status": "synthetic",
-            "evidence_grade": "assumption_driven",
-        },
-    }
-    return event
 
 
 def _envelope(
@@ -112,7 +113,7 @@ def _envelope(
 ) -> dict[str, Any]:
     if status not in PROVENANCE_STATUS:
         raise ValueError(f"bad provenance status {status}")
-    event = {
+    event: dict[str, Any] = {
         "schema_version": "1.0",
         "event_id": event_id,
         "city_id": "blr",
@@ -123,6 +124,7 @@ def _envelope(
         "count": count,
         "location_ref": location_ref,
         "scenario_id": None,
+        "parameters_ref": None,
         "provenance": {
             "status": status,
             "source_ids": source_ids,
@@ -134,7 +136,7 @@ def _envelope(
         },
     }
     event.update(extra)
-    return event
+    return envelope_json(event)
 
 
 def _location(
@@ -143,13 +145,17 @@ def _location(
     station_id: str | None = None,
     stop_id: str | None = None,
     airport: str | None = None,
-) -> dict[str, str | None]:
-    return {
-        "ward_id": ward_id,
-        "station_id": station_id,
-        "stop_id": stop_id,
-        "airport": airport,
-    }
+) -> dict[str, Any]:
+    at: dict[str, str | None] = {}
+    if ward_id is not None:
+        at["ward_id"] = ward_id
+    if station_id is not None:
+        at["station_id"] = station_id
+    if stop_id is not None:
+        at["stop_id"] = stop_id
+    if airport is not None:
+        at["airport"] = airport
+    return {"at": at}
 
 
 def _gtfs_event_time(service_date: str, clock: str) -> str:

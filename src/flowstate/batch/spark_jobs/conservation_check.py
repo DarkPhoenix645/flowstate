@@ -8,7 +8,7 @@ leaves the warehouse path absent so the lake put is not complete.
 from __future__ import annotations
 
 import json
-import sys
+import logging
 
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
@@ -21,6 +21,9 @@ from pyspark.sql.types import (
 )
 
 from flowstate.batch.conservation import compare
+from flowstate.log import configure_logging
+
+log = logging.getLogger(__name__)
 
 NAMENODE = "hdfs://namenode:9000"
 CORPUS = f"{NAMENODE}/lake/rides_amplified"
@@ -50,6 +53,7 @@ _SCHEMA = StructType(
 
 
 def main() -> None:
+    configure_logging()
     spark = SparkSession.builder.appName(
         "flowstate-conservation-check"
     ).getOrCreate()
@@ -68,7 +72,7 @@ def main() -> None:
     )
     if issues:
         for issue in issues:
-            print(issue, file=sys.stderr)
+            log.error("%s", issue)
         spark.stop()
         raise SystemExit(1)
     row = [
@@ -85,9 +89,11 @@ def main() -> None:
         "overwrite"
     ).parquet(ROLLUP)
     spark.stop()
-    print(
-        f"conservation ok checks={checks} rows={manifest['rows']} "
-        f"seed={manifest['seed']}"
+    log.info(
+        "conservation ok checks=%s rows=%s seed=%s",
+        checks,
+        manifest["rows"],
+        manifest["seed"],
     )
 
 

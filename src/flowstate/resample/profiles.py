@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 import numpy as np
@@ -64,6 +64,23 @@ class MetroProfiles:
 def to_date(day: str) -> date:
     year, month, day_of_month = (int(part) for part in day.split("-"))
     return date(year, month, day_of_month)
+
+
+def freeze_day(day: str, window_start: date, window_end: date) -> str:
+    """The same weekday inside the window, at the terminal level.
+
+    A day after the window takes the latest same-weekday day on or
+    before ``window_end``. A day before it takes the earliest one on or
+    after ``window_start``. The trend term stops at the window edge.
+    """
+    moment = to_date(day)
+    if moment > window_end:
+        weeks = -(-(moment - window_end).days // 7)
+        return (moment - timedelta(days=7 * weeks)).isoformat()
+    if moment < window_start:
+        weeks = -(-(window_start - moment).days // 7)
+        return (moment + timedelta(days=7 * weeks)).isoformat()
+    return day
 
 
 def is_weekend(day: str) -> bool:
@@ -212,12 +229,18 @@ def build_ridehail_hour_profile(
 
 
 def build_ward_shares(
-    ward_hour: pa.Table,
+    ward_hour: pa.Table, prefix: str | None = None
 ) -> dict[int, tuple[list[str], np.ndarray]]:
     """Ward activity share by hour from the stitched ward-hour archive.
 
-    A spatial allocation prior only. Ward ids are emitted; no
-    coordinates exist in v1.
+    A spatial allocation prior only. This table has ward ids, not
+    coordinates. The producer copies the geography pin onto the
+    envelope.
+
+    ``prefix`` is the city's ward prefix (``CitySpec.ward_prefix``).
+    Ids with another prefix are out of scope (ADR-0017) and carry no
+    pin. They are dropped here, so the shares renormalise over the
+    city wards and no emitted event lacks a place on the map.
     """
     frame = ward_hour.select(["ward_num", "hour", "done_ride"]).to_pydict()
     per_hour: dict[int, dict[str, float]] = {h: {} for h in range(24)}
@@ -226,6 +249,8 @@ def build_ward_shares(
         frame["ward_num"], frame["hour"], frame["done_ride"], strict=True
     ):
         if done is None:
+            continue
+        if prefix is not None and not str(ward).startswith(f"{prefix}_"):
             continue
         name = str(ward)
         bucket = per_hour[int(hour)]

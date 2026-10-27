@@ -6,20 +6,25 @@ Does not run Hive DDL. Does not write rides_amplified.
 
 from __future__ import annotations
 
+import logging
 import sys
 
 from flowstate.config import get_settings
 from flowstate.lake.ridehail import put_ridehail
+from flowstate.log import configure_logging
+
+log = logging.getLogger(__name__)
 
 
 def main() -> None:
+    configure_logging()
     try:
         uris = put_ridehail(get_settings())
     except FileNotFoundError as exc:
-        print(exc, file=sys.stderr)
+        log.error("%s", exc)
         sys.exit(1)
     for uri in uris:
-        print(uri)
+        log.info("%s", uri)
 
 
 if __name__ == "__main__":

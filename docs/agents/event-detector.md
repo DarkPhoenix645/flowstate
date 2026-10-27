@@ -30,7 +30,7 @@ The map does not read these directories. It reads the Kafka envelope through the
 
 ## What each node computes
 
-Active rides / zone (#22). Count synthetic activity events in the window. Group by `location_ref.ward_id`, `provenance.status`, `scenario_id`, and `event_type`. The count column is `activity_count`. This file does not compute cancel rate or surge. The metric is simulated activity, not observed ridership. Policy: [watermarks.md](watermarks.md).
+Active rides / zone (#22). Count synthetic activity events in the window. Group by `location_ref.at.ward_id`, `provenance.status`, `scenario_id`, and `event_type`. The count column is `activity_count`. This file does not compute cancel rate or surge. The metric is simulated activity, not observed ridership. Policy: [watermarks.md](watermarks.md).
 
 Cancel rate (#29). Cancelled activity divided by total activity, per zone and window, from the same ride-hail topic. Do not fold it into `rolling_metrics.py`. Do not split driver versus rider. Those source fields are zero-filled.
 
@@ -49,6 +49,9 @@ Subscribe only to the topics in the table. That is the filter. Do not read a com
 | `flowstate.bus.scheduled_stop.v1` | None                                                                                     |
 | `flowstate.scenario.command.v1`   | None. The producer (#39) applies the command and sets `scenario_id` on synthetic output. |
 | `flowstate.simulation.audit.v1`   | None. Audit only.                                                                        |
+| `flowstate.simulation.control.v1` | None. The producer reads it.                                                             |
+
+Every event carries `run_id`. A backwards seek in the producer starts a new one, and the topics then hold earlier `event_time` values after later ones. A job reads the newest `run_id` and resets its checkpoint when the `run_id` changes. ([ADR-0017](../adr/0017-producer-as-a-realtime-twin-source.md))
 
 Aviation events are not ride-hail counts. Surge reads them as the flight context. The ride-hail response stays on the ride-hail topic.
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 from pathlib import Path
@@ -130,12 +131,16 @@ def get_settings() -> Settings:
 
 
 def check() -> int:
+    from flowstate.log import configure_logging
+
+    configure_logging()
+    log = logging.getLogger(__name__)
     settings = get_settings()
     settings.ensure_dirs()
-    print(f"data_dir={settings.data_dir.resolve()}")
-    print(f"kafka={settings.kafka_bootstrap_servers}")
-    print(f"spark_master={settings.spark_master}")
-    print("config check passed")
+    log.info("data_dir=%s", settings.data_dir.resolve())
+    log.info("kafka=%s", settings.kafka_bootstrap_servers)
+    log.info("spark_master=%s", settings.spark_master)
+    log.info("config check passed")
     return 0
 
 

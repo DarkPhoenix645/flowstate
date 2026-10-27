@@ -50,7 +50,9 @@ Tracks B–D in the plan (metro hour hold-out, ride-hail hour stability) are **n
 
 ![Hold-out CRPS](assets/resampler/15-holdout-crps.png)
 
-Calendar NB2 beats weekday-median and lag-7 naive on both modes. Adding OpenSky daily flights as covariates does **not** pass the 5 percent rule.
+Calendar NB2 beats weekday-median and lag-7 naive on both modes.
+
+**Flight covariates are untested since 2026-10-27.** The flights rows below come from an earlier run that counted thin OpenSky windows as low days. A thin window is a fetch gap, not a low day (ADR-0017). With the gap rule applied, the committed record has too few shared flight and mode dates to run the test: fit 42 (ride-hail) and 38 (metro), 60 needed. `keep_aviation_terms` stays false, and the record says why. The tables and charts below are history. They are not evidence for or against flight terms.
 
 ### 3.1 Ride-hail daily `done_ride`
 
@@ -120,8 +122,8 @@ Event-row mix is ~98.9% ride-hail because that is the source mix. It is not a fl
 | Ride-hail | 988,915        | 536 / 536      | synthetic                                              |
 | Bus       | 6,996          | 1              | derived (schedule) + synthetic passengers              |
 | Metro     | 3,172          | 373            | synthetic (packed station-hours)                       |
-| Aviation  | 917            | 488            | observed_proxy (all 917)                               |
-| **Total** | **1,000,000**  |                | synthetic 992,087 / derived 6,996 / observed_proxy 917 |
+| Aviation  | 917            | 488            | observed_proxy 580, synthetic 337 (gap windows)         |
+| **Total** | **1,000,000**  |                | synthetic 992,424 / derived 6,996 / observed_proxy 580 |
 
 Ride-hail remainder absorbs bus undershoot so the part has exactly `N` rows.
 
@@ -170,7 +172,7 @@ The resampler does not copy source rows.
 1. Generated ride-hail ids are `fs-` synthetic keys, not Namma Yatri booking ids.
 2. Fares are `synthetic_fare_inr` from the earning proxy. They are not observed fares.
 3. Hour cells do not match sparse `city_hour` stitch cells. 2026-04-14 has an empty city-hour archive. Generated still has a commute shape.
-4. Aviation rows in this run are observed_proxy OpenSky events, subsampled. They keep source ids. They are not a full dump of 201,939 flights.
+4. Aviation rows in this run are observed_proxy OpenSky events, subsampled, except 337 synthetic rows. Those 337 sit on day-directions where the OpenSky window failed or was sparse (below half the 75th-percentile day of that direction). A thin window is not emitted as observed_proxy (ADR-0016, ADR-0017). Observed rows keep source ids. They are not a full dump of 201,939 flights.
 5. Bus passenger fields are assumption-driven (`ResampleConfig`: 4.6M weekday boardings, capacity 41.3, load 1.4). The timetable is derived.
 
 ![Fares](assets/resampler/11-fares.png)

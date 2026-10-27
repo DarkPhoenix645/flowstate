@@ -24,47 +24,8 @@
     },
     "aviation_terms": {
       "rule": "keep aviation terms only on >= 5% held-out CRPS improvement over the best simple baseline without materially worse 90% interval coverage",
-      "fit_dates": 199,
-      "holdout_dates": 61,
-      "best_simple_baseline": "calendar_nb2",
-      "scores": {
-        "flights_nb2": {
-          "dates": 61,
-          "crps": 6077.117985826409,
-          "mae": 8157.527309908725,
-          "log_score": 10.868382741705874,
-          "coverage_90": 0.9016393442622951
-        },
-        "calendar_nb2_on_common": {
-          "dates": 61,
-          "crps": 6295.424973179477,
-          "mae": 8504.960272259346,
-          "log_score": 10.882923489272935,
-          "coverage_90": 0.9508196721311475
-        },
-        "weekday_median": {
-          "dates": 61,
-          "crps": 9140.204918032787,
-          "mae": 9140.204918032787,
-          "log_score": null,
-          "coverage_90": 0.0
-        },
-        "seasonal_naive_lag7": {
-          "dates": 61,
-          "crps": 10537.213114754099,
-          "mae": 10537.213114754099,
-          "log_score": null,
-          "coverage_90": 0.0
-        }
-      },
-      "improvement": 0.03467708507100411,
-      "improvement_ci": [
-        -0.0071747147861799965,
-        0.08002195732116839
-      ],
-      "coverage_90": 0.9016393442622951,
-      "calendar_coverage_90": 0.9508196721311475,
-      "keep_aviation_terms": false
+      "keep_aviation_terms": false,
+      "reason": "not enough shared flight/mode dates to test the terms (fit=42, holdout=61)"
     },
     "final_phi": 97.50482653094441,
     "note": "A missing date drops out of every fit and score. It is not a zero row."
@@ -82,47 +43,8 @@
     },
     "aviation_terms": {
       "rule": "keep aviation terms only on >= 5% held-out CRPS improvement over the best simple baseline without materially worse 90% interval coverage",
-      "fit_dates": 158,
-      "holdout_dates": 41,
-      "best_simple_baseline": "calendar_nb2",
-      "scores": {
-        "flights_nb2": {
-          "dates": 41,
-          "crps": 84154.6246395058,
-          "mae": 114881.02098207605,
-          "log_score": 13.907831875044492,
-          "coverage_90": 0.6097560975609756
-        },
-        "calendar_nb2_on_common": {
-          "dates": 41,
-          "crps": 73594.9160728475,
-          "mae": 102978.90018062998,
-          "log_score": 13.518909194330524,
-          "coverage_90": 0.8292682926829268
-        },
-        "weekday_median": {
-          "dates": 41,
-          "crps": 138956.92682926828,
-          "mae": 138956.92682926828,
-          "log_score": null,
-          "coverage_90": 0.0
-        },
-        "seasonal_naive_lag7": {
-          "dates": 41,
-          "crps": 100569.81707317074,
-          "mae": 100569.81707317074,
-          "log_score": null,
-          "coverage_90": 0.0
-        }
-      },
-      "improvement": -0.14348421236333547,
-      "improvement_ci": [
-        -0.24116226950328837,
-        -0.06686357207392857
-      ],
-      "coverage_90": 0.6097560975609756,
-      "calendar_coverage_90": 0.8292682926829268,
-      "keep_aviation_terms": false
+      "keep_aviation_terms": false,
+      "reason": "not enough shared flight/mode dates to test the terms (fit=38, holdout=41)"
     },
     "final_phi": 67.23308456750866,
     "note": "A missing date drops out of every fit and score. It is not a zero row."
@@ -143,10 +65,10 @@
   },
   "aviation_daily": {
     "arrival": {
-      "phi": 0.5658944531259125
+      "phi": 55.84089248996666
     },
     "departure": {
-      "phi": 2.244201626095702
+      "phi": 90.55931682995802
     }
   },
   "notes": [

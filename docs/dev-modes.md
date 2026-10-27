@@ -5,7 +5,7 @@ Spark, Hadoop, Hive, Kafka, and Grafana run **only** in Docker Compose. Do not i
 | Piece                              | Where it runs                          | How                                                               |
 | ---------------------------------- | -------------------------------------- | ----------------------------------------------------------------- |
 | Ingest, amplify, tests, lint       | Host `uv`                              | `make setup`, `make ingest`, `make test`                          |
-| Kafka producer                     | Host `uv`                              | `make stream-produce` → `localhost:9094`                          |
+| Kafka producer                     | Host `uv`                              | `make stream-serve` (long-running) or `make stream-produce` (one shot) → `127.0.0.1:9094` |
 | Spark batch + Structured Streaming | Compose `spark` + `spark-worker`       | `make hotspots`, `make stream-consume`                            |
 | MapReduce compile                  | `maven:3.9-eclipse-temurin-8` one-shot | `make mr-package`                                                 |
 | MapReduce submit                   | `resourcemanager` container            | `make yarn-probe` ([ADR-0015](adr/0015-yarn-mapreduce-submit.md)) |
@@ -18,7 +18,7 @@ Spark, Hadoop, Hive, Kafka, and Grafana run **only** in Docker Compose. Do not i
 Host producer must **not** use `kafka:9092`. That hostname only resolves inside Compose.
 
 - Containers → `kafka:9092`
-- Host → `localhost:9094` (`FLOWSTATE_KAFKA_BOOTSTRAP_SERVERS`)
+- Host → `127.0.0.1:9094` (`FLOWSTATE_KAFKA_BOOTSTRAP_SERVERS` may say `localhost`; the client rewrites it). Kafka is not published on IPv6.
 
 Spark services set `FLOWSTATE_DATA_DIR=/opt/data`, `FLOWSTATE_KAFKA_BOOTSTRAP_SERVERS=kafka:9092`, and `HADOOP_CONF_DIR=/etc/hadoop` (the Hive `core-site.xml` and `hdfs-site.xml`). Jobs inside the network see the mount, the internal Kafka listener, and `dfs.replication=1`. Path: [ADR-0014](adr/0014-hadoop-client-conf-at-etc-hadoop.md).
 

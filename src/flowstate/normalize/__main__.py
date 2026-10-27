@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sys
 
 from flowstate.config import get_settings
+from flowstate.log import configure_logging
 from flowstate.normalize.cities import DEFAULT_CITY_ID
 from flowstate.normalize.places.geocode import PlacesDisabled
 from flowstate.normalize.run import run
@@ -21,12 +21,7 @@ log = logging.getLogger("normalize")
 
 
 def main(argv: list[str] | None = None) -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-        datefmt="%H:%M:%S",
-        stream=sys.stdout,
-    )
+    configure_logging()
     parser = argparse.ArgumentParser(prog="flowstate.normalize")
     parser.add_argument("--city", default=DEFAULT_CITY_ID)
     args = parser.parse_args(argv)
@@ -34,13 +29,13 @@ def main(argv: list[str] | None = None) -> None:
     try:
         result = run(settings, city_id=args.city, geocode=True)
     except ValueError as exc:
-        print(exc, file=sys.stderr)
+        log.error("%s", exc)
         raise SystemExit(1) from exc
     except ProvenanceError as exc:
-        print(exc, file=sys.stderr)
+        log.error("%s", exc)
         raise SystemExit(1) from exc
     except PlacesDisabled as exc:
-        print(exc, file=sys.stderr)
+        log.error("%s", exc)
         raise SystemExit(1) from exc
     stats = result["geocode"]
     log.info(
@@ -65,10 +60,7 @@ def main(argv: list[str] | None = None) -> None:
         log.info("normalize:%s pass=%s", name, gate["pass"])
     pending = result["geocode"].get("needs_review") or []
     if pending:
-        print(
-            "normalize:needs_review " + ", ".join(pending),
-            file=sys.stderr,
-        )
+        log.error("normalize:needs_review %s", ", ".join(pending))
     raise SystemExit(1 if failed or pending else 0)
 
 
