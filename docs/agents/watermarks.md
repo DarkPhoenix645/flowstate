@@ -1,6 +1,6 @@
 # Watermark and late data
 
-Decision: [ADR-0008](../adr/0008-speed-layer-streaming-shape.md), revised 2026-10-24. This note is the #11 policy. #22 uses only this policy. Job code stays with #22. The producer rules below stay with #39 and #17.
+Decision: [ADR-0008](../adr/0008-speed-layer-streaming-shape.md), revised 2026-10-24. This note is the #11 policy. #22 uses only this policy. Job code stays with #22. The producer rules below stay with #39.
 
 The watermark is the maximum `event_time` seen, minus the delay. Spark stores that value in the checkpoint. The value does not move backward. A row older than the watermark is dropped. Do not widen the delay to hide producer disorder. The producer emits each topic in `event_time` order, and the delay stays small.
 

@@ -20,7 +20,7 @@ When the tickets below are done, each surface reads a different store:
 | Live Grafana                                 | #22, #28–#30 | Stream-sink from Structured Streaming                                          | Demo               |
 | Historical Grafana                           | #23, #27     | Hive warehouse tables                                                          | Demo and findings  |
 | Spark findings jobs                          | #18–#21      | `/lake/rides_amplified/` plus the source clocks where the join is the finding. Questions: [ADR-0019](adr/0019-analytics-catalog.md) | Findings           |
-| MapReduce DemandCount                        | #24          | `/lake/rides_amplified/` at bench time. `#16` files stay as the observed clock | Report slide       |
+| MapReduce analytics                          | #24          | `/lake/rides_amplified/`. Q1–Q5, same grains as #18–#21. Q6 is not in this jar | Report slide       |
 | Amplify 1M / 10M / 100M                      | #25, #31     | Resampler output to `/lake/rides_amplified/`                                   | Shared scale input |
 
 The map does not read HDFS. Grafana live reads the stream-sink. After #22 that sink is on HDFS. The lake is the shared history for the batch layer, the warehouse, and the archived stream.
@@ -101,7 +101,7 @@ The map does not need 100M events. Draw a live or replayed envelope at human tim
 
 Done when: `/lake/rides_amplified/` exists at 1M and Hive `rollup_conservation` has that seed. The 10M / 100M rows are either on disk or recorded as a GCP run in `benchmarks/results/timings.csv`.
 
-### 6. Producer and speed layer — #39, then #22 / #17 / #29 / #30
+### 6. Producer and speed layer — #39, then #22 / #29 / #30
 
 Emit the `flowstate.*.v1` topics from the same model bundle. Default demo: a flight-arrival command changes a configured synthetic airport-access ride-hail response. Mark it `assumption_driven` unless a holdout validated that coefficient.
 
@@ -111,7 +111,7 @@ Done when: a scenario command shows on the stream, consumers filter by `scenario
 
 ### 7. Findings jobs, benchmark, Grafana, demo UI
 
-The six analytical questions, their grains, and their Hive tables are [ADR-0019](adr/0019-analytics-catalog.md). Spark jobs (#18–#21) and MapReduce DemandCount (#24) implement that list. They do not add a question. Q1–Q5 read `/lake/rides_amplified/`. Q6 reads the stream archive. #26 and #31 write timing rows. #12 names the Grafana split ([agents/city-dashboard.md](agents/city-dashboard.md)). #27 and #28 wire the corpus panels. #91 wires one dashboard per question. Grafana stays the City Dashboard. The map draws envelope events. It does not replace Grafana.
+The six analytical questions, their grains, and their Hive tables are [ADR-0019](adr/0019-analytics-catalog.md). Spark jobs (#18–#21) and MapReduce (#24) implement Q1–Q5. They do not add a question. Q6 is #90. Q1–Q5 read `/lake/rides_amplified/`. Q6 reads the stream archive. The Kafka smoke (#17) is covered by #39 and the replay API (#88). Do not implement it again. #26 and #31 write timing rows. #12 names the Grafana split ([agents/city-dashboard.md](agents/city-dashboard.md)). #27 and #28 wire the corpus panels. #91 wires one dashboard per question. Grafana stays the City Dashboard. The map draws envelope events. It does not replace Grafana.
 
 ## What the twin models
 

@@ -1,8 +1,7 @@
 """Create the ADR-0008 topics. One partition each.
 
 ``make kafka-topics`` is the only creator. The producer refuses any
-other partition count. Do not rely on broker auto-create. #17 uses
-this target.
+other partition count. Do not rely on broker auto-create.
 """
 
 from __future__ import annotations

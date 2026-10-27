@@ -1,4 +1,4 @@
-"""Demand grain. Spark (#18) and MapReduce DemandCount (#24) share it.
+"""Demand grain. Spark (#18) and MapReduce (#24) share it.
 
 A ride-hail row is one booking. ``demand_count`` is the number of
 those rows. ``hour_of_day`` is 0–23 in Asia/Kolkata. ``day_type`` is

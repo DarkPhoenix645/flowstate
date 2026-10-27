@@ -16,20 +16,24 @@ The catalog has six questions. Q1–Q5 read `/lake/rides_amplified/` and state t
 
 | Id | Question | Job | Grain | Limit |
 | --- | --- | --- | --- | --- |
-| `demand_hotspots` | Which wards and hours carry the most ride-hail demand, on weekdays and on weekends? | #18. MapReduce #24 mirrors the same key | ward × hour-of-day × day-type | A property of the twin. Also the #30 surge baseline |
-| `cancellation_analysis` | Where and when do ride-hail bookings end in a cancel? | #19 | ward × hour-of-day × day-type × vehicle_type | Cancels over bookings. Reasons stay unknown. No driver-versus-rider split |
-| `ridership_trends` | How do metro and aviation volumes change over time? | #20 | day and month. Metro station-hour peak share | Yellow Line before and after 2025-08-11 only where RTI covers the station |
-| `ridehail_metro` | Do ride-hail and metro volumes move together day to day? | #21 | day over the 372 shared days. Month with DGCA over 19 months | Weekday-adjusted association with an interval. Not cause |
-| `flights_ridehail` | Do flight days line up with ride-hail days? | #21 | day, covered days only | Exploratory. Prints n and an interval. [ADR-0017](0017-producer-as-a-realtime-twin-source.md) needs 60 shared covered dates. The data has 42 and 38. No predictive claim |
-| `scenario_effect` | What changed after a command, baseline against fork, in every mode? | #90 | hour, per mode and place | Reads the stream archive. Needs the #89 sinks. `assumption_driven`. Not a learned effect |
+| `demand_hotspots` | Which wards and hours carry the most ride-hail demand, on weekdays and on weekends? | #18. MapReduce #24 uses the same key | ward × hour-of-day × day-type | A property of the twin. Also the #30 surge baseline |
+| `cancellation_analysis` | Where and when do ride-hail bookings end in a cancel? | #19. MapReduce #24 uses the same grain | ward × hour-of-day × day-type × vehicle_type | Cancels over bookings. Reasons stay unknown. No driver-versus-rider split |
+| `ridership_trends` | How do metro and aviation volumes change over time? | #20. MapReduce #24 uses the same grain | day and month. Metro station-hour peak share | Yellow Line before and after 2025-08-11 only where RTI covers the station |
+| `ridehail_metro` | Do ride-hail and metro volumes move together day to day? | #21. MapReduce #24 uses the same grain | day over the 372 shared days. Month with DGCA over 19 months | Weekday-adjusted association with an interval. Not cause |
+| `flights_ridehail` | Do flight days line up with ride-hail days? | #21. MapReduce #24 uses the same grain | day, covered days only | Exploratory. Prints n and an interval. [ADR-0017](0017-producer-as-a-realtime-twin-source.md) needs 60 shared covered dates. The data has 42 and 38. No predictive claim |
+| `scenario_effect` | What changed after a command, baseline against fork, in every mode? | #90. Not a MapReduce job | hour, per mode and place | Reads the stream archive. Needs the #89 sinks. `assumption_driven`. Not a learned effect |
 
 Clock for every grain is Asia/Kolkata. `hour_of_day` is 0–23. `day_type` is `weekday` for Monday–Friday and `weekend` for Saturday and Sunday.
 
 ### Shared demand key
 
-Q1 and MapReduce DemandCount (#24) share one key: `ward_id`, `hour_of_day`, `day_type`.
+Q1 on Spark and on MapReduce shares one key: `ward_id`, `hour_of_day`, `day_type`.
 
 The count is the number of ride-hail rows. One row is one booking. Spark and MapReduce use this count and no other. The surge baseline (#30) is this table for the demo corpus. It is not a seventh question.
+
+### MapReduce pair
+
+#24 writes the Q1–Q5 tables. The columns match this catalog. Spark stays the primary path. MapReduce is the baseline. Q6 is not in that jar. Q6 compares a baseline with a fork. It is not an engine pair.
 
 ### Run vocabulary
 
@@ -83,6 +87,7 @@ The deep link is `{grafana}/d/{uid}?var-run_id={run_id}`. `{grafana}` is the dep
 ## Consequences
 
 - #18, #19, #20, #21, #24, #90, and #91 implement this list. They do not add a question.
+- #24 mirrors Q1–Q5. It does not implement Q6.
 - #21 writes two tables. #20 writes one table with a `grain` column.
 - A new analytical question needs a new ADR before a job or a panel.
 
