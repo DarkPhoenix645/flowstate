@@ -117,6 +117,7 @@ def test_datasets_reads_the_manifest(tmp_path: Path):
     assert body["datasets"] == [
         {"dataset_id": "rides", "valid": True, "invalid_reason": None}
     ]
+    assert body["next_cursor"] is None
 
 
 def test_incomplete_departures_are_409_and_arrivals_stay_ok(

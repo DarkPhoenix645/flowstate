@@ -28,7 +28,7 @@ from flowstate.config.resolve import (
     resolve_models,
 )
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 KINDS = ("scenario_policy", "resample_config")
 _CONNECT_TIMEOUT = 3
 
@@ -210,7 +210,7 @@ class ConfigStore:
         with self._session() as conn:
             rows = conn.execute(
                 """
-                SELECT run_id, engine, corpus_rows, seed,
+                SELECT id, run_id, engine, corpus_rows, seed,
                        elapsed_seconds, created_at
                 FROM benchmark
                 ORDER BY id DESC
@@ -223,6 +223,7 @@ class ConfigStore:
                 created = created.isoformat()
             out.append(
                 {
+                    "id": str(row["id"]),
                     "run_id": row["run_id"],
                     "engine": row["engine"],
                     "corpus_rows": row["corpus_rows"],

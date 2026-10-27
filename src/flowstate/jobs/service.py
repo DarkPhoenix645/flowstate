@@ -217,10 +217,12 @@ def _execute(
     external_id = backend.submit(spec, payload)
     runs.mark_running(run_id, external_id)
     while True:
-        _apply(runs, backend, run_id, external_id)
         row = runs.get(run_id)
         if row is None or row["status"] not in ("queued", "running"):
+            if row is not None and row["status"] == "cancelled":
+                backend.cancel(external_id)
             return
+        _apply(runs, backend, run_id, external_id)
         time.sleep(0.05)
 
 
@@ -231,19 +233,27 @@ def _apply(
     external_id: str,
 ) -> None:
     state = backend.status(external_id)
+    log = backend.log_tail(external_id)
     if state is None:
         runs.finish(
-            run_id, "failed", error="backend has no record of this job"
+            run_id,
+            "failed",
+            error="backend has no record of this job",
+            log=log,
         )
         return
     status = str(state["status"])
     if status in ("succeeded", "failed", "cancelled"):
         error = None
         if status == "failed":
-            error = backend.log_tail(external_id) or "job failed"
+            error = log or "job failed"
         runs.finish(
             run_id,
             status,
             error=error,
             result_location=state.get("result_location"),
+            log=log,
         )
+        return
+    if log:
+        runs.set_log(run_id, log)

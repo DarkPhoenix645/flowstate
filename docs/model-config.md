@@ -102,6 +102,8 @@ Each scenario object:
 
 No auth in v1. An invalid document is HTTP 422 and writes no row.
 
+List routes take `limit` (1 to 100, default 50) and `cursor`. The body includes `next_cursor`. The last page has `next_cursor` null. There is no offset.
+
 | Method | Path | Effect |
 | --- | --- | --- |
 | `GET` | `/api/model-config/{kind}` | Active version, `source` (`db`), and `config_hash` when both kinds are active. |
