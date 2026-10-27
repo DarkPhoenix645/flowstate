@@ -64,8 +64,10 @@ class Settings(BaseSettings):
     config_database_url: str = (
         "postgresql://flowstate:flowstate@127.0.0.1:5432/flowstate"
     )
-    config_api_host: str = "127.0.0.1"
-    config_api_port: int = 8090
+    api_host: str = "127.0.0.1"
+    api_port: int = 8090
+    grafana_url: str = "http://127.0.0.1:3000"
+    runner_url: str = "http://127.0.0.1:8091"
 
     @field_validator("datasets_dir", mode="before")
     @classmethod

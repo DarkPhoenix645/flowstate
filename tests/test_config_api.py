@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 import psycopg
 import pytest
 
-from flowstate.config.api import dispatch
+from flowstate.api.server import dispatch
 from flowstate.config.postgres import ConfigStore
 from flowstate.config.seed import seed
 
@@ -66,7 +66,7 @@ def test_an_invalid_put_is_422_and_hides_the_url():
 
 @pytest.mark.integration
 def test_http_round_trip(database_url):
-    from flowstate.config.api import serve
+    from flowstate.api.server import serve
 
     seed(database_url)
     server = serve(ConfigStore(database_url), "127.0.0.1", 0)

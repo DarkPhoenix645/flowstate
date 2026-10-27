@@ -175,6 +175,23 @@ services:
       - datanode
     restart: on-failure
 
+  runner:
+    build: ./infra/runner
+    ports:
+      - "127.0.0.1:8091:8091"
+    environment:
+      HADOOP_CONF_DIR: /etc/hadoop
+      PYTHONPATH: /opt/src
+    volumes:
+      - ./data:/opt/data
+      - ./src:/opt/src
+      - ./infra/hive/core-site.xml:/etc/hadoop/core-site.xml:ro
+      - ./infra/hive/hdfs-site.xml:/etc/hadoop/hdfs-site.xml:ro
+    depends_on:
+      - spark
+      - namenode
+      - hiveserver2
+
   postgres:
     image: postgres:16.10
     ports:

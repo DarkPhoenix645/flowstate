@@ -1,0 +1,35 @@
+meta {
+  name: Start run
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/runs
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "kind": "analytics",
+    "job": "hdfs_probe",
+    "params": {}
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 202 && body.run_id) {
+    bru.setVar("runId", String(body.run_id));
+  }
+}
+
+docs {
+  Returns 202 and a run_id. The script stores runId for Get run and Cancel run.
+  Expect 422 when the job is not in the registry.
+}

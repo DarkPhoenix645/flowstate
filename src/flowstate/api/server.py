@@ -1,7 +1,6 @@
-"""Demo HTTP API. Model config, the config facade, and read-only status.
+"""The one HTTP process. Model config, the demo facade, and runs.
 
 Bind is loopback by default. There is no auth in v1.
-Run routes are not in this process.
 """
 
 from __future__ import annotations
@@ -9,10 +8,13 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
+from flowstate.api.runs import run_dispatch
 from flowstate.config import get_settings
 from flowstate.config.demo import demo_dispatch
 from flowstate.config.postgres import (
@@ -42,6 +44,7 @@ def dispatch(
     target: str,
     raw: bytes,
     settings: Any = None,
+    backends: dict[str, Any] | None = None,
 ) -> tuple[int, dict[str, Any]]:
     """One request. Returns a status code and a JSON object."""
     if settings is None:
@@ -49,6 +52,11 @@ def dispatch(
     split = urlsplit(target)
     path = split.path.rstrip("/") or "/"
     try:
+        handled = run_dispatch(
+            store, method, path, split.query, raw, settings, backends
+        )
+        if handled is not None:
+            return handled
         if not path.startswith("/api/model-config"):
             handled = demo_dispatch(
                 store, method, path, split.query, raw, settings
@@ -88,7 +96,21 @@ def main() -> None:
     settings = get_settings()
     store = ConfigStore(settings.config_database_url)
     store.active()
-    server = serve(store, settings.config_api_host, settings.config_api_port)
+    from flowstate.jobs.backend import process_backends
+    from flowstate.jobs.service import reconcile
+    from flowstate.jobs.store import RunStore
+
+    runs = RunStore(store.database_url)
+    backends = process_backends(settings.runner_url)
+    reconcile(runs, backends)
+
+    def _poll() -> None:
+        while True:
+            reconcile(runs, backends)
+            time.sleep(1)
+
+    threading.Thread(target=_poll, daemon=True).start()
+    server = serve(store, settings.api_host, settings.api_port)
     host, port = server.server_address[:2]
     log.info("demo API on http://%s:%s", host, port)
     try:

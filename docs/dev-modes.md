@@ -64,7 +64,7 @@ Bind mounts, not network links: `./data` is `/opt/data` in the Spark master and 
 
 Grafana listens on host port 3000. It has no warehouse connection and no stream connection yet. Hive warehouse files are on HDFS at `hdfs://namenode:9000/user/hive/warehouse`. Derby is the metastore database.
 
-Postgres listens on `127.0.0.1:5432`. It stores model config ([ADR-0018](adr/0018-postgres-for-model-config.md)). Mobility data stays on disk and HDFS. Derby remains the Hive metastore. After `make up`, run `make config-seed`. The demo API is `make config-api` on `127.0.0.1:8090`. It serves model config and the read-only demo routes. It does not serve run routes. Field reference: [model-config.md](model-config.md).
+Postgres listens on `127.0.0.1:5432`. It stores model config ([ADR-0018](adr/0018-postgres-for-model-config.md)). Mobility data stays on disk and HDFS. Derby remains the Hive metastore. After `make up`, run `make config-seed`. The API is `make api` on `127.0.0.1:8090`. It serves model config, the demo routes, and `/api/runs`. The `runner` service publishes `127.0.0.1:8091`. Field reference: [model-config.md](model-config.md). Job backend: [ADR-0020](adr/0020-job-backend.md).
 
 Port 9092 is published on loopback. Kafka advertises it as `kafka:9092`. Use that name only inside Compose. The host producer uses `localhost:9094`. Namenode 9870/9000 also bind to `127.0.0.1`. HDFS permissions are off, so those ports must not listen on the LAN.
 

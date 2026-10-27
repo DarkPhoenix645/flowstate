@@ -1,0 +1,19 @@
+meta {
+  name: List runs
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/runs
+  body: none
+  auth: none
+}
+
+params:query {
+  kind: analytics
+}
+
+docs {
+  Optional kind and status filters. Clear a query value to list every run.
+}

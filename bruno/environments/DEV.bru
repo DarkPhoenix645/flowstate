@@ -1,5 +1,5 @@
 vars {
-  @description('''Demo API. make config-api binds this URL.''')
+  @description('''Demo and run API. make api binds this URL.''')
   baseUrl: http://127.0.0.1:8090
 
   @description('''scenario_policy or resample_config.''')
@@ -31,4 +31,7 @@ vars {
 
   @description('''arrivals or departures. Departures return 409 when the extract is incomplete.''')
   openskyDirection: arrivals
+
+  @description('''Set by Start run. Used by Get run and Cancel run.''')
+  runId: 00000000-0000-0000-0000-000000000000
 }

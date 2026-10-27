@@ -1,0 +1,15 @@
+meta {
+  name: Get run
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/runs/{{runId}}
+  body: none
+  auth: none
+}
+
+docs {
+  One run. Run Start run first so the script can set runId.
+}

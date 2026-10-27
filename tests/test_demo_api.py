@@ -9,12 +9,12 @@ from pathlib import Path
 import psycopg
 import pytest
 
+from flowstate.api.server import dispatch
 from flowstate.config import Settings
-from flowstate.config.api import dispatch
 from flowstate.config.demo import get_settings
 from flowstate.config.model import ResampleConfig
 from flowstate.config.postgres import SCHEMA_VERSION, ConfigStore
-from flowstate.ingest.opensky_flights import AIRPORT, windows
+from flowstate.ingest.opensky_flights import windows
 
 _SECRET = "opensky-client-secret-value"
 _LOCAL_URL = (
@@ -70,9 +70,13 @@ def test_snapshot_is_a_fixture_and_has_no_credentials():
     os.environ["FLOWSTATE_OPENSKY_CLIENT_SECRET"] = _SECRET
     status, body = dispatch(_store(), "GET", "/api/events/snapshot", b"")
     assert status == 200
+    from flowstate.streaming.ride_event_schema import RideEvent
+
     assert body["fixture"] is True
-    assert body["events"][0]["fixture"] is True
-    assert body["events"][0]["event_id"] == "fixture-1"
+    event = body["events"][0]
+    assert "fixture" not in event
+    assert event["event_id"] == "fixture-1"
+    RideEvent.model_validate(event)
     text = json.dumps(body)
     assert _SECRET not in text
     assert "client_secret" not in text
@@ -115,12 +119,18 @@ def test_datasets_reads_the_manifest(tmp_path: Path):
     ]
 
 
-def test_incomplete_departures_are_409_and_arrivals_stay_ok(tmp_path: Path):
+def test_incomplete_departures_are_409_and_arrivals_stay_ok(
+    tmp_path: Path, monkeypatch
+):
+    import flowstate.ingest.opensky_flights as sky
+
+    monkeypatch.setattr(sky, "CACHE", tmp_path / "windows")
+    monkeypatch.setattr(sky, "LEGACY_CACHE", tmp_path / "legacy")
+    (tmp_path / "legacy").mkdir()
     start, end = windows()[0]
-    name = f"{AIRPORT}_{start:%Y%m%dT%H%M}_{end:%Y%m%dT%H%M}Z.json"
-    cache = tmp_path / "opensky" / "windows" / "arrival"
-    cache.mkdir(parents=True)
-    (cache / name).write_text("{}")
+    path = sky.cache_path("arrival", start, end)
+    path.parent.mkdir(parents=True)
+    path.write_text("{}")
     os.environ["FLOWSTATE_OPENSKY_CLIENT_SECRET"] = _SECRET
 
     class _Settings:
@@ -149,11 +159,6 @@ def test_incomplete_departures_are_409_and_arrivals_stay_ok(tmp_path: Path):
     assert status == 409
     assert departures["gap"] == len(windows())
     assert _SECRET not in json.dumps(departures)
-
-
-def test_there_is_no_runs_route():
-    status, _body = dispatch(_store(), "GET", "/api/runs", b"")
-    assert status == 404
 
 
 @pytest.mark.integration
@@ -230,7 +235,9 @@ def test_config_put_merges_and_rejects_without_a_row(
         "source": "db",
         "editable": True,
     }
-    assert len(store.list_versions("resample_config")) == len(before) + 1
+    assert len(store.list_versions("resample_config")) == len(before) + 2
+    assert _knob(body, "assumed_weekday_boardings")["source"] == "db"
+    assert _knob(body, "assumed_weekday_boardings")["value"] == 4_000_000
 
     status, body = dispatch(store, "POST", "/api/config/reset", b"")
     assert status == 200
