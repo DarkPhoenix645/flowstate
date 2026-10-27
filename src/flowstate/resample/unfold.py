@@ -1002,7 +1002,7 @@ def aviation_events(
     span = bundle.span_days()
     rows: list[dict[str, Any]] = []
     synthetic_days: list[str] = []
-    gated = gated_keys(flight_events)
+    gated = gated_keys(flight_events, bundle.config.coverage)
     days = [day for day, _ in assigned]
     for day, need in assigned:
         arr = list(observed.get((day, "arrival"), []))

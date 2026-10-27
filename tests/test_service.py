@@ -591,3 +591,52 @@ def test_a_live_start_plans_today_and_waits_for_the_clock(
     assert refused["accepted"] is False and "wall clock" in refused["reason"]
     _control(service, "seek", to="2026-05-01T12:00:00+05:30")
     assert producer.audit("control")[-1]["accepted"] is False
+
+
+def test_a_policy_change_on_start_is_a_fresh_plan(
+    bundle, inputs, policy, pins
+):
+    from flowstate.config.resolve import MemoryConfigSource
+    from flowstate.resample.bundle import BundleCache
+
+    cache = BundleCache()
+    source = MemoryConfigSource(policy, bundle.config)
+    resolved = source.load()
+    fitted = cache.bundle(
+        inputs,
+        bundle.spec,
+        bundle.config,
+        seed=42,
+        config_hash=resolved.config_hash,
+    )
+    runtime = Runtime(
+        settings=None,
+        inputs=inputs,
+        pins=pins,
+        bundle=fitted,
+        policy=policy,
+        source=source,
+        bundle_cache=cache,
+    )
+    producer = FakeProducer()
+    service = Service(
+        runtime,
+        producer,
+        clock=_clock(),
+        idle_wait=0,
+        status_every=1e9,
+    )
+    _control(service, "start", start=_start(None))
+    first = producer.audit("start")[0]["bundle_hash"]
+    source.policy = policy.model_copy(
+        update={"notes": policy.notes + " next run"}
+    )
+    _control(service, "start", start=_start(None, session_id="t2"))
+    second = producer.audit("start")[-1]["bundle_hash"]
+    assert first != second
+    assert cache.builds == 1
+    assert len(service._plans) == 2
+    assert producer.audit("start")[-1]["config_version"] == {
+        "resample_config": None,
+        "scenario_policy": None,
+    }

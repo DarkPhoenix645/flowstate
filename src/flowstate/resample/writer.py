@@ -29,7 +29,6 @@ from flowstate.normalize.cities import DEFAULT_CITY_ID, load
 from flowstate.resample.bundle import (
     FARE_BASIS,
     ModelBundle,
-    ResampleConfig,
     build_bundle,
     bundle_hash,
     bundle_json,
@@ -178,11 +177,15 @@ def run_amplify(
     spec = city_spec(load(DEFAULT_CITY_ID))
     # The #40 boarding prior is FLOWSTATE_ settings (ADR-0012).
     # The bus summary and bundle.json quote the values in force.
+    from flowstate.config.resolve import FileConfigSource
+
+    resolved = FileConfigSource(settings).load()
     bundle = build_bundle(
         inputs,
         spec,
-        config=ResampleConfig.from_settings(settings),
+        config=resolved.model.resample_config,
         seed=seed,
+        config_hash=resolved.config_hash,
     )
     shares = _natural_shares(inputs, bundle)
     budgets = dict(
@@ -525,9 +528,17 @@ def _write_json(path: Path, payload: Any) -> None:
 
 def write_evaluation(settings: Settings) -> dict[str, Any]:
     """Fit and record the frozen evaluation. Commits as evidence."""
+    from flowstate.config.resolve import FileConfigSource
+
     inputs = load_inputs(settings)
     spec = city_spec(load(DEFAULT_CITY_ID))
-    bundle = build_bundle(inputs, spec)
+    resolved = FileConfigSource(settings).load()
+    bundle = build_bundle(
+        inputs,
+        spec,
+        config=resolved.model.resample_config,
+        config_hash=resolved.config_hash,
+    )
     evaluation = bundle.clocks.evaluation
     _write_json(corpus_dir(settings) / "evaluation.json", evaluation)
     _write_json(Path(COMMITTED_EVALUATION), evaluation)

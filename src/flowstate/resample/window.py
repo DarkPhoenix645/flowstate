@@ -32,7 +32,6 @@ from flowstate.resample.unfold import (
 
 MODES = ("ride_hail", "metro", "bus", "aviation")
 MIN_ROWS = 1000
-OUTSIDE_WIDEN = 0.5
 
 
 def metro_days(inputs: Any, start: date, end: date) -> list[str]:
@@ -440,7 +439,11 @@ def _ride(
             parents,
             parent_source="sampled" if frozen else "observed",
             partial_rows=share,
-            widen=OUTSIDE_WIDEN if outside_window(bundle, day) else 0.0,
+            widen=(
+                bundle.config.outside_widen
+                if outside_window(bundle, day)
+                else 0.0
+            ),
         ):
             collected.extend(batch)
             emitted += len(batch)

@@ -22,6 +22,7 @@ from typing import Any
 import numpy as np
 import pyarrow as pa
 
+from flowstate.config.model import CoverageRule
 from flowstate.resample.aviation_coverage import covered_counts
 from flowstate.resample.nb2 import (
     CALIBRATION_TOLERANCE,
@@ -39,7 +40,6 @@ from flowstate.resample.nb2 import (
 from flowstate.resample.profiles import to_date
 
 WEEKDAY_NAMES = ("mon", "tue", "wed", "thu", "fri", "sat")
-MIN_COVERED_AVIATION_DAYS = 60
 
 
 @dataclass(frozen=True)
@@ -472,7 +472,10 @@ def _fit_marginal(
 
 
 def _fit_aviation_daily(
-    flight_events: pa.Table, window_start: date, window_end: date
+    flight_events: pa.Table,
+    window_start: date,
+    window_end: date,
+    rule: CoverageRule | None = None,
 ) -> dict[str, NB2Fit]:
     """NB2 on observed daily event counts, per direction.
 
@@ -482,7 +485,8 @@ def _fit_aviation_daily(
     (G5). So are failed and thin windows: a gap in the fetch is not a
     low day (``aviation_coverage``, ADR-0017).
     """
-    covered = covered_counts(flight_events)
+    rule = rule if rule is not None else CoverageRule()
+    covered = covered_counts(flight_events, rule)
     counts: dict[str, dict[str, float]] = {
         direction: {day: float(value) for day, value in days.items()}
         for direction, days in covered.items()
@@ -491,10 +495,10 @@ def _fit_aviation_daily(
     fits: dict[str, NB2Fit] = {}
     for direction in ("arrival", "departure"):
         days = sorted(counts[direction])
-        if len(days) < MIN_COVERED_AVIATION_DAYS:
+        if len(days) < rule.minimum_covered_days:
             raise ValueError(
                 f"{direction}: {len(days)} covered days, need "
-                f"{MIN_COVERED_AVIATION_DAYS}"
+                f"{rule.minimum_covered_days}"
             )
         design = _matrix(days, span, set(), window_start=window_start)
         fits[direction] = fit_nb2(
@@ -610,6 +614,7 @@ def build_clocks(
     holdout_end: date,
     line_open: date,
     local_class: str,
+    rule: CoverageRule | None = None,
 ) -> Clocks:
     """Fit both marginals, the copula, and the aviation dailies.
 
@@ -639,7 +644,8 @@ def build_clocks(
         )
         if locality == local_class
     }
-    covered = covered_counts(flight_events)
+    rule = rule if rule is not None else CoverageRule()
+    covered = covered_counts(flight_events, rule)
     arrivals = {day: float(v) for day, v in covered["arrival"].items()}
     departures = {day: float(v) for day, v in covered["departure"].items()}
     ride_hail = _fit_marginal(
@@ -677,7 +683,9 @@ def build_clocks(
         holdout_start=holdout_start,
         regime=line_open,
     )
-    aviation = _fit_aviation_daily(flight_events, window_start, window_end)
+    aviation = _fit_aviation_daily(
+        flight_events, window_start, window_end, rule
+    )
     evaluation = {
         "schema": "resampler-evaluation/1",
         "protocol": {

@@ -36,7 +36,6 @@ from flowstate.log import configure_logging
 from flowstate.normalize.cities import DEFAULT_CITY_ID, load
 from flowstate.normalize.places.review import require_station_reviews
 from flowstate.resample import (
-    build_bundle,
     bundle_hash,
     city_spec,
     load_inputs,
@@ -46,15 +45,13 @@ from flowstate.resample.pins import PinBook, load_pin_book
 from flowstate.resample.scenario import (
     ScenarioCommand,
     ScenarioPolicy,
-    load_policy,
-    scenario_policy_sha256,
 )
 from flowstate.streaming.control import ControlMessage, StartRequest
 from flowstate.streaming.producer import (
     BasePlan,
     ReplayRequest,
-    _bus_prior,
     _extrapolation,
+    _parameters,
     _wall_clock,
     build_base_plan,
     conservation_report,
@@ -87,6 +84,8 @@ class Runtime:
     pins: PinBook
     bundle: ModelBundle
     policy: ScenarioPolicy
+    source: Any = None
+    bundle_cache: Any = None
 
 
 def load_runtime(settings: Settings) -> Runtime:
@@ -101,14 +100,29 @@ def load_runtime(settings: Settings) -> Runtime:
         len(pins.stops),
         len(pins.airports),
     )
-    log.info("fitting the model bundle once")
-    bundle = build_bundle(inputs, city_spec(load(DEFAULT_CITY_ID)), seed=42)
+    from flowstate.config.resolve import FileConfigSource
+    from flowstate.resample.bundle import BundleCache
+
+    source = FileConfigSource(settings)
+    resolved = source.load()
+    cache = BundleCache()
+    log.info("fitting the model bundle")
+    spec = city_spec(load(DEFAULT_CITY_ID))
+    bundle = cache.bundle(
+        inputs,
+        spec,
+        resolved.model.resample_config,
+        seed=42,
+        config_hash=resolved.config_hash,
+    )
     return Runtime(
         settings=settings,
         inputs=inputs,
         pins=pins,
         bundle=bundle,
-        policy=load_policy(),
+        policy=resolved.model.scenario_policy,
+        source=source,
+        bundle_cache=cache,
     )
 
 
@@ -298,7 +312,32 @@ class Service:
         if self.session is not None:
             self._finish("replaced")
         runtime = self.runtime
-        bundle = replace(runtime.bundle, seed=start.seed)
+        resolved = None
+        if runtime.source is not None and runtime.bundle_cache is not None:
+            resolved = runtime.source.load()
+            bundle = runtime.bundle_cache.bundle(
+                runtime.inputs,
+                runtime.bundle.spec,
+                resolved.model.resample_config,
+                seed=start.seed,
+                config_hash=resolved.config_hash,
+            )
+            runtime.bundle = bundle
+            runtime.policy = resolved.model.scenario_policy
+        else:
+            bundle = replace(runtime.bundle, seed=start.seed)
+            from flowstate.config.resolve import resolve_models
+
+            resolved = resolve_models(
+                runtime.policy,
+                bundle.config,
+                source="memory",
+                version_id=None,
+                field_sources={
+                    name: "default"
+                    for name in type(bundle.config).model_fields
+                },
+            )
         zone = bundle.spec.timezone
         live = start.mode == "live"
         now = self.clock().astimezone(zone)
@@ -328,7 +367,13 @@ class Service:
             max_eps=start.max_eps,
             commands=list(start.commands),
         )
-        key = (window_start, window_end, start.seed, start.rows)
+        key = (
+            window_start,
+            window_end,
+            start.seed,
+            start.rows,
+            bundle_hash(bundle, resolved.config_hash),
+        )
         base = self._plans.get(key)
         if base is None:
             log.info(
@@ -371,10 +416,14 @@ class Service:
                 "rows": start.rows,
                 "seek": start.seek,
                 "bundle_version": bundle.version,
-                "bundle_hash": bundle_hash(bundle),
+                "bundle_hash": bundle_hash(bundle, resolved.config_hash),
                 "seed": start.seed,
-                "policy_sha256": scenario_policy_sha256(),
-                "parameters": {"bus_prior": _bus_prior(bundle)},
+                "config_hash": resolved.config_hash,
+                "config_version": {
+                    kind: resolved.version_id(kind)
+                    for kind in resolved.kinds
+                },
+                "parameters": _parameters(bundle),
                 "plan": {
                     "budgets": base.plan["budgets"],
                     "frozen": base.plan["frozen"],

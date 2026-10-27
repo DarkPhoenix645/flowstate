@@ -430,7 +430,7 @@ def test_multiplier_cap_and_metro_shift_needs_a_crosswalk(bundle):
         multiplier=9,
         scenario_id="fork-1",
     )
-    assert applied_multiplier(command, spec) == 3.0
+    assert applied_multiplier(command, spec, 0.2) == 3.0
     metro = _base_row(
         bundle,
         trip_id="m1",
@@ -777,6 +777,30 @@ def test_publish_complete_requires_every_ack():
             [],
             [],
         )
+
+
+def test_a_different_policy_object_changes_the_audit_hash(bundle, inputs):
+    policy = load_policy()
+    request = _request(bundle)
+    first = emit_plan(
+        bundle, inputs, request, mode="replay", rows=ROWS, policy=policy
+    )
+    edited = policy.model_copy(update={"notes": policy.notes + " edited"})
+    second = emit_plan(
+        bundle, inputs, request, mode="replay", rows=ROWS, policy=edited
+    )
+    assert first.audit[0]["config_hash"] != second.audit[0]["config_hash"]
+    assert first.audit[0]["bundle_hash"] != second.audit[0]["bundle_hash"]
+    topic = "flowstate.ridehail.activity.v1"
+    left = [event["event_id"] for event in first.by_topic[topic]]
+    right = [event["event_id"] for event in second.by_topic[topic]]
+    assert left == right
+    assert first.audit[0]["parameters"]["outside_widen"] == (
+        bundle.config.outside_widen
+    )
+    prior = first.audit[0]["parameters"]["bus_prior"]
+    assert prior["FLOWSTATE_ASSUMED_WEEKDAY_BOARDINGS"] == 4_600_000
+    assert "FLOWSTATE_BUS_TRIP_LENGTH_KM_HIGH" in prior
 
 
 def test_bundle_hash_includes_policy(bundle):

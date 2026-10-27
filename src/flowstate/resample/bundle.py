@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -30,6 +30,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from flowstate.config import Settings
+from flowstate.config.model import ResampleConfig
 from flowstate.normalize.cities import DEFAULT_CITY_ID, load
 from flowstate.normalize.cities.profile import CityProfile
 from flowstate.provenance import require_valid
@@ -104,62 +105,6 @@ def city_spec(profile: CityProfile) -> CitySpec:
     )
 
 
-# The 12 October 2026 BMTC boarding prior (ADR-0012). The values
-# come from #40's ``FLOWSTATE_`` settings; these dataclass defaults
-# match the settings defaults so fixture tests and the bundle
-# builder stay deterministic without env. The prior is a model
-# choice, not a BMTC measurement. Report: docs/bmtc-boarding-prior.md.
-# ``clock_vehicle_type`` is the stitched-archive token for the
-# clock's vehicle; the archive spells it ``Auto``.
-
-
-@dataclass(frozen=True)
-class ResampleConfig:
-    cab_share: float = 0.22
-    bus_hour_weight_metro: float = 0.5
-    bus_hour_weight_ridehail: float = 0.5
-    assumed_weekday_boardings: int = 4_600_000
-    assumed_bus_capacity: float = 41.3
-    assumed_max_load_factor: float = 1.4
-    metro_substitution_multiplier: float = 1.0
-    bus_hour_profile: str = "metro_ridehail_blend"
-    bus_peak_share_low: float = 0.47
-    bus_peak_share_high: float = 0.51
-    bus_trip_length_km_low: float = 10.7
-    bus_trip_length_km_high: float = 10.9
-    fare_sigma: float = 0.30
-    clock_vehicle_type: str = "Auto"
-    provenance_note: str = (
-        "cab_share is the thin post-2025-06 city-hour slice share, "
-        "an uncertain prior. Bus boardings, capacity, load factor, "
-        "and the rest of the boarding prior are the #40 assumption "
-        "set (ADR-0012), not BMTC measurements. "
-        "clock_vehicle_type is the archive token for the clock "
-        "vehicle. The assumption set is FLOWSTATE_ settings."
-    )
-
-    @classmethod
-    def from_settings(cls, settings: Settings) -> ResampleConfig:
-        """Read the #40 prior from ``FLOWSTATE_`` settings.
-
-        The blend weights stay the generator's implementation of
-        ``metro_ridehail_blend``; no env name moves them.
-        """
-        return cls(
-            assumed_weekday_boardings=settings.assumed_weekday_boardings,
-            assumed_bus_capacity=settings.assumed_bus_capacity,
-            assumed_max_load_factor=settings.assumed_max_load_factor,
-            metro_substitution_multiplier=(
-                settings.metro_substitution_multiplier
-            ),
-            bus_hour_profile=settings.bus_hour_profile,
-            bus_peak_share_low=settings.bus_peak_share_low,
-            bus_peak_share_high=settings.bus_peak_share_high,
-            bus_trip_length_km_low=settings.bus_trip_length_km_low,
-            bus_trip_length_km_high=settings.bus_trip_length_km_high,
-        )
-
-
 def bus_prior_regime(assumed_weekday_boardings: int) -> str:
     """Target year / regime the boarding scale claims (#40).
 
@@ -203,6 +148,7 @@ class ModelBundle:
     metro: MetroProfiles
     aviation: dict[str, HourProfile]
     coverage: dict[str, Any]
+    config_hash: str = ""
 
     @property
     def seed_id(self) -> str:
@@ -262,6 +208,7 @@ def build_bundle(
     config: ResampleConfig | None = None,
     *,
     seed: int = 42,
+    config_hash: str = "",
 ) -> ModelBundle:
     """Fit Layer 1 and Layer 2 from tables. Deterministic, no I/O."""
     config = config or ResampleConfig()
@@ -276,6 +223,7 @@ def build_bundle(
         holdout_end=spec.holdout_end,
         line_open=spec.line_open,
         local_class=spec.local_class,
+        rule=config.coverage,
     )
     hour_profile = build_ridehail_hour_profile(
         inputs.city_hour,
@@ -350,6 +298,7 @@ def build_bundle(
         metro=metro,
         aviation=aviation,
         coverage=coverage,
+        config_hash=config_hash,
     )
 
 
@@ -378,7 +327,7 @@ def bundle_json(bundle: ModelBundle) -> dict[str, Any]:
         "profile_version": bundle.profile_version,
         "seed": bundle.seed,
         "seed_id": bundle.seed_id,
-        "config": asdict(bundle.config),
+        "config": bundle.config.model_dump(mode="json"),
         "city": bundle.spec.id,
         "window": [
             bundle.spec.window_start.isoformat(),
@@ -418,12 +367,89 @@ def bundle_json(bundle: ModelBundle) -> dict[str, Any]:
     }
 
 
-def bundle_hash(bundle: ModelBundle) -> str:
-    """Content hash. Includes the scenario policy file bytes."""
-    from flowstate.resample.scenario import scenario_policy_sha256
+def fit_cache_key(
+    inputs: BundleInputs,
+    seed: int,
+    version: str,
+    config: ResampleConfig,
+) -> str:
+    """Fit inputs only. A policy edit does not change this key.
 
+    The coverage rule and ``clock_vehicle_type`` are the
+    ``resample_config`` fields the fit reads.
+    """
+    tables = {
+        name: _table_fingerprint(table)
+        for name, table in (
+            ("city_day", inputs.city_day),
+            ("city_hour", inputs.city_hour),
+            ("ward_hour", inputs.ward_hour),
+            ("metro_daily", inputs.metro_daily),
+            ("station_hour", inputs.station_hour),
+            ("station_geography", inputs.geography),
+            ("flight_events", inputs.flight_events),
+            ("significant_dates", inputs.significant),
+            ("bmtc_stop_times", inputs.stop_times),
+            ("bmtc_trips", inputs.bus_trips),
+        )
+    }
+    payload = {
+        "tables": tables,
+        "seed": seed,
+        "version": version,
+        "clock_vehicle_type": config.clock_vehicle_type,
+        "coverage": config.coverage.model_dump(mode="json"),
+    }
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+class BundleCache:
+    """Reuse a fit when only non-fit config changes."""
+
+    def __init__(self) -> None:
+        self._bundles: dict[str, ModelBundle] = {}
+        self.builds = 0
+
+    def bundle(
+        self,
+        inputs: BundleInputs,
+        spec: CitySpec,
+        config: ResampleConfig,
+        *,
+        seed: int,
+        config_hash: str,
+    ) -> ModelBundle:
+        key = fit_cache_key(inputs, seed, BUNDLE_VERSION, config)
+        cached = self._bundles.get(key)
+        if cached is None:
+            self.builds += 1
+            cached = build_bundle(
+                inputs,
+                spec,
+                config,
+                seed=seed,
+                config_hash=config_hash,
+            )
+            self._bundles[key] = cached
+            return cached
+        if cached.config_hash == config_hash and cached.config == config:
+            return cached
+        # Same fit, new hash. Do not refit.
+        rebuilt = replace(
+            cached, config=config, config_hash=config_hash, seed=seed
+        )
+        return rebuilt
+
+
+def bundle_hash(
+    bundle: ModelBundle, config_hash: str | None = None
+) -> str:
+    """Content hash. Includes ``config_hash``, not the policy file bytes."""
     payload = bundle_json(bundle)
-    payload["scenario_policy_sha256"] = scenario_policy_sha256()
+    payload["config_hash"] = (
+        bundle.config_hash if config_hash is None else config_hash
+    )
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True).encode()
     ).hexdigest()

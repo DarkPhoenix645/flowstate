@@ -8,10 +8,14 @@ neither emitted as ``observed_proxy`` nor learned as a low day.
 
 A day-direction is covered when all of these hold:
 
-* no row came from a failed or quota window, and
-* its event count is at least ``SPARSE_FRACTION`` of the direction's
-  reference level. The reference is the ``REFERENCE_QUANTILE`` of the
-  direction's daily counts that came from healthy windows.
+* no row came from a failed status on the coverage rule, and
+* its event count is at least the rule's sparse fraction of the
+  direction's reference level. The reference is the rule's quantile
+  of the direction's daily counts that came from healthy windows.
+
+The rule is the one on the bundle. These functions do not read a
+module constant, so a later edit cannot move a bundle that is
+already built.
 
 The 75th percentile is the reference, not the median. A patchy fetch
 drags the median down and lets thin days through. On the checked data
@@ -26,14 +30,18 @@ from typing import Any
 import numpy as np
 import pyarrow as pa
 
-SPARSE_FRACTION = 0.5
-REFERENCE_QUANTILE = 75
-FAILED_QUERY_STATUS = frozenset({"failed", "quota"})
+from flowstate.config.model import CoverageRule
+
 DIRECTIONS = ("arrival", "departure")
+
+
+def _rule(rule: CoverageRule | None) -> CoverageRule:
+    return rule if rule is not None else CoverageRule()
 
 
 def observed_counts(
     flight_events: pa.Table,
+    rule: CoverageRule | None = None,
 ) -> tuple[dict[str, dict[str, int]], dict[str, set[str]]]:
     """Event count per day, and the days that touch a failed window."""
     columns = ["direction", "local_date"]
@@ -46,6 +54,7 @@ def observed_counts(
         if has_status
         else [None] * len(frame["direction"])
     )
+    failed_status = set(_rule(rule).failed_statuses)
     counts: dict[str, dict[str, int]] = {name: {} for name in DIRECTIONS}
     failed: dict[str, set[str]] = {name: set() for name in DIRECTIONS}
     for direction, day, status in zip(
@@ -55,27 +64,34 @@ def observed_counts(
             continue
         key = str(day)[:10]
         counts[direction][key] = counts[direction].get(key, 0) + 1
-        if status in FAILED_QUERY_STATUS:
+        if status in failed_status:
             failed[direction].add(key)
     return counts, failed
 
 
 def reference_level(
-    counts: dict[str, int], failed: set[str]
+    counts: dict[str, int],
+    failed: set[str],
+    rule: CoverageRule | None = None,
 ) -> float:
     healthy = [value for day, value in counts.items() if day not in failed]
     if not healthy:
         return 0.0
-    return float(np.percentile(np.asarray(healthy), REFERENCE_QUANTILE))
+    quantile = _rule(rule).reference_quantile
+    return float(np.percentile(np.asarray(healthy), quantile))
 
 
-def covered_counts(flight_events: pa.Table) -> dict[str, dict[str, int]]:
+def covered_counts(
+    flight_events: pa.Table,
+    rule: CoverageRule | None = None,
+) -> dict[str, dict[str, int]]:
     """Counts for the covered day-directions only."""
-    counts, failed = observed_counts(flight_events)
+    rule = _rule(rule)
+    counts, failed = observed_counts(flight_events, rule)
     kept: dict[str, dict[str, int]] = {}
     for direction in DIRECTIONS:
-        level = reference_level(counts[direction], failed[direction])
-        floor = SPARSE_FRACTION * level
+        level = reference_level(counts[direction], failed[direction], rule)
+        floor = rule.sparse_fraction * level
         kept[direction] = {
             day: value
             for day, value in counts[direction].items()
@@ -84,10 +100,14 @@ def covered_counts(flight_events: pa.Table) -> dict[str, dict[str, int]]:
     return kept
 
 
-def gated_keys(flight_events: pa.Table) -> set[tuple[str, str]]:
+def gated_keys(
+    flight_events: pa.Table,
+    rule: CoverageRule | None = None,
+) -> set[tuple[str, str]]:
     """(day, direction) pairs that have rows and fail the rule."""
-    counts, _ = observed_counts(flight_events)
-    kept = covered_counts(flight_events)
+    rule = _rule(rule)
+    counts, _ = observed_counts(flight_events, rule)
+    kept = covered_counts(flight_events, rule)
     gated: set[tuple[str, str]] = set()
     for direction in DIRECTIONS:
         for day in counts[direction]:
@@ -96,15 +116,19 @@ def gated_keys(flight_events: pa.Table) -> set[tuple[str, str]]:
     return gated
 
 
-def coverage_summary(flight_events: pa.Table) -> dict[str, Any]:
-    counts, failed = observed_counts(flight_events)
-    kept = covered_counts(flight_events)
+def coverage_summary(
+    flight_events: pa.Table,
+    rule: CoverageRule | None = None,
+) -> dict[str, Any]:
+    rule = _rule(rule)
+    counts, failed = observed_counts(flight_events, rule)
+    kept = covered_counts(flight_events, rule)
     return {
         direction: {
             "days_with_rows": len(counts[direction]),
             "covered_days": len(kept[direction]),
             "reference_level": reference_level(
-                counts[direction], failed[direction]
+                counts[direction], failed[direction], rule
             ),
         }
         for direction in DIRECTIONS
