@@ -35,9 +35,9 @@ def start_run(
     if not isinstance(kind, str) or not isinstance(job, str):
         raise ConfigValidationError("kind and job are required")
     spec = validate_job(kind, job, params)
+    backend = require_backend(backends, str(backend_name))
     if spec.kind == "analytics":
         params = _corpus_identity(params)
-    backend = require_backend(backends, str(backend_name))
     active = configs.active()
     resample = active.get("resample_config")
     if resample is None:
