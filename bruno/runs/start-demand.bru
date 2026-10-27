@@ -1,0 +1,36 @@
+meta {
+  name: Start demand hotspots
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/runs
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "kind": "analytics",
+    "job": "demand_hotspots",
+    "params": {}
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 202 && body.run_id) {
+    bru.setVar("runId", String(body.run_id));
+  }
+}
+
+docs {
+  Q1 on Compose Spark. The same body starts cancellation_analysis,
+  ridership_trends, or cross_modal when job is that name.
+  The script stores runId for Get run.
+}

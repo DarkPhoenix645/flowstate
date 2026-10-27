@@ -262,4 +262,12 @@ def test_jobs_lists_the_registry_without_a_database():
     )
     assert status == 200
     names = {item["name"] for item in body["jobs"]}
-    assert names == {"amplify", "hdfs_probe", "replay"}
+    assert names == {
+        "amplify",
+        "hdfs_probe",
+        "replay",
+        "demand_hotspots",
+        "cancellation_analysis",
+        "ridership_trends",
+        "cross_modal",
+    }

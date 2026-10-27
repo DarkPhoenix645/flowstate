@@ -1,4 +1,4 @@
-.PHONY: help setup ingest normalize stage lake amplify evaluate hotspots \
+.PHONY: help setup ingest normalize stage lake amplify evaluate \
 	spark-hdfs up down down-v \
 	ensure-kafka-cluster-id \
 	stream-produce kafka-topics stream-consume \
@@ -25,7 +25,6 @@ help:
 	@echo "  make up                 mint Kafka CLUSTER_ID if needed, start stack"
 	@echo "  make down               stop stack (keeps volumes + CLUSTER_ID)"
 	@echo "  make down-v             stop stack, DELETE volumes, remint CLUSTER_ID"
-	@echo "  make hotspots           Spark demand job (in compose)"
 	@echo "  make spark-hdfs         Spark list+write HDFS probe (replication 1)"
 	@echo "  make kafka-topics       create flowstate.*.v1 topics, 1 partition"
 	@echo "  make config-seed        load the first model-config versions into Postgres"
@@ -80,9 +79,6 @@ down-v: ensure-kafka-cluster-id
 	@echo "WARNING: removing Compose volumes (HDFS, Kafka, Hive data) and reminting CLUSTER_ID"
 	$(COMPOSE) down -v
 	$(PYTHON) infra/kafka/ensure_cluster_id.py --force
-
-hotspots:
-	$(SPARK_SUBMIT) /opt/src/flowstate/batch/spark_jobs/demand_hotspots.py
 
 spark-hdfs:
 	$(SPARK_SUBMIT) /opt/src/flowstate/batch/spark_jobs/hdfs_probe.py

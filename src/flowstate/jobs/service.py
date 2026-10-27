@@ -35,6 +35,8 @@ def start_run(
     if not isinstance(kind, str) or not isinstance(job, str):
         raise ConfigValidationError("kind and job are required")
     spec = validate_job(kind, job, params)
+    if spec.kind == "analytics":
+        params = _corpus_identity(params)
     backend = require_backend(backends, str(backend_name))
     active = configs.active()
     resample = active.get("resample_config")
@@ -73,6 +75,24 @@ def start_run(
     saved = runs.get(run_id)
     assert saved is not None
     return saved
+
+
+def _corpus_identity(params: dict[str, Any]) -> dict[str, Any]:
+    import json
+    from pathlib import Path
+
+    from flowstate.config import get_settings
+
+    path = get_settings().staged_dir / "rides_amplified" / "manifest.json"
+    if not Path(path).is_file():
+        raise ConfigValidationError(f"missing {path.name}")
+    manifest = json.loads(Path(path).read_text())
+    stamped = dict(params)
+    stamped["corpus_rows"] = int(manifest["rows"])
+    stamped["seed"] = int(manifest["seed"])
+    stamped["bundle_hash"] = manifest["bundle_hash"]
+    stamped["bundle_version"] = manifest["bundle_version"]
+    return stamped
 
 
 def record_run(
@@ -192,7 +212,9 @@ def _execute(
     params: dict[str, Any],
     run_id: str,
 ) -> None:
-    external_id = backend.submit(spec, params)
+    payload = dict(params)
+    payload["run_id"] = run_id
+    external_id = backend.submit(spec, payload)
     runs.mark_running(run_id, external_id)
     while True:
         _apply(runs, backend, run_id, external_id)
