@@ -1,0 +1,21 @@
+meta {
+  name: Get OpenSky windows
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/datasets/opensky
+  body: none
+  auth: none
+}
+
+params:query {
+  direction: {{openskyDirection}}
+}
+
+docs {
+  windows_cached out of windows_required. gap is the missing count.
+  Set openskyDirection to departures. Incomplete departures return 409.
+  Arrivals stay 200 when departures are incomplete.
+}

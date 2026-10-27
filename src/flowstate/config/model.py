@@ -14,6 +14,36 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+# PUT /api/config may set only these, and only to one of the listed values.
+CONFIG_WRITABLE: dict[str, tuple[float | int, ...]] = {
+    "assumed_weekday_boardings": (4_600_000, 4_000_000, 4_800_000, 3_310_000),
+    "assumed_bus_capacity": (41.3,),
+    "assumed_max_load_factor": (1.0, 1.2, 1.4),
+}
+
+# Shown on GET /api/config. A client cannot PUT them.
+CONFIG_SHOWN = (
+    "metro_substitution_multiplier",
+    "bus_peak_share_low",
+    "bus_peak_share_high",
+    "bus_trip_length_km_low",
+    "bus_trip_length_km_high",
+)
+
+def config_knob_allowed(name: str, value: object) -> bool:
+    """True when a demo PUT may store this value."""
+    allowed = CONFIG_WRITABLE.get(name)
+    if allowed is None or isinstance(value, bool):
+        return False
+    if name == "assumed_weekday_boardings":
+        return value in allowed
+    try:
+        number = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return False
+    return any(abs(number - float(item)) < 1e-9 for item in allowed)
+
+
 # The nine #40 bus-prior fields. Env overrides these when the
 # kind comes from files. A database version replaces the document.
 BUS_PRIOR_FIELDS = (

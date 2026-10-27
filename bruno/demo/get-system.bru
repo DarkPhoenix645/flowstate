@@ -1,0 +1,16 @@
+meta {
+  name: Get system
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/system
+  body: none
+  auth: none
+}
+
+docs {
+  TCP check for the namenode, Kafka, Spark, Hive, and Grafana host ports.
+  up is false when the port is closed.
+}

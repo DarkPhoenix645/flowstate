@@ -1,0 +1,36 @@
+meta {
+  name: Put config
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{baseUrl}}/api/config
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "assumed_weekday_boardings": 4000000,
+    "replay_seed": 42
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 200 && body.resample_config_version_id) {
+    bru.setVar("kind", "resample_config");
+    bru.setVar("versionId", String(body.resample_config_version_id));
+  }
+}
+
+docs {
+  Merges the sent fields and saves a resample_config version.
+  replay_seed is stored on run_config and does not need a version by itself.
+  The script stores kind and versionId for Activate.
+}

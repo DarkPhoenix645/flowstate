@@ -1,4 +1,4 @@
--- Schema version 1. init.sql runs only on a fresh volume.
+-- Schema version 2. init.sql runs only on a fresh volume.
 -- The process checks schema_version on connect.
 
 CREATE TABLE schema_version (
@@ -6,7 +6,7 @@ CREATE TABLE schema_version (
     applied_at timestamptz NOT NULL DEFAULT now()
 );
 
-INSERT INTO schema_version (version) VALUES (1);
+INSERT INTO schema_version (version) VALUES (2);
 
 CREATE TABLE config_version (
     id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -38,4 +38,21 @@ CREATE TABLE config_active (
         kind IN ('scenario_policy', 'resample_config')
     ),
     version_id bigint NOT NULL REFERENCES config_version (id)
+);
+
+-- One replay seed. Not a model-config version.
+CREATE TABLE run_config (
+    id integer PRIMARY KEY CHECK (id = 1),
+    replay_seed integer NOT NULL
+);
+
+-- #26 and #86 write rows. run_id stays null until then.
+CREATE TABLE benchmark (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    run_id text,
+    engine text,
+    corpus_rows bigint,
+    seed integer,
+    elapsed_seconds double precision,
+    created_at timestamptz NOT NULL DEFAULT now()
 );

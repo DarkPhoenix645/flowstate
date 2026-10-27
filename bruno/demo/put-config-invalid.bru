@@ -1,0 +1,25 @@
+meta {
+  name: Put config invalid
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{baseUrl}}/api/config
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "cab_share": 0.22
+  }
+}
+
+docs {
+  Expect 422. cab_share is not a writable demo knob. No version is written.
+}

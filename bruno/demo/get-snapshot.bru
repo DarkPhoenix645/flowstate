@@ -1,0 +1,15 @@
+meta {
+  name: Get event snapshot
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/events/snapshot
+  body: none
+  auth: none
+}
+
+docs {
+  One ADR-0008 envelope. fixture is true.
+}

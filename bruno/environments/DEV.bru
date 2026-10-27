@@ -1,5 +1,5 @@
 vars {
-  @description('''Model-config API. make config-api binds this URL.''')
+  @description('''Demo API. make config-api binds this URL.''')
   baseUrl: http://127.0.0.1:8090
 
   @description('''scenario_policy or resample_config.''')
@@ -28,4 +28,7 @@ vars {
 
   @description('''Grafana UI on the host.''')
   grafanaUrl: http://127.0.0.1:3000
+
+  @description('''arrivals or departures. Departures return 409 when the extract is incomplete.''')
+  openskyDirection: arrivals
 }

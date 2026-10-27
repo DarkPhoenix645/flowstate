@@ -398,7 +398,10 @@ def test_schema_problems_stop_the_process(database_url):
                 settings, database_url=database_url
             ).load()
     finally:
-        conn.execute("UPDATE schema_version SET version = 1")
+        conn.execute(
+            "UPDATE schema_version SET version = %s",
+            (SCHEMA_VERSION,),
+        )
         conn.commit()
         conn.close()
 
