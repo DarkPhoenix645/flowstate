@@ -106,6 +106,9 @@ class RideEvent(BaseModel):
     count: int
     location_ref: LocationRef
     scenario_id: str | None = None
+    # One replay epoch. A scrub backwards starts a new run_id so a
+    # consumer can tell the earlier event_times from a late arrival.
+    run_id: str | None = None
     provenance: Provenance
     parameters_ref: str | None = None
     entries_count: int | None = None

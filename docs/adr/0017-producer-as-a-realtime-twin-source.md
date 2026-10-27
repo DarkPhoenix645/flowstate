@@ -17,7 +17,10 @@ This ADR changes parts of [ADR-0008](0008-speed-layer-streaming-shape.md), [ADR-
 - The resampler drew events for 101 ward ids that have no polygon and no pin. They hold 4.3% of ride-hail mass, and one id (`w_0`) holds 4.1%. Docs name these ids `out of scope`. No repo document says which place `m_*`, `t_*`, or `w_0` is.
 - Each topic was sent in turn, so the modes did not meet at the play head.
 - The producer did not publish the table that `parameters_ref` points at.
+- Each restart of the producer cost about 70 s. A scrub is a restart in that model.
+- The producer did not read `flowstate.scenario.command.v1`, so a command could not reach a running replay.
 - `kia_catchment_wards` was empty. No ward centroid is within 7 km of VOBL.
+- The daily aviation fit learned thin OpenSky windows as low days. The terminal means were 81 arrivals and 459 departures a day.
 - A metro disruption removed station-hour rows and moved nobody.
 
 ## Decision
@@ -38,11 +41,21 @@ A day that has no city-day row freezes at the latest source day with the same we
 
 ### Order and runtime
 
-The producer is a restartable process. The demo API starts it with a replay request file (`--request`). A scrub is a restart with `seek`. All topics are sent in one global order by (`event_time`, `event_id`). Each topic keeps its own non-decreasing order. The cap is `max_eps`. It drops nothing. Waits shorter than 2 ms are added up so the cap holds.
+The producer is a long-running service (`make stream-serve`). It loads the inputs, the pins, and the fitted model once. A restart of a one-shot process cost about 70 s, of which about 30 to 55 s was the model fit. The service pays that once.
 
-`live` plans today and sends each event when the wall clock reaches its `event_time`. Events already past are not sent. All four modes run in live.
+The service reads two topics. `flowstate.simulation.control.v1` is new. It carries `start`, `pause`, `resume`, `speed`, `seek`, `stop`, and `shutdown` (`ControlMessage`, schema in `control.py`). `flowstate.scenario.command.v1` carries scenario commands, as ADR-0008 says. A `start` message holds the replay request: window, seed, rows, acceleration, `max_eps`, optional seek, optional commands, and an optional session id. Each message gets a `control` record on the audit topic with the same `request_id`, `accepted`, the state, the play head, and the requested and effective acceleration. A `status` record goes out about every second while a session runs. A `start` record opens a session and a `stop` record closes it, with `sent`, `acked`, `failed`, and the QA failures.
 
-A replay is paced by `acceleration`. A run succeeds only when every send is acked.
+All topics are sent in one global order by (`event_time`, `event_id`). Each topic keeps its own non-decreasing order. The cap is `max_eps`. It drops nothing. Waits shorter than 2 ms are added up so the cap holds. A control message cuts a wait short.
+
+- **Pause and resume** hold and release the play head. Nothing is sent while paused.
+- **Speed** sets `acceleration`. A live session ignores it.
+- **Command** during a replay forks the stream from the play head. The fork is a full copy of the baseline after that point, with the effect applied. Events already sent do not change. A command that started earlier begins at the play head. A second `scenario_id` is rejected, and the audit counts it as a QA failure.
+- **Seek** moves the play head. A move forward keeps the `run_id`. A move backwards starts a new one, because the topics already hold later events. Every event carries `run_id` (`<session>.<epoch>`). A consumer reads the newest `run_id` and treats the others as history. A Spark job that must see one clean series resets its checkpoint on a new `run_id`, or filters on it.
+- **Start** while a session runs ends that session. A plan for the same window, seed, and rows is reused (two are kept).
+
+`live` plans today and sends each event when the wall clock reaches its `event_time`. Events already past are not sent. All four modes run in live. A live session cannot seek.
+
+`emitted_at` is set at send time in every mode. A session counts a send as acked only when the broker acks it. The one-shot CLI (`make stream-produce`) stays for bulk runs and tests. It uses the same planning code.
 
 ### Catchment
 
@@ -84,6 +97,14 @@ The riders reach the ward that contains the station pin (point in polygon). A pi
 
 The bus leg adds boardings on sampled stop calls within 1 km of the station. The same riders alight at the last sampled stop call of the trip. Boardings stay equal to alightings on each trip. Onboard stays under the capacity cap. A thin bus sample may have no stop call near the station. Then nothing is added.
 
+### Aviation coverage
+
+One rule decides whether a day-direction of OpenSky data is covered (`aviation_coverage.py`). A day-direction is covered when no row came from a failed or quota window, and its count is at least half the 75th percentile of that direction's healthy daily counts. On the checked data that reference is about 350 events a day, and 200 of 353 arrival days and 375 of 535 departure days are covered.
+
+The generator and the daily fit use the same rule. A gap is not emitted as `observed_proxy`, and it is not learned as a low day. A direction with no rows, or a gated window, takes its share of the day's budget from the fitted mean. It does not take it from the thin count. So a day with 3 arrival rows and 100 departure rows still gets about as many synthetic arrivals as departures. The fit needs 60 covered days for each direction. Fitted on covered days, the terminal means are 321 arrivals and 333 departures a day, in line with the 330 to 375 in `docs/data-sources.md`. The raw fit gave 81 and 459.
+
+The flight covariate test in `resampler-evaluation.md` needs shared covered dates. It now has 42 and 38, and needs 60, so it does not run. `keep_aviation_terms` stays false.
+
 ### Flight response
 
 Unchanged from ADR-0016: `rides_per_arrival` is 4 and `rides_per_departure` is 2. They are placeholders, not passengers per aircraft. The applied yield is the stored yield times `amplification_factor`.
@@ -96,7 +117,8 @@ The audit start record carries `parameters`, a table keyed by `parameters_ref`. 
 
 ## What this changes
 
-- ADR-0008: `location_ref` is nested (`at`, `drop`). Commands do not arrive on `flowstate.scenario.command.v1` while a replay runs. A request file carries them, and a scrub restarts the process.
+- ADR-0008: `location_ref` is nested (`at`, `drop`). The envelope gains `run_id`. The topic set gains `flowstate.simulation.control.v1`, so the set is eight topics. Commands now arrive on `flowstate.scenario.command.v1` during a replay, as ADR-0008 says.
+- ADR-0016, replay and fork: a scrub is a seek inside the running service. It does not restart the process. A backwards seek starts a new `run_id`.
 - ADR-0013, point 5: the producer stamps bus on the replay day. `make amplify` keeps the feed date. ADR-0013 point 2 and the natural-share rule now also apply to the producer.
 - ADR-0016, scale section: ADR-0016 spreads mass over 309 wards. The emitted universe is 243.
 - ADR-0016, map section: ride-hail on the map is still a ward tile. The event point is now inside the ward, not the centroid.
@@ -107,8 +129,10 @@ The audit start record carries `parameters`, a table keyed by `parameters_ref`. 
 ## Consequences
 
 - `make amplify` output changes: no `m_*`, `t_*`, or `w_0` ward. Run it again to refresh `/lake/rides_amplified/` and `rollup_conservation`.
-- At the 1M profile a flight response is small. Ten extra arrivals add well under one lifecycle per ward-hour. The effect grows with `amplification_factor`.
+- At 1M events a flight response is small. Ten extra arrivals add well under one lifecycle per ward-hour. The effect grows with `amplification_factor`.
 - The producer holds the plan in memory. A window above 2,000,000 events must be replayed in shorter windows.
+- A fork takes about 10 to 17 s at 200k events, and the play head waits for it.
+- The `kia_catchment_wards` list and the metro shares are policy values. #75 (T50) moves them to a versioned store.
 - #22 groups by `location_ref.at.ward_id`.
 
 ## Scope for v2
@@ -119,7 +143,9 @@ The audit start record carries `parameters`, a table keyed by `parameters_ref`. 
 - A passenger-per-aircraft yield with a cab share, with a source.
 - A denser bus sample near a disrupted station.
 - Per-day natural shares in a replay. The mode split uses window totals today.
-- A command consumer for `flowstate.scenario.command.v1` in a running replay.
+- More than one session at a time, and authentication on the control topic.
+- A topic and checkpoint reset on a new `run_id`, done by the service.
+- A fork that is computed while the play head keeps moving. Today the play head waits while the fork builds.
 - Ward ids `m_*`, `t_*`, and `w_0`: identify them from the Namma Yatri source, then decide whether to model them.
 
 ## Sources

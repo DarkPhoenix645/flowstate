@@ -39,6 +39,8 @@ make down-v         # DESTRUCTIVE: compose down -v + remint CLUSTER_ID
 | `make hotspots`           | Spark demand job **inside** the `spark` service                                                                                                                        | TODO    |
 | `make spark-hdfs`         | Spark list + write probe against `hdfs://namenode:9000` (replication 1). Recreate Spark after a compose conf change.                                                   | WORKING |
 | `make kafka-topics`       | Create the seven `flowstate.*.v1` topics with one partition each. Run it after `make up`. The producer exits on any other partition count.                           | WORKING |
+| `make stream-serve`       | The long-running producer. Waits for control messages and commands, then replays. [ADR-0017](adr/0017-producer-as-a-realtime-twin-source.md). | WORKING |
+| `make stream-ctl`         | `ARGS='start --rows 20000 --acceleration 3600'`, or `pause`, `resume`, `speed 7200`, `seek <time>`, `command '<json>'`. The answer is on the audit topic. | WORKING |
 | `make stream-produce`     | `RATE=500 SEED=42 PRODUCE_ROWS=10000`, or `REQUEST=request.json` (host → Kafka `127.0.0.1:9094`). All modes go out in one `event_time` order. [ADR-0017](adr/0017-producer-as-a-realtime-twin-source.md). | WORKING |
 | `make stream-consume`     | rolling metrics **inside** Compose Spark                                                                                                                               | TODO    |
 | `make hive-ddl`           | Create partitioned `rides`, put the city-day clock from the lake, then `MSCK REPAIR`.                                                                                 | WORKING |

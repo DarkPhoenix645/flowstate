@@ -1,8 +1,11 @@
-"""Conditionally stimulable producer. Ticket #39, ADR-0017.
+"""One-shot producer and the planning code the service shares. #39, ADR-0017.
 
-One resampler feeds the lake and this process. The producer is a
-restartable process. The demo API starts it with a replay request:
-window, seed, speed, commands, and an optional seek (ADR-0016). Modes:
+``python -m flowstate.streaming.producer`` plans one window and sends it
+once. Use it for bulk runs and tests. The long-running producer is
+``flowstate.streaming.service`` (``make stream-serve``). It builds on
+``build_base_plan`` and ``build_fork`` below, so there is one planner.
+
+Modes:
 
 * ``historical``: build the window and send it with no pacing.
 * ``replay``: send in ``event_time`` order, paced by acceleration.
@@ -55,6 +58,7 @@ from flowstate.resample.scenario import (
     check_commands,
     load_policy,
     observed_activity_per_day,
+    parse_duration,
     scenario_policy_sha256,
 )
 from flowstate.resample.unfold import ParentTotals
@@ -84,6 +88,7 @@ MAX_ROWS = 2_000_000
 log = logging.getLogger(__name__)
 MODES = ("historical", "replay", "live")
 Clock = Callable[[], datetime]
+Sequence = list[tuple[str, dict[str, Any]]]
 
 
 @dataclass
@@ -211,6 +216,129 @@ def merge_sequence(
     return merged
 
 
+@dataclass
+class BasePlan:
+    """The baseline for one request, built once and reused.
+
+    ``sequence`` is every baseline envelope in global order. A fork is
+    derived from ``rows`` and never changes them.
+    """
+
+    request: ReplayRequest
+    rows: list[dict[str, Any]]
+    plan: dict[str, Any]
+    parents: ParentTotals
+    factor: float
+    cancel: float
+    sequence: list[tuple[str, dict[str, Any]]]
+
+
+def build_base_plan(
+    bundle: ModelBundle,
+    inputs: Any,
+    request: ReplayRequest,
+    rows: int,
+    *,
+    pins: PinBook | None = None,
+) -> BasePlan:
+    if rows < MIN_ROWS:
+        raise ValueError(f"rows={rows} is below the minimum {MIN_ROWS}")
+    if rows > MAX_ROWS:
+        raise ValueError(
+            f"rows={rows} is above {MAX_ROWS}. Replay a shorter window."
+        )
+    parents = ParentTotals()
+    baseline, plan = plan_window(
+        bundle,
+        inputs,
+        window_start=request.window_start,
+        window_end=request.window_end,
+        rows=rows,
+        seed=request.seed,
+        parents=parents,
+        log=log,
+    )
+    envelopes = [to_envelope(row, pins=pins) for row in baseline]
+    return BasePlan(
+        request=request,
+        rows=baseline,
+        plan=plan,
+        parents=parents,
+        factor=_factor(bundle, inputs, baseline, request),
+        cancel=_cancel_share(bundle, inputs, request.window_start),
+        sequence=merge_sequence(_group(envelopes)),
+    )
+
+
+def clip_commands(
+    commands: list[ScenarioCommand], floor: datetime
+) -> list[ScenarioCommand]:
+    """Commands that still have time left after ``floor``.
+
+    A command that started earlier begins at ``floor``. Events that
+    went out before ``floor`` cannot change.
+    """
+    kept: list[ScenarioCommand] = []
+    for command in commands:
+        start = datetime.fromisoformat(command.start)
+        end = start + parse_duration(command.duration)
+        begin = max(start, floor.astimezone(start.tzinfo))
+        left = (end - begin).total_seconds()
+        if left <= 0:
+            continue
+        kept.append(
+            command.model_copy(
+                update={
+                    "start": begin.isoformat(),
+                    "duration": f"PT{int(left)}S",
+                }
+            )
+        )
+    return kept
+
+
+def build_fork(
+    base: BasePlan,
+    bundle: ModelBundle,
+    policy: ScenarioPolicy,
+    commands: list[ScenarioCommand],
+    *,
+    pins: PinBook | None = None,
+    from_time: datetime | None = None,
+) -> tuple[Sequence, list[dict[str, Any]], dict[str, Any]]:
+    """Fork envelopes, fork rows, and the effect summary.
+
+    With ``from_time`` the fork covers only the baseline after that
+    time, and each command starts no earlier than it.
+    """
+    rows = base.rows
+    applied = commands
+    if from_time is not None:
+        floor = from_time.astimezone(bundle.spec.timezone).isoformat()
+        rows = [row for row in rows if row["timestamp"] >= floor]
+        applied = clip_commands(commands, from_time)
+    if not applied:
+        return [], [], {
+            "scenario_id": commands[0].scenario_id if commands else None,
+            "injected_flights": 0,
+            "lifecycles": 0,
+            "shift_applied": False,
+        }
+    fork_rows, effect = apply_fork(
+        rows,
+        applied,
+        bundle,
+        policy,
+        seed=base.request.seed,
+        factor=base.factor,
+        cancel_share=base.cancel,
+        pins=pins,
+        scale=base.plan,
+    )
+    envelopes = [to_envelope(row, pins=pins) for row in fork_rows]
+    return merge_sequence(_group(envelopes)), fork_rows, effect
+
+
 def emit_plan(
     bundle: ModelBundle,
     inputs: Any,
@@ -225,12 +353,6 @@ def emit_plan(
 ) -> Emission:
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode}")
-    if rows < MIN_ROWS:
-        raise ValueError(f"rows={rows} is below the minimum {MIN_ROWS}")
-    if rows > MAX_ROWS:
-        raise ValueError(
-            f"rows={rows} is above {MAX_ROWS}. Replay a shorter window."
-        )
     policy = policy or load_policy()
     check_commands(request.commands, policy, bundle)
     now = None
@@ -242,19 +364,8 @@ def emit_plan(
         request = replace(
             request, window_start=day, window_end=day, acceleration=1.0
         )
-    parents = ParentTotals()
-    baseline, plan = plan_window(
-        bundle,
-        inputs,
-        window_start=request.window_start,
-        window_end=request.window_end,
-        rows=rows,
-        seed=request.seed,
-        parents=parents,
-        log=log,
-    )
-    factor = _factor(bundle, inputs, baseline, request)
-    cancel = _cancel_share(bundle, inputs, request.window_start)
+    base = build_base_plan(bundle, inputs, request, rows, pins=pins)
+    fork_seq: list[tuple[str, dict[str, Any]]] = []
     fork: list[dict[str, Any]] = []
     effect: dict[str, Any] = {
         "scenario_id": None,
@@ -263,19 +374,11 @@ def emit_plan(
         "shift_applied": False,
     }
     if request.commands:
-        fork, effect = apply_fork(
-            baseline,
-            request.commands,
-            bundle,
-            policy,
-            seed=request.seed,
-            factor=factor,
-            cancel_share=cancel,
-            pins=pins,
-            scale=plan,
+        fork_seq, fork, effect = build_fork(
+            base, bundle, policy, request.commands, pins=pins
         )
-    envelopes = [to_envelope(row, pins=pins) for row in baseline]
-    envelopes.extend(to_envelope(row, pins=pins) for row in fork)
+    envelopes = [event for _, event in base.sequence]
+    envelopes.extend(event for _, event in fork_seq)
     if now is not None:
         envelopes = [
             event
@@ -293,6 +396,7 @@ def emit_plan(
     failures = order_failures(by_topic)
     sequence = merge_sequence(by_topic)
     pace, effective = _pace_for(mode, sequence, request, now)
+    plan = base.plan
     audit = [
         {
             "record_type": "start",
@@ -314,12 +418,12 @@ def emit_plan(
                 "frozen": plan["frozen"],
                 "rows": plan["rows"],
             },
-            "amplification_factor": factor,
+            "amplification_factor": base.factor,
             "extrapolation": _extrapolation(bundle, request, plan),
         },
         {
             "record_type": "stop",
-            "counts": conservation_report(baseline, parents),
+            "counts": conservation_report(base.rows, base.parents),
             "qa_failures": failures,
             "scenario": effect,
             "output_manifest": _manifest(envelopes),
@@ -339,7 +443,7 @@ def emit_plan(
         qa_failures=failures,
         pace_seconds=pace,
         effective_acceleration=effective,
-        baseline_rows=baseline,
+        baseline_rows=base.rows,
         fork_rows=fork,
         plan=plan,
     )

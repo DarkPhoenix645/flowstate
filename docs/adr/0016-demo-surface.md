@@ -35,7 +35,7 @@ The alignment window is 2024-10-26 through 2026-04-15 (537 calendar days). The c
 | demo | 100,000,000 | 184,515 | 24.9 | 0.41 | 3.1 min |
 | stretch | 1,000,000,000 | 1,845,149 | 249 | 4.1 | 30.8 min (3.1 min at 10,000 eps) |
 
-One simulated hour at the demo profile is 7,688 ride-hail events. That is 7.7 s of wall time at 1,000 eps, and 15.4 s with a fork. At stretch and 1,000 eps it is 77 s, or 154 s with a fork. At 10,000 eps those stretch times return to 7.7 s and 15.4 s. The KIA-catchment cell is not in this table. The catchment wards are not named yet.
+One simulated hour at the demo profile is 7,688 ride-hail events. That is 7.7 s of wall time at 1,000 eps, and 15.4 s with a fork. At stretch and 1,000 eps it is 77 s, or 154 s with a fork. At 10,000 eps those stretch times return to 7.7 s and 15.4 s. The KIA-catchment cell is not in this table. The catchment wards are not named yet. (Named in ADR-0017: seven wards.)
 
 ### Replay and fork
 
@@ -72,7 +72,7 @@ Yields are stored at observed scale. The applied yield is the stored yield times
 | `scenario_type` | Effect |
 | --------------- | ------ |
 | `custom_shock` | Scale synthetic output of `mode` at `location_ref` for `duration`. `multiplier` is the scale, after the floor and the cap |
-| `metro_disruption` | `multiplier` is a suppression factor in `(0, 1]`. The remaining station-hour fraction is `max(multiplier, 0.2)`. `shift_fraction` (0.2) of the removed mass moves to ride-hail and bus. The ride-hail leg stays off until the station-to-ward crosswalk exists |
+| `metro_disruption` | `multiplier` is a suppression factor in `(0, 1]`. The remaining station-hour fraction is `max(multiplier, 0.2)`. `shift_fraction` (0.2) of the removed mass moves to ride-hail and bus. The ride-hail leg stays off until the station-to-ward crosswalk exists (ADR-0017 turns both legs on) |
 | `flight_arrival` | Inject or scale synthetic flights at VOBL for `duration`. `multiplier` scales the flight rate and is capped by `maximum_multiplier`. Each injected flight adds `rides_per_arrival` (4) observed-scale lifecycles, times `amplification_factor`, spread across `kia_catchment_wards`, lagged by `0-60min`. The ride-hail response attaches to injected flights only. Baseline flights carry none |
 | `flight_departure` | Same shape as arrival, with yield 2, lag `30-90min`, and its own flight-rate scale. Independent of arrival |
 
@@ -104,7 +104,7 @@ The 309 figure is the ward count in `trends_cumulative_ward_new_key.json` (ward 
 
 Ride-hail on the map is a ranked tile grid, one tile per emitted ward id, area or color by intensity. A name is shown when the ward join has one.
 
-Metro uses the station geography table where lat/lon is present. The code file is 95 names and has no coordinates. Pins come from the Places cache. The ride-hail shift of `metro_disruption` needs a ward on each operational station (about 80). That link is a hand-assigned crosswalk of station id to ward id. It does not need polygons. Until the crosswalk exists, the shift stays off. Owner: the map tickets in #41–#51. #39 reads the crosswalk.
+Metro uses the station geography table where lat/lon is present. The code file is 95 names and has no coordinates. Pins come from the Places cache. The ride-hail shift of `metro_disruption` needs a ward on each operational station (about 80). That link is a hand-assigned crosswalk of station id to ward id. It does not need polygons. Until the crosswalk exists, the shift stays off. Owner: the map tickets in #41–#51. #39 reads the crosswalk. (ADR-0017: the producer builds it by point in polygon.)
 
 Bus uses the GTFS stops (about 9,960), which already have coordinates. Aviation is VOBL.
 

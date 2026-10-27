@@ -22,6 +22,7 @@ from typing import Any
 import numpy as np
 import pyarrow as pa
 
+from flowstate.resample.aviation_coverage import covered_counts
 from flowstate.resample.nb2 import (
     CALIBRATION_TOLERANCE,
     EVALUATION_SEED,
@@ -38,6 +39,7 @@ from flowstate.resample.nb2 import (
 from flowstate.resample.profiles import to_date
 
 WEEKDAY_NAMES = ("mon", "tue", "wed", "thu", "fri", "sat")
+MIN_COVERED_AVIATION_DAYS = 60
 
 
 @dataclass(frozen=True)
@@ -477,26 +479,23 @@ def _fit_aviation_daily(
     The synthetic-day generator for aviation outside fetched
     windows, not a covariate. Calendar-only: intercept, weekday,
     trend. Days with no observed event are absent and stay absent
-    (G5).
+    (G5). So are failed and thin windows: a gap in the fetch is not a
+    low day (``aviation_coverage``, ADR-0017).
     """
-    frame = flight_events.select(["direction", "local_date"]).to_pydict()
+    covered = covered_counts(flight_events)
     counts: dict[str, dict[str, float]] = {
-        "arrival": {},
-        "departure": {},
+        direction: {day: float(value) for day, value in days.items()}
+        for direction, days in covered.items()
     }
-    for direction, day in zip(
-        frame["direction"], frame["local_date"], strict=True
-    ):
-        if not day:
-            continue
-        key = str(day)[:10]
-        counts[str(direction)][key] = counts[str(direction)].get(key, 0.0) + 1.0
     span = max(1, (window_end - window_start).days + 1)
     fits: dict[str, NB2Fit] = {}
     for direction in ("arrival", "departure"):
         days = sorted(counts[direction])
-        if not days:
-            raise ValueError(f"no observed {direction} days")
+        if len(days) < MIN_COVERED_AVIATION_DAYS:
+            raise ValueError(
+                f"{direction}: {len(days)} covered days, need "
+                f"{MIN_COVERED_AVIATION_DAYS}"
+            )
         design = _matrix(days, span, set(), window_start=window_start)
         fits[direction] = fit_nb2(
             design,
@@ -640,19 +639,9 @@ def build_clocks(
         )
         if locality == local_class
     }
-    frame = flight_events.select(["direction", "local_date"]).to_pydict()
-    arrivals: dict[str, float] = {}
-    departures: dict[str, float] = {}
-    for direction, day in zip(
-        frame["direction"], frame["local_date"], strict=True
-    ):
-        if not day:
-            continue
-        key = str(day)[:10]
-        if direction == "arrival":
-            arrivals[key] = arrivals.get(key, 0.0) + 1.0
-        elif direction == "departure":
-            departures[key] = departures.get(key, 0.0) + 1.0
+    covered = covered_counts(flight_events)
+    arrivals = {day: float(v) for day, v in covered["arrival"].items()}
+    departures = {day: float(v) for day, v in covered["departure"].items()}
     ride_hail = _fit_marginal(
         "ride_hail",
         ride_counts,

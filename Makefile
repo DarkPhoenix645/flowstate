@@ -1,7 +1,8 @@
 .PHONY: help setup ingest normalize stage lake amplify evaluate hotspots \
 	spark-hdfs up down down-v \
 	ensure-kafka-cluster-id \
-	stream-produce kafka-topics stream-consume hive-ddl \
+	stream-produce stream-serve stream-ctl kafka-topics stream-consume \
+	hive-ddl \
 	mr-package yarn-probe test lint \
 
 PYTHON ?= uv run python
@@ -31,6 +32,8 @@ help:
 	@echo "  make hotspots           Spark demand job (in compose)"
 	@echo "  make spark-hdfs         Spark list+write HDFS probe (replication 1)"
 	@echo "  make kafka-topics       create flowstate.*.v1 topics, 1 partition"
+	@echo "  make stream-serve       long-running producer: waits for control messages"
+	@echo "  make stream-ctl         ARGS='start --rows 20000' | pause | seek T | command JSON"
 	@echo "  make stream-produce     Kafka producer (RATE, SEED, PRODUCE_ROWS or REQUEST=file.json)"
 	@echo "  make stream-consume     Structured Streaming (in compose)"
 	@echo "  make hive-ddl           apply warehouse DDL via beeline"
@@ -90,6 +93,13 @@ spark-hdfs:
 
 kafka-topics:
 	$(PYTHON) -m flowstate.streaming.topics
+
+# The long-running producer (ADR-0017). Control it with `make stream-ctl`.
+stream-serve:
+	$(PYTHON) -m flowstate.streaming.service
+
+stream-ctl:
+	$(PYTHON) -m flowstate.streaming.ctl $(ARGS)
 
 # REQUEST is a replay request JSON (ADR-0017). Without it the flags apply.
 PRODUCE_ROWS ?= 10000

@@ -559,8 +559,8 @@ def test_scrub_matches_the_suffix(bundle, inputs):
 
 def test_topics_are_one_partition():
     specs = topic_specs()
-    assert len(specs) == 7
-    assert len(v1_topics()) == 7
+    assert len(specs) == 8
+    assert len(v1_topics()) == 8
     assert all(spec.num_partitions == 1 for spec in specs)
     counts = partition_counts(
         [

@@ -22,6 +22,7 @@ from typing import Any
 import numpy as np
 import pyarrow as pa
 
+from flowstate.resample.aviation_coverage import gated_keys
 from flowstate.resample.bundle import (
     FARE_BASIS,
     ModelBundle,
@@ -30,7 +31,7 @@ from flowstate.resample.bundle import (
 )
 from flowstate.resample.clocks import aviation_mean_for
 from flowstate.resample.nb2 import nb_quantile
-from flowstate.resample.profiles import is_weekend, to_date
+from flowstate.resample.profiles import freeze_day, is_weekend, to_date
 from flowstate.schema import (
     resolve_vehicle_type,
 )
@@ -957,32 +958,6 @@ def _gtfs_seconds_or_zero(clock: str) -> int:
     return seconds if seconds is not None else 0
 
 
-# Half the median healthy day is the coverage gate. The checked
-# 2024-10-26 departure window is about 11% of a healthy day, so it
-# fails. A day near the median passes. Failed and quota windows
-# fail even when they contain rows.
-SPARSE_FRACTION = 0.5
-FAILED_QUERY_STATUS = frozenset({"failed", "quota"})
-
-
-def _sparse_direction_keys(
-    observed: dict[tuple[str, str], list[tuple[int, str | None, str | None]]],
-    skip: set[tuple[str, str]],
-) -> set[tuple[str, str]]:
-    by_direction: dict[str, list[tuple[tuple[str, str], int]]] = {}
-    for key, events in observed.items():
-        if key in skip or not events:
-            continue
-        by_direction.setdefault(key[1], []).append((key, len(events)))
-    sparse: set[tuple[str, str]] = set()
-    for pairs in by_direction.values():
-        median = float(np.median([count for _, count in pairs]))
-        for key, count in pairs:
-            if median > 0 and count < SPARSE_FRACTION * median:
-                sparse.add(key)
-    return sparse
-
-
 def aviation_events(
     bundle: ModelBundle,
     rng: np.random.Generator,
@@ -998,34 +973,19 @@ def aviation_events(
     window is synthetic too: its thin rows are not emitted as
     ``observed_proxy``. A day/direction is never emitted both ways.
     """
-    columns = [
-        "direction",
-        "local_date",
-        "event_time_unix",
-        "icao24",
-        "callsign",
-    ]
-    has_status = "query_status" in flight_events.column_names
-    if has_status:
-        columns.append("query_status")
-    frame = flight_events.select(columns).to_pydict()
+    frame = flight_events.select(
+        ["direction", "local_date", "event_time_unix", "icao24", "callsign"]
+    ).to_pydict()
     observed: dict[
         tuple[str, str], list[tuple[int, str | None, str | None]]
     ] = {}
     day_counts: dict[str, int] = {}
-    failed: set[tuple[str, str]] = set()
-    statuses = (
-        frame["query_status"]
-        if has_status
-        else [None] * len(frame["direction"])
-    )
-    for direction, day, unix, icao, callsign, status in zip(
+    for direction, day, unix, icao, callsign in zip(
         frame["direction"],
         frame["local_date"],
         frame["event_time_unix"],
         frame["icao24"],
         frame["callsign"],
-        statuses,
         strict=True,
     ):
         if not day:
@@ -1034,8 +994,6 @@ def aviation_events(
         observed.setdefault(key, [])
         observed[key].append((int(unix or 0), icao, callsign))
         day_counts[key[0]] = day_counts.get(key[0], 0) + 1
-        if status in FAILED_QUERY_STATUS:
-            failed.add(key)
     pool = [day for day in day_pool if day in day_counts]
     if not pool:
         raise ValueError("aviation day pool has no observed days")
@@ -1044,15 +1002,34 @@ def aviation_events(
     span = bundle.span_days()
     rows: list[dict[str, Any]] = []
     synthetic_days: list[str] = []
-    gated = set(failed)
-    gated.update(_sparse_direction_keys(observed, failed))
+    gated = gated_keys(flight_events)
     days = [day for day, _ in assigned]
     for day, need in assigned:
         arr = list(observed.get((day, "arrival"), []))
         dep = list(observed.get((day, "departure"), []))
-        n_arr, n_dep = largest_remainder(
-            need, [max(len(arr), 1e-9), max(len(dep), 1e-9)]
-        )
+        # A direction with no rows, or a gated window, is a gap. Its
+        # share of the day comes from the model, not from the thin count.
+        weights = []
+        for direction, events in (("arrival", arr), ("departure", dep)):
+            if events and (day, direction) not in gated:
+                weights.append(float(len(events)))
+            else:
+                weights.append(
+                    max(
+                        aviation_mean_for(
+                            bundle.clocks.aviation[direction],
+                            freeze_day(
+                                day,
+                                bundle.spec.window_start,
+                                bundle.spec.window_end,
+                            ),
+                            span,
+                            bundle.spec.window_start,
+                        ),
+                        1e-6,
+                    )
+                )
+        n_arr, n_dep = largest_remainder(need, weights)
         for direction, events, take in (
             ("arrival", arr, n_arr),
             ("departure", dep, n_dep),

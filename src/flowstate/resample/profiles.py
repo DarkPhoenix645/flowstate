@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 import numpy as np
@@ -64,6 +64,23 @@ class MetroProfiles:
 def to_date(day: str) -> date:
     year, month, day_of_month = (int(part) for part in day.split("-"))
     return date(year, month, day_of_month)
+
+
+def freeze_day(day: str, window_start: date, window_end: date) -> str:
+    """The same weekday inside the window, at the terminal level.
+
+    A day after the window takes the latest same-weekday day on or
+    before ``window_end``. A day before it takes the earliest one on or
+    after ``window_start``. The trend term stops at the window edge.
+    """
+    moment = to_date(day)
+    if moment > window_end:
+        weeks = -(-(moment - window_end).days // 7)
+        return (moment - timedelta(days=7 * weeks)).isoformat()
+    if moment < window_start:
+        weeks = -(-(window_start - moment).days // 7)
+        return (moment + timedelta(days=7 * weeks)).isoformat()
+    return day
 
 
 def is_weekend(day: str) -> bool:

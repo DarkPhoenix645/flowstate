@@ -19,6 +19,7 @@ from flowstate.resample.envelope import AVIATION_TOPICS, TOPIC_BY_MODE
 
 COMMAND_TOPIC = "flowstate.scenario.command.v1"
 AUDIT_TOPIC = "flowstate.simulation.audit.v1"
+CONTROL_TOPIC = "flowstate.simulation.control.v1"
 ALREADY_EXISTS = TopicAlreadyExistsError.errno
 log = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ def v1_topics() -> tuple[str, ...]:
     names.extend(AVIATION_TOPICS.values())
     names.append(COMMAND_TOPIC)
     names.append(AUDIT_TOPIC)
+    names.append(CONTROL_TOPIC)
     return tuple(names)
 
 

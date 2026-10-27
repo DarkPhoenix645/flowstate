@@ -1,13 +1,15 @@
 """Scenario policy and the one fork.
 
-ADR-0016. One command schema. ``scenario_type`` selects the policy
-row. Effects touch synthetic rows after the command time. Historical
-rows are copied onto the fork and not edited. A flight's ride-hail
-lifecycles attach only to flights this fork injects.
+ADR-0016 and ADR-0017. One command schema. ``scenario_type`` selects
+the policy row. Effects touch synthetic rows after the command time.
+Historical rows are copied onto the fork and not edited. A flight's
+ride-hail lifecycles attach only to flights this fork injects.
 
-The station-to-ward crosswalk is not in the repo. Until a caller
-passes one, ``metro_disruption`` suppresses station-hours and does
-not shift that mass.
+``metro_disruption`` scales one station's riders. It then moves a share
+of the removed riders to ride-hail and bus. That needs ``pins`` (the
+station-to-ward crosswalk and the stops near the station) and the
+plan's ``metro_scale``. Without ``pins`` the station is scaled and the
+shift is off, and the summary says so.
 """
 
 from __future__ import annotations

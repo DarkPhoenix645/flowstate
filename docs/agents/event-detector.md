@@ -49,6 +49,9 @@ Subscribe only to the topics in the table. That is the filter. Do not read a com
 | `flowstate.bus.scheduled_stop.v1` | None                                                                                     |
 | `flowstate.scenario.command.v1`   | None. The producer (#39) applies the command and sets `scenario_id` on synthetic output. |
 | `flowstate.simulation.audit.v1`   | None. Audit only.                                                                        |
+| `flowstate.simulation.control.v1` | None. The producer reads it.                                                             |
+
+Every event carries `run_id`. A backwards seek in the producer starts a new one, and the topics then hold earlier `event_time` values after later ones. A job reads the newest `run_id` and resets its checkpoint when the `run_id` changes. ([ADR-0017](../adr/0017-producer-as-a-realtime-twin-source.md))
 
 Aviation events are not ride-hail counts. Surge reads them as the flight context. The ride-hail response stays on the ride-hail topic.
 

@@ -53,28 +53,7 @@ def inputs():
 
 
 def _pins(station_ward: dict[str, str] | None = None) -> PinBook:
-    wards = {
-        ward: (12.90 + index * 0.01, 77.50 + index * 0.01)
-        for index, ward in enumerate(fx.WARDS)
-    }
-    # The corpus uses the station code. The fixture codes are S1..S4.
-    stations = {
-        f"S{index + 1}": (12.95, 77.60 + index * 0.01)
-        for index in range(len(fx.STATIONS_PRE) + 1)
-    }
-    stops = {
-        f"stop_{number:03d}": (12.95 + number * 0.0001, 77.60)
-        for number in range(1, 21)
-    }
-    book = PinBook(
-        wards=wards,
-        stations=stations,
-        stops=stops,
-        airports={"TEST": (13.20, 77.70)},
-    )
-    for station, ward in (station_ward or {}).items():
-        book._station_ward[station] = ward
-    return book
+    return fx.fixture_pins(station_ward)
 
 
 def _request(bundle, day: str, seed: int, commands=None) -> ReplayRequest:

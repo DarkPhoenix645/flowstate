@@ -17,7 +17,7 @@ from typing import Any
 
 from flowstate.resample.bundle import ModelBundle
 from flowstate.resample.clocks import aviation_mean_for
-from flowstate.resample.profiles import to_date
+from flowstate.resample.profiles import freeze_day, to_date
 from flowstate.resample.unfold import (
     ParentTotals,
     _aviation_synthetic_rows,
@@ -131,20 +131,7 @@ def frozen_source(known: list[str], day: str) -> str | None:
 
 
 def freeze_to_window(bundle: ModelBundle, day: str) -> str:
-    """The same weekday inside the window, at the terminal level.
-
-    A day after the window takes the latest same-weekday day on or
-    before ``window_end``. A day before it takes the earliest one on or
-    after ``window_start``. The trend term stops at the window edge.
-    """
-    moment = to_date(day)
-    if moment > bundle.spec.window_end:
-        weeks = -(-(moment - bundle.spec.window_end).days // 7)
-        return (moment - timedelta(days=7 * weeks)).isoformat()
-    if moment < bundle.spec.window_start:
-        weeks = -(-(bundle.spec.window_start - moment).days // 7)
-        return (moment + timedelta(days=7 * weeks)).isoformat()
-    return day
+    return freeze_day(day, bundle.spec.window_start, bundle.spec.window_end)
 
 
 def outside_window(bundle: ModelBundle, day: str) -> bool:
