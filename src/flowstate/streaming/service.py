@@ -1,4 +1,4 @@
-"""The long-running producer (ADR-0017). ``make stream-serve``.
+"""The long-running producer (ADR-0017). The API starts it.
 
 The process loads the inputs, the pins, and the fitted model once. It
 then waits for control messages on ``flowstate.simulation.control.v1``
@@ -653,11 +653,17 @@ def serve(start: StartRequest | None = None) -> None:
     """Run the long-running producer. Pass ``start`` to open a session."""
     configure_logging()
     settings = get_settings()
+    bootstrap = ipv4_bootstrap(settings.kafka_bootstrap_servers)
+    inbox: queue.Queue = queue.Queue()
+    stop = threading.Event()
+    reader = threading.Thread(
+        target=_consume, args=(bootstrap, inbox, stop), daemon=True
+    )
+    # Seek before the model fit. A start sent during the fit stays readable.
+    reader.start()
     runtime = load_runtime(settings)
     from kafka import KafkaProducer
     from kafka.admin import KafkaAdminClient
-
-    bootstrap = ipv4_bootstrap(settings.kafka_bootstrap_servers)
     admin = KafkaAdminClient(bootstrap_servers=bootstrap)
     try:
         require_one_partition(
@@ -671,13 +677,7 @@ def serve(start: StartRequest | None = None) -> None:
         key_serializer=lambda key: key.encode(),
         value_serializer=lambda value: json.dumps(value).encode(),
     )
-    inbox: queue.Queue = queue.Queue()
     service = Service(runtime, producer, inbox=inbox)
-    stop = threading.Event()
-    reader = threading.Thread(
-        target=_consume, args=(bootstrap, inbox, stop), daemon=True
-    )
-    reader.start()
 
     def _quit(_signum: int, _frame: Any) -> None:
         service.quit = True

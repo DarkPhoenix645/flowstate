@@ -1,0 +1,30 @@
+meta {
+  name: Send command
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/runs/{{runId}}/commands
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "mode": "ride_hail",
+    "scenario_type": "custom_shock",
+    "location_ref": "b_1",
+    "start": "2024-10-26T01:00:00+05:30",
+    "duration": "PT1H",
+    "scenario_id": "shock-1"
+  }
+}
+
+docs {
+  Forks the replay. A second scenario_id returns accepted false.
+}

@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict
 
 from flowstate.config.resolve import ConfigValidationError
 from flowstate.ingest.amplify import AmplifyRequest
+from flowstate.streaming.control import StartRequest
 
 ALLOWED_ROWS = (1_000_000, 10_000_000, 100_000_000)
 
@@ -48,6 +49,13 @@ JOBS: dict[str, JobSpec] = {
         engine="spark",
         entrypoint="flowstate.batch.spark_jobs.hdfs_probe",
         params_model=HdfsProbeRequest,
+    ),
+    "replay": JobSpec(
+        name="replay",
+        kind="replay",
+        engine="python",
+        entrypoint="flowstate.streaming.service",
+        params_model=StartRequest,
     ),
 }
 

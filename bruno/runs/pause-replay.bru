@@ -1,0 +1,26 @@
+meta {
+  name: Pause replay
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/runs/{{runId}}/control
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "op": "pause"
+  }
+}
+
+docs {
+  Pause, resume, speed, seek, or stop. The answer has accepted.
+  Run Start replay first.
+}

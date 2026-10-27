@@ -1,7 +1,7 @@
 .PHONY: help setup ingest normalize stage lake amplify evaluate hotspots \
 	spark-hdfs up down down-v \
 	ensure-kafka-cluster-id \
-	stream-produce stream-serve stream-ctl kafka-topics stream-consume \
+	stream-produce kafka-topics stream-consume \
 	config-seed api hive-ddl \
 	mr-package yarn-probe test lint \
 
@@ -30,8 +30,6 @@ help:
 	@echo "  make kafka-topics       create flowstate.*.v1 topics, 1 partition"
 	@echo "  make config-seed        load the first model-config versions into Postgres"
 	@echo "  make api                demo and run API on 127.0.0.1:8090"
-	@echo "  make stream-serve       long-running producer: waits for control messages"
-	@echo "  make stream-ctl         ARGS='start --rows 20000' | pause | seek T | command JSON"
 	@echo "  make stream-produce     Kafka producer (RATE, SEED, PRODUCE_ROWS or REQUEST=file.json)"
 	@echo "  make stream-consume     Structured Streaming (in compose)"
 	@echo "  make hive-ddl           apply warehouse DDL via beeline"
@@ -92,18 +90,11 @@ spark-hdfs:
 kafka-topics:
 	$(PYTHON) -m flowstate.streaming.topics
 
-# The long-running producer (ADR-0017). Control it with `make stream-ctl`.
 config-seed:
 	$(PYTHON) -m flowstate.config.seed
 
 api:
 	$(PYTHON) -m flowstate.api
-
-stream-serve:
-	$(PYTHON) -m flowstate.streaming.service
-
-stream-ctl:
-	$(PYTHON) -m flowstate.streaming.ctl $(ARGS)
 
 # REQUEST is a replay request JSON (ADR-0017).
 # RATE, SEED, and PRODUCE_ROWS are passed only when set.
