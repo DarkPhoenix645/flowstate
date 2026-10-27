@@ -55,12 +55,14 @@ def run(
     """
     profile = load(city_id)
     reset_source_cache()
-    ensure_sources(list(profile.dataset_ids))
+    ensure_sources(list(profile.dataset_ids), settings.datasets_dir)
     datasets = settings.datasets_dir
     directory = settings.data_dir / "normalized"
     builds = _build(datasets, profile)
     geocode_stats = _attach_pins(settings, profile, builds, geocode)
-    hashes = source_hashes(list(profile.dataset_ids))
+    hashes = source_hashes(
+        list(profile.dataset_ids), settings.datasets_dir
+    )
     for built in builds.values():
         built.coverage["source_files"] = hashes
         built.coverage["city"] = profile.id

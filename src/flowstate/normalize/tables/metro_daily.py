@@ -104,7 +104,7 @@ def build_metro_daily(
 
 
 def from_disk(datasets: Path, profile: CityProfile) -> TableBuild:
-    ensure_sources([profile.metro_dataset])
+    ensure_sources([profile.metro_dataset], datasets)
     path = dataset_path(datasets, profile.metro_parts)
     return build_metro_daily(
         pd.read_csv(path),

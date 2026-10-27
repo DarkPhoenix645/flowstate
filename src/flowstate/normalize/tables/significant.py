@@ -93,7 +93,7 @@ def build_significant_dates(
 
 
 def from_disk(datasets: Path, profile: CityProfile) -> TableBuild:
-    ensure_sources([profile.dates_dataset])
+    ensure_sources([profile.dates_dataset], datasets)
     path = dataset_path(datasets, profile.dates_parts)
     with path.open(newline="") as handle:
         reader = csv.DictReader(handle)

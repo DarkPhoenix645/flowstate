@@ -61,14 +61,22 @@ def _data(datasets_dir: Path) -> Path:
 
 
 def cache_dir(series: str, datasets_dir: Path | None = None) -> Path:
-    root = _data(datasets_dir or (ROOT / "data" / "raw"))
+    if datasets_dir is None:
+        from flowstate.config import get_settings
+
+        datasets_dir = get_settings().datasets_dir
+    root = _data(datasets_dir)
     path = root / "archiver-cache" / series
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def out_dir(datasets_dir: Path | None = None) -> Path:
-    root = _data(datasets_dir or (ROOT / "data" / "raw"))
+    if datasets_dir is None:
+        from flowstate.config import get_settings
+
+        datasets_dir = get_settings().datasets_dir
+    root = _data(datasets_dir)
     path = root / "stitched"
     path.mkdir(parents=True, exist_ok=True)
     return path

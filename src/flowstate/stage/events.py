@@ -9,9 +9,10 @@ from __future__ import annotations
 from typing import Any
 
 from flowstate.streaming.ride_event_schema import envelope_json
+from flowstate.topic_names import TOPIC_BY_MODE
 
-METRO_TOPIC = "flowstate.metro.station_hour.v1"
-BUS_TOPIC = "flowstate.bus.scheduled_stop.v1"
+METRO_TOPIC = TOPIC_BY_MODE["metro"]
+BUS_TOPIC = TOPIC_BY_MODE["bus"]
 
 # Provenance status values from ADR-0008. observed_aggregate is not one of them.
 PROVENANCE_STATUS = (

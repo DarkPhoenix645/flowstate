@@ -140,7 +140,7 @@ def validate_frames(
 
 
 def stage_bus(settings: Settings) -> dict[str, Any]:
-    require_valid(["bmtc_gtfs"])
+    require_valid(["bmtc_gtfs"], settings.datasets_dir)
     feed = settings.datasets_dir / "bmtc"
     agency = _csv(feed / "agency.txt")
     calendar = _csv(feed / "calendar.txt")

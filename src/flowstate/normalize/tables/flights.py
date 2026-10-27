@@ -156,7 +156,8 @@ def from_disk(datasets: Path, profile: CityProfile) -> TableBuild:
         [
             profile.opensky_dataset_arrivals,
             profile.opensky_dataset_departures,
-        ]
+        ],
+        datasets,
     )
     root = dataset_path(datasets, profile.opensky_dir)
     extracts = [item for item in profile.airports if item.opensky_extract]

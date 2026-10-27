@@ -161,7 +161,10 @@ class ModelBundle:
 def load_inputs(settings: Settings) -> BundleInputs:
     """Read the staged and normalized tables, gated by the manifest."""
     profile = load(DEFAULT_CITY_ID)
-    require_valid(list(profile.dataset_ids) + ["bmtc_gtfs"])
+    require_valid(
+        list(profile.dataset_ids) + ["bmtc_gtfs"],
+        settings.datasets_dir,
+    )
     normalized = settings.data_dir / "normalized"
 
     def staged(dataset: str, name: str) -> pa.Table:

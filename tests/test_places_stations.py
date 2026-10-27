@@ -174,13 +174,8 @@ def test_finished_review_lets_amplify_run(tmp_path, monkeypatch):
         "reviewed_at": "2026-10-16T00:00:00Z",
     }
     path.write_text(json.dumps(store, indent=2) + "\n")
-    # Review gate passed. Pin the provenance manifest under tmp_path
-    # so this does not depend on whether cwd already has ingest
-    # output (CI does not; a local checkout often does).
-    monkeypatch.setattr(
-        "flowstate.provenance.MANIFEST",
-        tmp_path / "raw" / "provenance" / "manifest.json",
-    )
+    # Review gate passed. DATA_DIR is tmp_path, so the manifest is
+    # absent and amplify stops before it reads the repo extracts.
     with pytest.raises(ProvenanceError, match="manifest.json"):
         amplify_main([])
 

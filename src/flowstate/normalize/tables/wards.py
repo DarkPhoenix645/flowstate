@@ -71,7 +71,7 @@ def contains(latitude: float, longitude: float, rings: list[list]) -> bool:
 
 def from_disk(datasets: Path, profile: CityProfile) -> TableBuild:
     join = profile.ward
-    ensure_sources([join.dataset_id])
+    ensure_sources([join.dataset_id], datasets)
     path = _ensure_geojson(datasets, join)
     digest = sha256_file(path)
     collection = json.loads(path.read_text())

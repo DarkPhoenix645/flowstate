@@ -33,14 +33,24 @@ from flowstate.log import configure_logging
 log = logging.getLogger("ingest.manifest")
 
 ROOT = Path(__file__).resolve().parents[3]
-DATA = ROOT / "data" / "raw"
-OUT = DATA / "provenance" / "manifest.json"
-CSV_OPENSKY = (
-    DATA / "opensky" / "VOBL_arrivals_2024-10-26_2026-04-15.csv"
-)
-CSV_OPENSKY_DEPARTURES = (
-    DATA / "opensky" / "VOBL_departures_2024-10-26_2026-04-15.csv"
-)
+
+
+def raw_dir() -> Path:
+    from flowstate.config import get_settings
+
+    path = get_settings().datasets_dir
+    assert path is not None
+    return path
+
+
+def manifest_out() -> Path:
+    from flowstate.provenance import manifest_path
+
+    return manifest_path(raw_dir())
+
+
+def _opensky_csv(name: str) -> Path:
+    return raw_dir() / "opensky" / name
 
 NY_GZIP_URL = (
     "https://d11gklsvr97l1g.cloudfront.net/open/json-data/"
@@ -86,16 +96,23 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def _rel(path: Path) -> str:
+    from flowstate.provenance import recorded_path
+
+    return recorded_path(path, raw_dir())
+
+
 def file_record(path: Path, retrieved_at: str | None = None) -> dict:
+    rel = _rel(path)
     if not path.exists():
-        return {"path": str(path.relative_to(ROOT)), "note": "missing"}
+        return {"path": rel, "note": "missing"}
     st = path.stat()
     stamp = retrieved_at or datetime.fromtimestamp(st.st_mtime, UTC).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
-    log.info("hashing %s", path.relative_to(ROOT))
+    log.info("hashing %s", rel)
     return {
-        "path": str(path.relative_to(ROOT)),
+        "path": rel,
         "bytes": st.st_size,
         "sha256": sha256(path),
         "retrieved_at_utc": stamp,
@@ -115,7 +132,7 @@ def download(url: str, dest: Path) -> str:
 
 
 def metro_check() -> dict | None:
-    path = DATA / "namma-metro" / "NammaMetro_Ridership_Processed.csv"
+    path = raw_dir() / "namma-metro" / "NammaMetro_Ridership_Processed.csv"
     if not path.exists():
         return None
     df = pd.read_csv(path)
@@ -143,7 +160,7 @@ def metro_check() -> dict | None:
 
 
 def dates_check() -> dict | None:
-    path = DATA / "significant-dates" / "significant_dates.csv"
+    path = raw_dir() / "significant-dates" / "significant_dates.csv"
     if not path.exists():
         return None
     df = pd.read_csv(path)
@@ -161,7 +178,7 @@ def dates_check() -> dict | None:
 
 
 def dgca_check() -> dict | None:
-    path = DATA / "aviation" / "domestic" / "city.csv"
+    path = raw_dir() / "aviation" / "domestic" / "city.csv"
     if not path.exists():
         return None
     df = pd.read_csv(path, usecols=["Year", "Month", "City1", "City2"])
@@ -185,12 +202,14 @@ def build(fetch: bool) -> None:
     if fetch:
         log.info("re-downloading HTTP sources")
         dest = (
-            DATA / "namma-yatri" / "city_agg_cumulative_trends_new_key.json.gz"
+            raw_dir()
+            / "namma-yatri"
+            / "city_agg_cumulative_trends_new_key.json.gz"
         )
-        retrieved[str(dest.relative_to(ROOT))] = download(NY_GZIP_URL, dest)
+        retrieved[_rel(dest)] = download(NY_GZIP_URL, dest)
         for name, url in RTI_URLS.items():
-            dest = DATA / "bmrcl-rti" / name
-            retrieved[str(dest.relative_to(ROOT))] = download(url, dest)
+            dest = raw_dir() / "bmrcl-rti" / name
+            retrieved[_rel(dest)] = download(url, dest)
     else:
         log.info("not downloading. Hashing files already on disk.")
 
@@ -221,10 +240,15 @@ def build(fetch: bool) -> None:
         log.info("DGCA city.csv missing; check skipped")
 
     def rec(path: Path) -> dict:
-        rel = str(path.relative_to(ROOT))
-        return file_record(path, retrieved.get(rel))
+        return file_record(path, retrieved.get(_rel(path)))
 
-    bmtc_files = sorted((DATA / "bmtc").glob("*.txt"))
+    arrivals = _opensky_csv(
+        "VOBL_arrivals_2024-10-26_2026-04-15.csv"
+    )
+    departures = _opensky_csv(
+        "VOBL_departures_2024-10-26_2026-04-15.csv"
+    )
+    bmtc_files = sorted((raw_dir() / "bmtc").glob("*.txt"))
     manifest = {
         "generated_at_utc": now(),
         "script": "flowstate.ingest",
@@ -244,7 +268,7 @@ def build(fetch: bool) -> None:
                 ),
                 "role": "Layer 1 ride-hail clock",
                 "file": rec(
-                    DATA
+                    raw_dir()
                     / "namma-yatri"
                     / "city_agg_cumulative_trends_new_key.json.gz"
                 ),
@@ -274,8 +298,14 @@ def build(fetch: bool) -> None:
                 "overwrites": (
                     "namma-yatri/stitched/blr_city_hourly.overwrites.json"
                 ),
-                "file": rec(DATA / "namma-yatri/stitched/blr_city_hourly.csv")
-                if (DATA / "namma-yatri/stitched/blr_city_hourly.csv").exists()
+                "file": rec(
+                    raw_dir()
+                    / "namma-yatri/stitched/blr_city_hourly.csv"
+                )
+                if (
+                    raw_dir()
+                    / "namma-yatri/stitched/blr_city_hourly.csv"
+                ).exists()
                 else {"path": None, "note": "run make ny-stitch-city first"},
             },
             {
@@ -299,7 +329,10 @@ def build(fetch: bool) -> None:
                 "coverage": (
                     "namma-yatri/stitched/blr_ward_hourly.coverage.json"
                 ),
-                "file": rec(DATA / "namma-yatri/stitched/blr_ward_hourly.csv"),
+                "file": rec(
+                    raw_dir()
+                    / "namma-yatri/stitched/blr_ward_hourly.csv"
+                ),
             },
             {
                 "dataset_id": "bmrcl_rti",
@@ -322,7 +355,7 @@ def build(fetch: bool) -> None:
                 ),
                 "role": "metro hour-grain truth",
                 "files": [
-                    rec(DATA / "bmrcl-rti" / name) for name in RTI_URLS
+                    rec(raw_dir() / "bmrcl-rti" / name) for name in RTI_URLS
                 ],
             },
             {
@@ -349,8 +382,8 @@ def build(fetch: bool) -> None:
                     "Clients rotate. Under 30 credits, the client is spent."
                 ),
                 "role": "aviation events for the alignment window",
-                "file": rec(CSV_OPENSKY)
-                if CSV_OPENSKY.exists()
+                "file": rec(arrivals)
+                if arrivals.exists()
                 else {
                     "path": None,
                     "note": "alignment extract not written yet",
@@ -380,8 +413,8 @@ def build(fetch: bool) -> None:
                     "A sparse window is a gap, not a zero-flight day."
                 ),
                 "role": "aviation departure events for the alignment window",
-                "file": rec(CSV_OPENSKY_DEPARTURES)
-                if CSV_OPENSKY_DEPARTURES.exists()
+                "file": rec(departures)
+                if departures.exists()
                 else {
                     "path": None,
                     "note": "alignment extract not written yet",
@@ -402,7 +435,9 @@ def build(fetch: bool) -> None:
                 "checks": metro,
                 "role": "Layer 1 metro clock",
                 "file": rec(
-                    DATA / "namma-metro" / "NammaMetro_Ridership_Processed.csv"
+                    raw_dir()
+                    / "namma-metro"
+                    / "NammaMetro_Ridership_Processed.csv"
                 ),
             },
             {
@@ -421,7 +456,7 @@ def build(fetch: bool) -> None:
                 ),
                 "checks": dgca,
                 "role": "Layer 1 monthly aviation",
-                "file": rec(DATA / "aviation" / "domestic" / "city.csv"),
+                "file": rec(raw_dir() / "aviation" / "domestic" / "city.csv"),
             },
             {
                 "dataset_id": "bmtc_gtfs",
@@ -448,15 +483,20 @@ def build(fetch: bool) -> None:
                 "checks": holidays,
                 "role": "optional holiday flags for Layer 1",
                 "file": rec(
-                    DATA / "significant-dates" / "significant_dates.csv"
+                    raw_dir() / "significant-dates" / "significant_dates.csv"
                 ),
             },
         ],
     }
     _stamp_validity(manifest["datasets"])
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(manifest, indent=2))
-    log.info("wrote %s", OUT.relative_to(ROOT))
+    manifest_out().parent.mkdir(parents=True, exist_ok=True)
+    manifest_out().write_text(json.dumps(manifest, indent=2))
+    written = manifest_out()
+    try:
+        shown = written.relative_to(ROOT)
+    except ValueError:
+        shown = written
+    log.info("wrote %s", shown)
 
 
 def _opensky_mod():
@@ -480,7 +520,7 @@ def _opensky_checks(sky: dict) -> dict:
 
 def _sky(direction: str) -> dict:
     sky = _opensky_mod().coverage(direction)
-    path = DATA / "opensky" / f"status_{direction}.json"
+    path = raw_dir() / "opensky" / f"status_{direction}.json"
     if path.exists():
         saved = json.loads(path.read_text())
         sky["credits_exhausted"] = bool(saved.get("credits_exhausted"))
@@ -506,12 +546,12 @@ def _stamp_validity(datasets: list[dict]) -> None:
     reasons = {
         "namma_yatri_city_day": _reason_city_day(),
         "namma_yatri_city_hour": _reason_file(
-            DATA / "namma-yatri/stitched/blr_city_hourly.csv",
-            DATA / "namma-yatri/stitched/blr_city_hourly.coverage.json",
+            raw_dir() / "namma-yatri/stitched/blr_city_hourly.csv",
+            raw_dir() / "namma-yatri/stitched/blr_city_hourly.coverage.json",
         ),
         "namma_yatri_ward_hour": _reason_file(
-            DATA / "namma-yatri/stitched/blr_ward_hourly.csv",
-            DATA / "namma-yatri/stitched/blr_ward_hourly.coverage.json",
+            raw_dir() / "namma-yatri/stitched/blr_ward_hourly.csv",
+            raw_dir() / "namma-yatri/stitched/blr_ward_hourly.coverage.json",
         ),
         "bmrcl_rti": _reason_rti(),
         "opensky_vobl_arrivals": _opensky_reason("arrival", sky),
@@ -540,7 +580,11 @@ def _reason_file(csv: Path, coverage: Path) -> str | None:
 
 
 def _reason_city_day() -> str | None:
-    path = DATA / "namma-yatri" / "city_agg_cumulative_trends_new_key.json.gz"
+    path = (
+        raw_dir()
+        / "namma-yatri"
+        / "city_agg_cumulative_trends_new_key.json.gz"
+    )
     if not path.exists():
         return "missing city-day gzip"
     import gzip
@@ -560,14 +604,18 @@ def _reason_city_day() -> str | None:
 
 
 def _reason_rti() -> str | None:
-    missing = [n for n in RTI_URLS if not (DATA / "bmrcl-rti" / n).exists()]
+    missing = [
+        name
+        for name in RTI_URLS
+        if not (raw_dir() / "bmrcl-rti" / name).exists()
+    ]
     if missing:
         return "missing " + ", ".join(missing)
     return None
 
 
 def _reason_metro() -> str | None:
-    path = DATA / "namma-metro" / "NammaMetro_Ridership_Processed.csv"
+    path = raw_dir() / "namma-metro" / "NammaMetro_Ridership_Processed.csv"
     if not path.exists():
         return f"missing {path.name}"
     info = metro_check()
@@ -583,7 +631,7 @@ def _reason_metro() -> str | None:
 
 
 def _reason_dgca() -> str | None:
-    path = DATA / "aviation" / "domestic" / "city.csv"
+    path = raw_dir() / "aviation" / "domestic" / "city.csv"
     if not path.exists():
         return f"missing {path.name}"
     info = dgca_check()
@@ -597,18 +645,18 @@ def _reason_dgca() -> str | None:
 
 
 def _reason_bmtc() -> str | None:
-    path = DATA / "bmtc" / "feed_info.txt"
+    path = raw_dir() / "bmtc" / "feed_info.txt"
     if not path.exists():
         return "missing feed_info.txt"
     if "20260907" not in path.read_text():
         return "feed_version is not 20260907"
-    if not (DATA / "bmtc" / "stops.txt").exists():
+    if not (raw_dir() / "bmtc" / "stops.txt").exists():
         return "missing stops.txt"
     return None
 
 
 def _reason_dates() -> str | None:
-    path = DATA / "significant-dates" / "significant_dates.csv"
+    path = raw_dir() / "significant-dates" / "significant_dates.csv"
     if not path.exists():
         return f"missing {path.name}"
     info = dates_check()
@@ -627,10 +675,10 @@ def refresh() -> None:
 
 
 def validate() -> int:
-    if not OUT.exists():
-        log.error("No manifest. Run make ingest DATASET=manifest.")
+    if not manifest_out().exists():
+        log.error("No manifest. Run make ingest raw_dir()SET=manifest.")
         return 1
-    manifest = json.loads(OUT.read_text())
+    manifest = json.loads(manifest_out().read_text())
     bad: list[str] = []
     for ds in manifest["datasets"]:
         files = ds.get("files") or []
@@ -649,7 +697,7 @@ def validate() -> int:
             if got != item.get("sha256"):
                 bad.append(
                     f"{ds['dataset_id']}: hash mismatch for {rel}. "
-                    "Run make ingest DATASET=manifest."
+                    "Run make ingest raw_dir()SET=manifest."
                 )
         if ds.get("valid") is not True:
             bad.append(

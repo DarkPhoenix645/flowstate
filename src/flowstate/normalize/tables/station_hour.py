@@ -161,7 +161,7 @@ def build_station_hour(
 
 
 def from_disk(datasets: Path, profile: CityProfile) -> TableBuild:
-    ensure_sources([profile.rti_dataset])
+    ensure_sources([profile.rti_dataset], datasets)
     root = dataset_path(datasets, profile.rti_dir)
     august = pd.read_excel(root / profile.august_book)
     book = pd.ExcelFile(root / profile.september_book)

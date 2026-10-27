@@ -26,7 +26,8 @@ def stage_ridehail(settings: Settings) -> dict[str, Any]:
             "namma_yatri_city_day",
             "namma_yatri_city_hour",
             "namma_yatri_ward_hour",
-        ]
+        ],
+        settings.datasets_dir,
     )
     profile = load(DEFAULT_CITY_ID)
     built = city_day_from_disk(settings.datasets_dir, profile)

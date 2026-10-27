@@ -81,7 +81,7 @@ def city_month_table(frame: pd.DataFrame) -> tuple[pa.Table, dict[str, Any]]:
 
 
 def stage_dgca(settings: Settings) -> dict[str, Any]:
-    require_valid(["dgca_domestic_city"])
+    require_valid(["dgca_domestic_city"], settings.datasets_dir)
     frame = pd.read_csv(
         settings.datasets_dir / "aviation" / "domestic" / "city.csv"
     )
