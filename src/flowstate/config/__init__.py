@@ -59,6 +59,20 @@ class Settings(BaseSettings):
     bus_peak_share_high: float = 0.51
     bus_trip_length_km_low: float = 10.7
     bus_trip_length_km_high: float = 10.9
+    # Model config lives in Postgres. The URL is a deploy setting.
+    # The default is the Compose database on loopback.
+    config_database_url: str = (
+        "postgresql://flowstate:flowstate@127.0.0.1:5432/flowstate"
+    )
+    config_api_host: str = "127.0.0.1"
+    config_api_port: int = 8090
+
+    @field_validator("config_database_url", mode="before")
+    @classmethod
+    def _blank_database_url(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return cls.model_fields["config_database_url"].default
+        return value
 
     @field_validator(*_BUS_PRIOR_FIELDS, mode="before")
     @classmethod

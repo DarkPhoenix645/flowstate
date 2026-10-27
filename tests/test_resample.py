@@ -572,9 +572,23 @@ def test_bus_prior_unknown_hour_profile_rejected():
         )
 
 
+def _offline_resolved():
+    from flowstate.config.resolve import resolve_models
+    from flowstate.resample.scenario import load_policy
+
+    return resolve_models(
+        load_policy(),
+        ResampleConfig(),
+        source="db",
+        version_id="seed",
+    )
+
+
 def _amplify(settings_dir: Path, rows: int, seed: int):
     settings = Settings(data_dir=settings_dir)
-    return run_amplify(settings, rows, seed)
+    return run_amplify(
+        settings, rows, seed, resolved=_offline_resolved()
+    )
 
 
 def test_run_amplify_end_to_end(tmp_path, monkeypatch, bundle):
@@ -602,7 +616,10 @@ def test_run_amplify_end_to_end(tmp_path, monkeypatch, bundle):
         lambda profile: fx.fixture_spec(),
     )
     manifest = run_amplify(
-        Settings(data_dir=tmp_path, _env_file=None), 2000, seed=42
+        Settings(data_dir=tmp_path, _env_file=None),
+        2000,
+        seed=42,
+        resolved=_offline_resolved(),
     )
     assert manifest["rows"] == 2000
     # The #40 prior rides through to the run manifest's audit line.
@@ -665,12 +682,27 @@ def test_replay_equality_end_to_end(tmp_path, monkeypatch):
     monkeypatch.setattr(
         writer_module, "city_spec", lambda profile: fx.fixture_spec()
     )
-    first = run_amplify(Settings(data_dir=tmp_path / "a"), 1500, seed=42)
-    second = run_amplify(Settings(data_dir=tmp_path / "b"), 1500, seed=42)
+    first = run_amplify(
+        Settings(data_dir=tmp_path / "a"),
+        1500,
+        seed=42,
+        resolved=_offline_resolved(),
+    )
+    second = run_amplify(
+        Settings(data_dir=tmp_path / "b"),
+        1500,
+        seed=42,
+        resolved=_offline_resolved(),
+    )
     assert first["rows"] == second["rows"] == 1500
     assert first["mode_counts"] == second["mode_counts"]
     assert first["parts"] == second["parts"]
-    other = run_amplify(Settings(data_dir=tmp_path / "c"), 1500, seed=43)
+    other = run_amplify(
+        Settings(data_dir=tmp_path / "c"),
+        1500,
+        seed=43,
+        resolved=_offline_resolved(),
+    )
     assert other["parts"] != first["parts"]
 
 
@@ -696,7 +728,12 @@ def test_source_files_not_touched_by_amplify(tmp_path, monkeypatch):
     monkeypatch.setattr(
         writer_module, "city_spec", lambda profile: fx.fixture_spec()
     )
-    run_amplify(Settings(data_dir=tmp_path), 1000, seed=1)
+    run_amplify(
+        Settings(data_dir=tmp_path),
+        1000,
+        seed=1,
+        resolved=_offline_resolved(),
+    )
     assert inputs.city_day.num_rows == before["city_day"]
     assert inputs.flight_events.num_rows == before["flight_events"]
 

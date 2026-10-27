@@ -21,3 +21,4 @@ Accepted choices for FlowState. Read these before you change stack, schema, or r
 | [0015](0015-yarn-mapreduce-submit.md)                 | MapReduce submit on bde2020 YARN                                         |
 | [0016](0016-demo-surface.md)                          | Demo surface (twin catalog, replay, fork)                                |
 | [0017](0017-producer-as-a-realtime-twin-source.md)    | Producer as a realtime twin source                                       |
+| [0018](0018-postgres-for-model-config.md)             | Postgres for model config                                                |

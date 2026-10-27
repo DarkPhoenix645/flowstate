@@ -1,6 +1,6 @@
 # Runtime
 
-Spark, Hadoop, Hive, Kafka, and Grafana run **only** in Docker Compose. Do not install Hadoop/Spark/JDK on the host.
+Spark, Hadoop, Hive, Kafka, Grafana, and Postgres run **only** in Docker Compose. Do not install Hadoop/Spark/JDK on the host.
 
 | Piece                              | Where it runs                          | How                                                               |
 | ---------------------------------- | -------------------------------------- | ----------------------------------------------------------------- |
@@ -41,9 +41,11 @@ flowchart TB
     hm["hive-metastore\n9083"]
     hs["hiveserver2\n10000 JDBC, 10002"]
     gf["grafana\n3000"]
+    pg["postgres\n5432"]
   end
 
   host -->|"localhost:9094"| kafka
+  host -->|"127.0.0.1:5432"| pg
   dn -->|"HDFS RPC"| nn
   nm -->|"YARN"| rm
   rm -->|"hdfs://namenode:9000"| nn
@@ -62,6 +64,8 @@ Bind mounts, not network links: `./data` is `/opt/data` in the Spark master and 
 
 Grafana listens on host port 3000. It has no warehouse connection and no stream connection yet. Hive warehouse files are on HDFS at `hdfs://namenode:9000/user/hive/warehouse`. Derby is the metastore database.
 
+Postgres listens on `127.0.0.1:5432`. It stores model config ([ADR-0018](adr/0018-postgres-for-model-config.md)). Mobility data stays on disk and HDFS. Derby remains the Hive metastore. After `make up`, run `make config-seed`. The model-config API is `make config-api` on `127.0.0.1:8090`. Field reference: [model-config.md](model-config.md).
+
 Port 9092 is published on loopback. Kafka advertises it as `kafka:9092`. Use that name only inside Compose. The host producer uses `localhost:9094`. Namenode 9870/9000 also bind to `127.0.0.1`. HDFS permissions are off, so those ports must not listen on the LAN.
 
 ## Compose services
@@ -78,6 +82,7 @@ Port 9092 is published on loopback. Kafka advertises it as `kafka:9092`. Use tha
 | hive-metastore  | 9083                                           | Derby metastore database                 |
 | hiveserver2     | 10000, 10002                                   | beeline / JDBC                           |
 | grafana         | 3000                                           | dashboards                               |
+| postgres        | 127.0.0.1:5432                                 | Model config only. Not the lake          |
 
 Tags are pinned in `docker-compose.yml`. The Hive warehouse directory is `hdfs://namenode:9000/user/hive/warehouse`. MapReduce submit is `make yarn-probe` ([ADR-0015](adr/0015-yarn-mapreduce-submit.md)). A `hive_metastore` volume from before that URI keeps database `default` on local disk. Remove the volume and start Hive again.
 

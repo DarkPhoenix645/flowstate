@@ -1,0 +1,20 @@
+meta {
+  name: Diff versions
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/model-config/{{kind}}/diff
+  body: none
+  auth: none
+}
+
+params:query {
+  from: {{fromId}}
+  to: {{toId}}
+}
+
+docs {
+  Field diff for two versions of the same kind. Run List versions first when you want the script to fill the ids.
+}

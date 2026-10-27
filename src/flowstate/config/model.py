@@ -14,8 +14,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-# The nine #40 bus-prior fields. Env overrides these. Everything
-# else on the model is a default until a versioned store exists.
+# The nine #40 bus-prior fields. Env overrides these when the
+# kind comes from files. A database version replaces the document.
 BUS_PRIOR_FIELDS = (
     "assumed_weekday_boardings",
     "assumed_bus_capacity",
@@ -87,7 +87,11 @@ class ResampleConfig(BaseModel):
 
     @classmethod
     def from_settings(cls, settings: Any) -> ResampleConfig:
-        """Read the nine #40 fields. Other fields stay at defaults."""
+        """Build a document from a Settings object.
+
+        Unit tests use this. The running process reads Postgres
+        and does not call this method.
+        """
         return cls(
             assumed_weekday_boardings=settings.assumed_weekday_boardings,
             assumed_bus_capacity=settings.assumed_bus_capacity,

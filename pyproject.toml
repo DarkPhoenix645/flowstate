@@ -15,6 +15,7 @@ dependencies = [
     "kagglehub>=0.2",
     "pydantic-settings>=2.4",
     "tqdm>=4.66",
+    "psycopg[binary]>=3.3.6",
 ]
 
 [dependency-groups]
@@ -39,6 +40,9 @@ select = ["E", "F", "I", "UP"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "integration: needs a Postgres database",
+]
 
 [build-system]
 requires = ["hatchling"]

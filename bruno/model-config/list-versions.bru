@@ -1,0 +1,25 @@
+meta {
+  name: List versions
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/model-config/{{kind}}/versions
+  body: none
+  auth: none
+}
+
+script:post-response {
+  const versions = res.getBody().versions;
+  if (Array.isArray(versions) && versions.length > 0) {
+    bru.setVar("toId", String(versions[0].version_id));
+    if (versions.length > 1) {
+      bru.setVar("fromId", String(versions[1].version_id));
+    }
+  }
+}
+
+docs {
+  Newest version first. The script stores toId and, when a second row exists, fromId.
+}

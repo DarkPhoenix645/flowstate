@@ -1,0 +1,36 @@
+meta {
+  name: Put resample config
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/model-config/resample_config
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "note": "bruno",
+    "content": {
+      "outside_widen": 0.25
+    }
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 200 && body.version_id) {
+    bru.setVar("versionId", String(body.version_id));
+  }
+}
+
+docs {
+  Inserts a resample_config version and makes it active.
+  Omitted fields use the model defaults. The script stores versionId for Activate.
+}

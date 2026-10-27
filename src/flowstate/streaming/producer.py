@@ -702,9 +702,9 @@ def main(argv: list[str] | None = None) -> None:
         len(pins.airports),
     )
     spec = city_spec(load(DEFAULT_CITY_ID))
-    from flowstate.config.resolve import FileConfigSource
+    from flowstate.config.resolve import open_config_source
 
-    resolved = FileConfigSource(settings).load()
+    resolved = open_config_source(settings).load()
     log.info("fitting bundle")
     bundle = build_bundle(
         inputs,

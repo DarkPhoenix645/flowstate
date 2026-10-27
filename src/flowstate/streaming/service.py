@@ -100,10 +100,10 @@ def load_runtime(settings: Settings) -> Runtime:
         len(pins.stops),
         len(pins.airports),
     )
-    from flowstate.config.resolve import FileConfigSource
+    from flowstate.config.resolve import open_config_source
     from flowstate.resample.bundle import BundleCache
 
-    source = FileConfigSource(settings)
+    source = open_config_source(settings)
     resolved = source.load()
     cache = BundleCache()
     log.info("fitting the model bundle")

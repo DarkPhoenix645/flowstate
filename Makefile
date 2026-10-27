@@ -2,7 +2,7 @@
 	spark-hdfs up down down-v \
 	ensure-kafka-cluster-id \
 	stream-produce stream-serve stream-ctl kafka-topics stream-consume \
-	hive-ddl \
+	config-seed config-api hive-ddl \
 	mr-package yarn-probe test lint \
 
 PYTHON ?= uv run python
@@ -32,6 +32,8 @@ help:
 	@echo "  make hotspots           Spark demand job (in compose)"
 	@echo "  make spark-hdfs         Spark list+write HDFS probe (replication 1)"
 	@echo "  make kafka-topics       create flowstate.*.v1 topics, 1 partition"
+	@echo "  make config-seed        load the first model-config versions into Postgres"
+	@echo "  make config-api        model-config HTTP API on 127.0.0.1:8090"
 	@echo "  make stream-serve       long-running producer: waits for control messages"
 	@echo "  make stream-ctl         ARGS='start --rows 20000' | pause | seek T | command JSON"
 	@echo "  make stream-produce     Kafka producer (RATE, SEED, PRODUCE_ROWS or REQUEST=file.json)"
@@ -95,6 +97,12 @@ kafka-topics:
 	$(PYTHON) -m flowstate.streaming.topics
 
 # The long-running producer (ADR-0017). Control it with `make stream-ctl`.
+config-seed:
+	$(PYTHON) -m flowstate.config.seed
+
+config-api:
+	$(PYTHON) -m flowstate.config.api
+
 stream-serve:
 	$(PYTHON) -m flowstate.streaming.service
 

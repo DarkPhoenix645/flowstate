@@ -1,0 +1,31 @@
+vars {
+  @description('''Model-config API. make config-api binds this URL.''')
+  baseUrl: http://127.0.0.1:8090
+
+  @description('''scenario_policy or resample_config.''')
+  kind: scenario_policy
+
+  @description('''Active version after make config-seed. A PUT script replaces it.''')
+  versionId: 1
+
+  @description('''Older version id for diff. The list request sets this when two versions exist.''')
+  fromId: 1
+
+  @description('''Newer version id for diff.''')
+  toId: 1
+
+  @description('''Compose Postgres on loopback. Password is POSTGRES_PASSWORD.''')
+  databaseUrl: postgresql://flowstate:flowstate@127.0.0.1:5432/flowstate
+
+  @description('''Host Kafka listener.''')
+  kafkaBootstrap: localhost:9094
+
+  @description('''Spark master inside Compose.''')
+  sparkMaster: spark://spark:7077
+
+  @description('''HDFS name node.''')
+  hdfsNamenode: hdfs://namenode:9000
+
+  @description('''Grafana UI on the host.''')
+  grafanaUrl: http://127.0.0.1:3000
+}
