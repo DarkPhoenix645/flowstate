@@ -7,6 +7,7 @@ import os
 import socket
 from typing import Any
 
+from flowstate.api.page import limit_of, slice_page
 from flowstate.config import get_settings
 from flowstate.config.model import (
     BUS_PRIOR_FIELDS,
@@ -55,15 +56,37 @@ def demo_dispatch(
     if path == "/api/system" and method == "GET":
         return 200, {"services": system_status()}
     if path == "/api/datasets" and method == "GET":
-        return datasets_view(settings)
+        status, body = datasets_view(settings)
+        if status != 200:
+            return status, body
+        params = parse_qs(query)
+        rows = sorted(
+            body["datasets"], key=lambda item: str(item.get("dataset_id"))
+        )
+        page, nxt = slice_page(
+            rows,
+            limit_of(params.get("limit", [None])[0]),
+            params.get("cursor", [None])[0],
+            "dataset_id",
+        )
+        return 200, {"datasets": page, "next_cursor": nxt}
     if path == "/api/datasets/opensky" and method == "GET":
         direction = parse_qs(query).get("direction", [""])[0]
         return opensky_view(settings, direction)
     if path == "/api/benchmarks" and method == "GET":
+        params = parse_qs(query)
         rows = store.benchmarks()
-        if not rows:
+        cursor = params.get("cursor", [None])[0]
+        if not rows and not cursor:
             return 404, {"error": _EMPTY_BENCH}
-        return 200, {"benchmarks": rows}
+        page, nxt = slice_page(
+            rows,
+            limit_of(params.get("limit", [None])[0]),
+            cursor,
+            "id",
+            descending=True,
+        )
+        return 200, {"benchmarks": page, "next_cursor": nxt}
     if path == "/api/events/snapshot" and method == "GET":
         return 200, {"fixture": True, "events": snapshot_events()}
     return None

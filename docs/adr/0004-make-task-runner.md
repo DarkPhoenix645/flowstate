@@ -14,9 +14,9 @@ Use **Make** for dev work, one-time setup, and quick checks. User-facing runs go
 
 Make remains the task runner for documented dev workflows.
 
-Locked targets and variables include: `setup`, `ingest`, `amplify`, `hotspots`, `up` / `down`, `stream-produce`, `stream-consume`, `hive-ddl`, `mr-package`, `yarn-probe`, `test`, `lint`, plus `DATASET`, `ROWS`, `TOPIC`, `RATE`.
+Locked targets and variables include: `setup`, `ingest`, `amplify`, `up` / `down`, `stream-produce`, `stream-consume`, `hive-ddl`, `mr-package`, `yarn-probe`, `test`, `lint`, plus `DATASET`, `ROWS`, `TOPIC`, `RATE`.
 
-`hotspots` and `stream-consume` exec into Compose Spark. They do not run Spark on the host.
+Analytics jobs start through the API. `stream-consume` execs into Compose Spark. It does not run Spark on the host.
 
 ## Consequences
 

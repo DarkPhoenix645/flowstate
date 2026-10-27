@@ -6,6 +6,7 @@ import json
 from typing import Any
 from urllib.parse import parse_qs
 
+from flowstate.api.page import limit_of, slice_page
 from flowstate.config.postgres import ConfigStore
 from flowstate.config.resolve import ConfigValidationError
 from flowstate.jobs.backend import process_backends
@@ -34,13 +35,26 @@ def run_dispatch(
         chosen = process_backends(settings.runner_url)
     runs = RunStore(store.database_url)
     gate = replay if replay is not None else process_gate()
+    params = parse_qs(query)
     if path == "/api/jobs" and method == "GET":
-        return 200, {"jobs": job_catalog()}
+        jobs = sorted(job_catalog(), key=lambda item: item["name"])
+        page, nxt = slice_page(
+            jobs,
+            limit_of(params.get("limit", [None])[0]),
+            params.get("cursor", [None])[0],
+            "name",
+        )
+        return 200, {"jobs": page, "next_cursor": nxt}
     if path == "/api/runs" and method == "GET":
-        params = parse_qs(query)
         kind = params.get("kind", [None])[0]
         status = params.get("status", [None])[0]
-        return 200, {"runs": runs.list_runs(kind, status)}
+        page, nxt = runs.page_runs(
+            kind,
+            status,
+            limit_of(params.get("limit", [None])[0]),
+            params.get("cursor", [None])[0],
+        )
+        return 200, {"runs": page, "next_cursor": nxt}
     if path == "/api/runs" and method == "POST":
         body = json.loads(raw) if raw else {}
         if not isinstance(body, dict):

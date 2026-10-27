@@ -108,16 +108,8 @@ class ComposeBackend:
             if spec.name == "amplify":
                 location, log = _amplify(self._url, params)
                 state = "succeeded"
-            elif spec.name == "hdfs_probe":
-                script = spec.entrypoint.replace(".", "/")
-                log = _post(
-                    self._url,
-                    {
-                        "op": "spark_submit",
-                        "script": f"/opt/src/{script}.py",
-                    },
-                )
-                location = "hdfs://namenode:9000/tmp/spark_hdfs_probe"
+            elif spec.engine == "spark":
+                location, log = _spark_job(self._url, spec, params)
                 state = "succeeded"
             else:
                 raise RuntimeError(f"compose has no handler for {spec.name}")
@@ -184,6 +176,61 @@ def require_backend(
     return backend
 
 
+_ANALYTICS_DDL = {
+    "demand_hotspots": ("analytics_demand_hotspots.sql",),
+    "cancellation_analysis": ("analytics_cancellation_analysis.sql",),
+    "ridership_trends": ("analytics_ridership_trends.sql",),
+    "cross_modal": (
+        "analytics_ridehail_metro.sql",
+        "analytics_flights_ridehail.sql",
+    ),
+}
+
+
+def _spark_job(
+    runner_url: str, spec: JobSpec, params: dict[str, Any]
+) -> tuple[str, str]:
+    script = "/opt/src/" + spec.entrypoint.replace(".", "/") + ".py"
+    body: dict[str, Any] = {"op": "spark_submit", "script": script}
+    if spec.name != "hdfs_probe":
+        body["args"] = _analytics_args(params)
+    logs = [_post(runner_url, body)]
+    for name in _ANALYTICS_DDL.get(spec.name, ()):
+        logs.append(
+            _post(
+                runner_url,
+                {
+                    "op": "beeline",
+                    "file": f"/opt/src/flowstate/warehouse/ddl/{name}",
+                },
+            )
+        )
+    if spec.name == "hdfs_probe":
+        location = "hdfs://namenode:9000/tmp/spark_hdfs_probe"
+    elif spec.name == "cross_modal":
+        location = (
+            "hdfs://namenode:9000/user/hive/warehouse/"
+            "analytics_ridehail_metro"
+        )
+    else:
+        table = _ANALYTICS_DDL[spec.name][0].removesuffix(".sql")
+        location = f"hdfs://namenode:9000/user/hive/warehouse/{table}"
+    return location, "\n".join(logs)
+
+
+def _analytics_args(params: dict[str, Any]) -> list[str]:
+    run_id = str(params.get("run_id") or "")
+    if not run_id:
+        raise RuntimeError("analytics job needs run_id")
+    return [
+        f"--run-id={run_id}",
+        f"--corpus-rows={int(params['corpus_rows'])}",
+        f"--seed={int(params['seed'])}",
+        f"--bundle-hash={params['bundle_hash']}",
+        f"--bundle-version={params['bundle_version']}",
+    ]
+
+
 def _amplify(runner_url: str, params: dict[str, Any]) -> tuple[str, str]:
     from flowstate.config import get_settings
     from flowstate.ingest.amplify import AmplifyRequest
@@ -191,7 +238,9 @@ def _amplify(runner_url: str, params: dict[str, Any]) -> tuple[str, str]:
     from flowstate.normalize.places.review import require_station_reviews
     from flowstate.resample import run_amplify
 
-    request = AmplifyRequest.model_validate(params)
+    request = AmplifyRequest.model_validate(
+        {key: value for key, value in params.items() if key != "run_id"}
+    )
     settings = get_settings()
     require_station_reviews(settings.data_dir, DEFAULT_CITY_ID)
     run_amplify(settings, request.rows, request.seed)

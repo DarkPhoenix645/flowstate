@@ -13,6 +13,12 @@ from flowstate.streaming.control import StartRequest
 ALLOWED_ROWS = (1_000_000, 10_000_000, 100_000_000)
 
 
+class AnalyticsRequest(BaseModel):
+    """No caller fields. The corpus identity comes from the lake manifest."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class HdfsProbeRequest(BaseModel):
     """No parameters. The probe writes a fixed HDFS path."""
 
@@ -42,6 +48,34 @@ JOBS: dict[str, JobSpec] = {
         engine="python",
         entrypoint="flowstate.ingest.amplify",
         params_model=AmplifyRequest,
+    ),
+    "demand_hotspots": JobSpec(
+        name="demand_hotspots",
+        kind="analytics",
+        engine="spark",
+        entrypoint="flowstate.batch.spark_jobs.demand_hotspots",
+        params_model=AnalyticsRequest,
+    ),
+    "cancellation_analysis": JobSpec(
+        name="cancellation_analysis",
+        kind="analytics",
+        engine="spark",
+        entrypoint="flowstate.batch.spark_jobs.cancellation_analysis",
+        params_model=AnalyticsRequest,
+    ),
+    "ridership_trends": JobSpec(
+        name="ridership_trends",
+        kind="analytics",
+        engine="spark",
+        entrypoint="flowstate.batch.spark_jobs.ridership_trends",
+        params_model=AnalyticsRequest,
+    ),
+    "cross_modal": JobSpec(
+        name="cross_modal",
+        kind="analytics",
+        engine="spark",
+        entrypoint="flowstate.batch.spark_jobs.cross_modal",
+        params_model=AnalyticsRequest,
     ),
     "hdfs_probe": JobSpec(
         name="hdfs_probe",

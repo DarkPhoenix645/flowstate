@@ -194,6 +194,44 @@ def test_a_run_is_running_before_the_backend_finishes(database_url):
 
 
 @pytest.mark.integration
+def test_cancel_stays_cancelled_after_the_backend_finishes(database_url):
+    seed(database_url)
+    hold = threading.Event()
+    store = ConfigStore(database_url)
+    runs = RunStore(database_url)
+    status, body = dispatch(
+        store,
+        "POST",
+        "/api/runs",
+        json.dumps(
+            {"kind": "analytics", "job": "hdfs_probe", "params": {}}
+        ).encode(),
+        backends={"compose": FakeBackend(hold=hold, log="still going")},
+    )
+    assert status == 202
+    run_id = body["run_id"]
+    for _ in range(50):
+        seen = runs.get(run_id)
+        if seen is not None and seen["status"] == "running":
+            break
+        time.sleep(0.02)
+    status, cancelled = dispatch(
+        store,
+        "POST",
+        f"/api/runs/{run_id}/cancel",
+        b"",
+        backends={"compose": FakeBackend()},
+    )
+    assert status == 200
+    assert cancelled["status"] == "cancelled"
+    hold.set()
+    time.sleep(0.3)
+    saved = runs.get(run_id)
+    assert saved is not None
+    assert saved["status"] == "cancelled"
+
+
+@pytest.mark.integration
 def test_restart_reconciles_a_running_row(database_url):
     seed(database_url)
     runs = RunStore(database_url)
@@ -253,6 +291,31 @@ def test_runner_rejects_a_free_command():
     assert body["ok"] is False
 
 
+def test_job_list_is_cursor_paged():
+    store = ConfigStore(
+        f"postgresql://flowstate:{_SECRET}@127.0.0.1:1/flowstate"
+    )
+    status, first = dispatch(
+        store,
+        "GET",
+        "/api/jobs?limit=1",
+        b"",
+        backends=_backends(),
+    )
+    assert status == 200
+    assert len(first["jobs"]) == 1
+    assert first["next_cursor"]
+    status, second = dispatch(
+        store,
+        "GET",
+        "/api/jobs?limit=1&cursor=" + first["next_cursor"],
+        b"",
+        backends=_backends(),
+    )
+    assert status == 200
+    assert second["jobs"][0]["name"] != first["jobs"][0]["name"]
+
+
 def test_jobs_lists_the_registry_without_a_database():
     store = ConfigStore(
         f"postgresql://flowstate:{_SECRET}@127.0.0.1:1/flowstate"
@@ -262,4 +325,12 @@ def test_jobs_lists_the_registry_without_a_database():
     )
     assert status == 200
     names = {item["name"] for item in body["jobs"]}
-    assert names == {"amplify", "hdfs_probe", "replay"}
+    assert names == {
+        "amplify",
+        "hdfs_probe",
+        "replay",
+        "demand_hotspots",
+        "cancellation_analysis",
+        "ridership_trends",
+        "cross_modal",
+    }

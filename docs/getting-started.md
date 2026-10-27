@@ -36,7 +36,6 @@ make down-v         # DESTRUCTIVE: compose down -v + remint CLUSTER_ID
 | `make up`                 | Mint `infra/kafka/cluster.env` if needed, then start Compose                                                                                                           | WORKING |
 | `make down`               | Stop stack; **keeps** volumes and CLUSTER_ID                                                                                                                           | WORKING |
 | `make down-v`             | Stop stack, **delete volumes** (`docker compose down -v`), remint CLUSTER_ID                                                                                           | WORKING |
-| `make hotspots`           | Spark demand job **inside** the `spark` service                                                                                                                        | TODO    |
 | `make spark-hdfs`         | Spark list + write probe against `hdfs://namenode:9000` (replication 1). Recreate Spark after a compose conf change.                                                   | WORKING |
 | `make kafka-topics`       | Create the eight topics with one partition each, including `flowstate.simulation.control.v1`. Run it after `make up`. A second run exits 0 when they already exist. The producer exits on any other partition count. | WORKING |
 | `make api`                | Demo and run API, including replay. It starts the long-running producer. [ADR-0017](adr/0017-producer-as-a-realtime-twin-source.md). | WORKING |

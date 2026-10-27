@@ -36,6 +36,8 @@ def start_run(
         raise ConfigValidationError("kind and job are required")
     spec = validate_job(kind, job, params)
     backend = require_backend(backends, str(backend_name))
+    if spec.kind == "analytics":
+        params = _corpus_identity(params)
     active = configs.active()
     resample = active.get("resample_config")
     if resample is None:
@@ -73,6 +75,24 @@ def start_run(
     saved = runs.get(run_id)
     assert saved is not None
     return saved
+
+
+def _corpus_identity(params: dict[str, Any]) -> dict[str, Any]:
+    import json
+    from pathlib import Path
+
+    from flowstate.config import get_settings
+
+    path = get_settings().staged_dir / "rides_amplified" / "manifest.json"
+    if not Path(path).is_file():
+        raise ConfigValidationError(f"missing {path.name}")
+    manifest = json.loads(Path(path).read_text())
+    stamped = dict(params)
+    stamped["corpus_rows"] = int(manifest["rows"])
+    stamped["seed"] = int(manifest["seed"])
+    stamped["bundle_hash"] = manifest["bundle_hash"]
+    stamped["bundle_version"] = manifest["bundle_version"]
+    return stamped
 
 
 def record_run(
@@ -192,13 +212,17 @@ def _execute(
     params: dict[str, Any],
     run_id: str,
 ) -> None:
-    external_id = backend.submit(spec, params)
+    payload = dict(params)
+    payload["run_id"] = run_id
+    external_id = backend.submit(spec, payload)
     runs.mark_running(run_id, external_id)
     while True:
-        _apply(runs, backend, run_id, external_id)
         row = runs.get(run_id)
         if row is None or row["status"] not in ("queued", "running"):
+            if row is not None and row["status"] == "cancelled":
+                backend.cancel(external_id)
             return
+        _apply(runs, backend, run_id, external_id)
         time.sleep(0.05)
 
 
@@ -209,19 +233,27 @@ def _apply(
     external_id: str,
 ) -> None:
     state = backend.status(external_id)
+    log = backend.log_tail(external_id)
     if state is None:
         runs.finish(
-            run_id, "failed", error="backend has no record of this job"
+            run_id,
+            "failed",
+            error="backend has no record of this job",
+            log=log,
         )
         return
     status = str(state["status"])
     if status in ("succeeded", "failed", "cancelled"):
         error = None
         if status == "failed":
-            error = backend.log_tail(external_id) or "job failed"
+            error = log or "job failed"
         runs.finish(
             run_id,
             status,
             error=error,
             result_location=state.get("result_location"),
+            log=log,
         )
+        return
+    if log:
+        runs.set_log(run_id, log)

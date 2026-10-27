@@ -12,8 +12,10 @@ get {
 
 params:query {
   kind: analytics
+  limit: 50
 }
 
 docs {
-  Optional kind and status filters. Clear a query value to list every run.
+  Optional kind and status filters. limit is 1 to 100.
+  Pass next_cursor as cursor for the next page. The first page omits cursor.
 }

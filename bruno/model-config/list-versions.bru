@@ -10,6 +10,10 @@ get {
   auth: none
 }
 
+params:query {
+  limit: 50
+}
+
 script:post-response {
   const versions = res.getBody().versions;
   if (Array.isArray(versions) && versions.length > 0) {
@@ -21,5 +25,6 @@ script:post-response {
 }
 
 docs {
-  Newest version first. The script stores toId and, when a second row exists, fromId.
+  Newest version first. limit is 1 to 100. Pass next_cursor as cursor for the next page.
+  The script stores toId and, when a second row exists, fromId.
 }

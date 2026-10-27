@@ -185,6 +185,7 @@ services:
     volumes:
       - ./data:/opt/data
       - ./src:/opt/src
+      - ./infra/runner/server.py:/opt/runner/server.py:ro
       - ./infra/hive/core-site.xml:/etc/hadoop/core-site.xml:ro
       - ./infra/hive/hdfs-site.xml:/etc/hadoop/hdfs-site.xml:ro
     depends_on:

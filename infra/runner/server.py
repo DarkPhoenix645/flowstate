@@ -76,11 +76,13 @@ def _argv(body: object) -> list[str]:
     op = body.get("op")
     if op == "spark_submit":
         script = _under(str(body.get("script")), SRC, ".py")
+        extra = [_spark_arg(item) for item in body.get("args") or []]
         return [
             SPARK_SUBMIT,
             "--master",
             "spark://spark:7077",
             str(script),
+            *extra,
         ]
     if op == "hdfs_put":
         src = _under(str(body.get("src")), LAKE, "")
@@ -116,6 +118,26 @@ def _under(raw: str, root: Path, suffix: str) -> Path:
     if suffix and resolved.suffix != suffix:
         raise ValueError(f"path must end with {suffix}")
     return resolved
+
+
+def _spark_arg(item: object) -> str:
+    if not isinstance(item, str):
+        raise ValueError("arg must be a string")
+    if item.startswith("--"):
+        name, sep, value = item.partition("=")
+        if not sep or not name.strip("-") or not value:
+            raise ValueError("arg is not allowed")
+        if not set(value) <= _ARG_CHARS:
+            raise ValueError("arg is not allowed")
+        return item
+    if not set(item) <= _ARG_CHARS:
+        raise ValueError("arg is not allowed")
+    return item
+
+
+_ARG_CHARS = set(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:/-"
+)
 
 
 def _hdfs_dest(dest: str) -> str:

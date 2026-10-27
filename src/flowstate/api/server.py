@@ -15,6 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
+from flowstate.api.page import limit_of, slice_page
 from flowstate.api.runs import run_dispatch
 from flowstate.config import get_settings
 from flowstate.config.demo import demo_dispatch
@@ -151,11 +152,19 @@ def _route(
     if method == "GET" and tail is None:
         return 200, _active(store, kind)
     if method == "GET" and tail == "/versions":
+        params = parse_qs(query)
         versions = [
             _version_json(item, content=True)
             for item in store.list_versions(kind)
         ]
-        return 200, {"kind": kind, "versions": versions}
+        page, nxt = slice_page(
+            versions,
+            limit_of(params.get("limit", [None])[0]),
+            params.get("cursor", [None])[0],
+            "version_id",
+            descending=True,
+        )
+        return 200, {"kind": kind, "versions": page, "next_cursor": nxt}
     if method == "GET" and tail == "/diff":
         params = parse_qs(query)
         try:

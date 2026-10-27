@@ -10,6 +10,11 @@ get {
   auth: none
 }
 
+params:query {
+  limit: 50
+}
+
 docs {
   Rows from the benchmark table. Expect 404 until a comparison has been run.
+  limit is 1 to 100. Pass next_cursor as cursor for the next page.
 }
