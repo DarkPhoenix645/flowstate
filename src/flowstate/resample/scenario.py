@@ -14,7 +14,6 @@ shift is off, and the summary says so.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import re
@@ -37,7 +36,6 @@ from flowstate.resample.unfold import (
 from flowstate.schema import resolve_vehicle_type
 
 POLICY_PATH = Path(__file__).with_name("scenario_policy.json")
-MULTIPLIER_FLOOR = 0.2
 _DURATION = re.compile(
     r"^PT(?:(?P<h>\d+)H)?(?:(?P<m>\d+)M)?(?:(?P<s>\d+)S)?$"
 )
@@ -76,6 +74,7 @@ class ScenarioPolicy(BaseModel):
     schema_version: str
     kia_catchment_wards: list[str]
     notes: str = ""
+    multiplier_floor: float = Field(default=0.2, gt=0)
     scenarios: dict[str, ScenarioSpec]
 
 
@@ -91,11 +90,6 @@ class ScenarioCommand(BaseModel):
     duration: str
     multiplier: float | None = None
     scenario_id: str = Field(min_length=1)
-
-
-def scenario_policy_sha256(path: Path | None = None) -> str:
-    raw = (path or POLICY_PATH).read_bytes()
-    return hashlib.sha256(raw).hexdigest()
 
 
 def load_policy(path: Path | None = None) -> ScenarioPolicy:
@@ -184,7 +178,9 @@ def lifecycle_total(
     return int(math.floor(injected * rides_per_flight * factor + 0.5))
 
 
-def applied_multiplier(command: ScenarioCommand, spec: ScenarioSpec) -> float:
+def applied_multiplier(
+    command: ScenarioCommand, spec: ScenarioSpec, floor: float
+) -> float:
     raw = (
         command.multiplier
         if command.multiplier is not None
@@ -195,8 +191,8 @@ def applied_multiplier(command: ScenarioCommand, spec: ScenarioSpec) -> float:
             raise ValueError(
                 "metro_disruption multiplier must be in (0, 1]"
             )
-        return max(raw, MULTIPLIER_FLOOR)
-    return min(max(raw, MULTIPLIER_FLOOR), spec.maximum_multiplier)
+        return max(raw, floor)
+    return min(max(raw, floor), spec.maximum_multiplier)
 
 
 def emitted_ward_ids(bundle: ModelBundle) -> set[str]:
@@ -302,7 +298,9 @@ def apply_fork(
     scale_book = scale or {}
     for command in ordered:
         spec = policy.scenarios[command.scenario_type]
-        scale = applied_multiplier(command, spec)
+        scale = applied_multiplier(
+            command, spec, policy.multiplier_floor
+        )
         if command.scenario_type in ("flight_arrival", "flight_departure"):
             added, cycles = _inject_flights(
                 fork,

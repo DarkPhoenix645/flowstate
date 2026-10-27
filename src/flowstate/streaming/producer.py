@@ -59,7 +59,6 @@ from flowstate.resample.scenario import (
     load_policy,
     observed_activity_per_day,
     parse_duration,
-    scenario_policy_sha256,
 )
 from flowstate.resample.unfold import ParentTotals
 from flowstate.resample.window import (
@@ -367,10 +366,25 @@ def emit_plan(
     seek: str | None = None,
     clock: Clock | None = None,
     pins: PinBook | None = None,
+    resolved: Any = None,
 ) -> Emission:
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode}")
-    policy = policy or load_policy()
+    if resolved is None:
+        from flowstate.config.resolve import resolve_models
+
+        policy = policy or load_policy()
+        resolved = resolve_models(
+            policy,
+            bundle.config,
+            source="memory",
+            version_id=None,
+            field_sources={
+                name: "default" for name in type(bundle.config).model_fields
+            },
+        )
+    else:
+        policy = resolved.model.scenario_policy
     check_commands(request.commands, policy, bundle)
     now = None
     if mode == "live":
@@ -422,14 +436,17 @@ def emit_plan(
             "rows": rows,
             "seek": seek,
             "bundle_version": bundle.version,
-            "bundle_hash": bundle_hash(bundle),
+            "bundle_hash": bundle_hash(bundle, resolved.config_hash),
             "seed": request.seed,
-            "policy_sha256": scenario_policy_sha256(),
+            "config_hash": resolved.config_hash,
+            "config_version": {
+                kind: resolved.version_id(kind) for kind in resolved.kinds
+            },
             "coverage": {
                 "window": bundle.coverage.get("window"),
                 "airport_code": bundle.coverage.get("airport_code"),
             },
-            "parameters": {"bus_prior": _bus_prior(bundle)},
+            "parameters": _parameters(bundle),
             "plan": {
                 "budgets": plan["budgets"],
                 "frozen": plan["frozen"],
@@ -685,8 +702,17 @@ def main(argv: list[str] | None = None) -> None:
         len(pins.airports),
     )
     spec = city_spec(load(DEFAULT_CITY_ID))
+    from flowstate.config.resolve import FileConfigSource
+
+    resolved = FileConfigSource(settings).load()
     log.info("fitting bundle")
-    bundle = build_bundle(inputs, spec, seed=wanted["seed"])
+    bundle = build_bundle(
+        inputs,
+        spec,
+        resolved.model.resample_config,
+        seed=wanted["seed"],
+        config_hash=resolved.config_hash,
+    )
     window_start = wanted["window_start"] or spec.window_start.isoformat()
     window_end = wanted["window_end"] or window_start
     commands = [
@@ -718,6 +744,7 @@ def main(argv: list[str] | None = None) -> None:
         rows=wanted["rows"],
         seek=wanted["seek"],
         pins=pins,
+        resolved=resolved,
     )
     log.info("plan budgets %s", emission.plan["budgets"])
     log.info("plan rows %s", emission.plan["rows"])
@@ -824,26 +851,42 @@ def _extrapolation(
         "trend": "frozen_at_terminal" if outside else "in_window",
         "frozen_ride_hail_days": plan["frozen"]["ride_hail"],
         "frozen_metro_days": plan["frozen"]["metro"],
-        "uncertainty_widen": 0.5 if outside else 0.0,
+        "uncertainty_widen": (
+            bundle.config.outside_widen if outside else 0.0
+        ),
     }
 
 
-def _bus_prior(bundle: ModelBundle) -> dict[str, Any]:
+def _parameters(bundle: ModelBundle) -> dict[str, Any]:
     config = bundle.config
     return {
-        "FLOWSTATE_ASSUMED_WEEKDAY_BOARDINGS": (
-            config.assumed_weekday_boardings
-        ),
-        "FLOWSTATE_ASSUMED_BUS_CAPACITY": config.assumed_bus_capacity,
-        "FLOWSTATE_ASSUMED_MAX_LOAD_FACTOR": config.assumed_max_load_factor,
-        "FLOWSTATE_METRO_SUBSTITUTION_MULTIPLIER": (
-            config.metro_substitution_multiplier
-        ),
-        "evidence_class": "assumption_driven",
-        "note": (
-            "A model choice (ADR-0012). The boardings are synthetic and "
-            "are not BMTC counts."
-        ),
+        "bus_prior": {
+            "FLOWSTATE_ASSUMED_WEEKDAY_BOARDINGS": (
+                config.assumed_weekday_boardings
+            ),
+            "FLOWSTATE_ASSUMED_BUS_CAPACITY": config.assumed_bus_capacity,
+            "FLOWSTATE_ASSUMED_MAX_LOAD_FACTOR": (
+                config.assumed_max_load_factor
+            ),
+            "FLOWSTATE_METRO_SUBSTITUTION_MULTIPLIER": (
+                config.metro_substitution_multiplier
+            ),
+            "FLOWSTATE_BUS_HOUR_PROFILE": config.bus_hour_profile,
+            "FLOWSTATE_BUS_PEAK_SHARE_LOW": config.bus_peak_share_low,
+            "FLOWSTATE_BUS_PEAK_SHARE_HIGH": config.bus_peak_share_high,
+            "FLOWSTATE_BUS_TRIP_LENGTH_KM_LOW": (
+                config.bus_trip_length_km_low
+            ),
+            "FLOWSTATE_BUS_TRIP_LENGTH_KM_HIGH": (
+                config.bus_trip_length_km_high
+            ),
+            "evidence_class": "assumption_driven",
+            "note": (
+                "A model choice (ADR-0012). The boardings are synthetic "
+                "and are not BMTC counts."
+            ),
+        },
+        "outside_widen": config.outside_widen,
     }
 
 
