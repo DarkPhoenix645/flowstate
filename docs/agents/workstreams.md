@@ -20,13 +20,13 @@ Schema contract: [schema.md](schema.md).
 
 Decision: [ADR-0007](../adr/0007-mapreduce-spark-benchmark-pair.md).
 
-Maven module `src/flowstate/batch/mapreduce/` (`pom.xml`, Hadoop 3.2.1 `provided`, matches bde2020 3.2.1). Classes: `DemandCountMapper`, `DemandCountReducer`, `DemandCountDriver`. Package: `make mr-package`. Submit path: `make yarn-probe` ([ADR-0015](../adr/0015-yarn-mapreduce-submit.md)). DemandCount is #24.
+Maven module `src/flowstate/batch/mapreduce/` (`pom.xml`, Hadoop 3.2.1 `provided`, matches bde2020 3.2.1). Classes: `DemandCountMapper`, `DemandCountReducer`, `DemandCountDriver`. Package: `make mr-package`. Submit path: `make yarn-probe` ([ADR-0015](../adr/0015-yarn-mapreduce-submit.md)). DemandCount is #24. It uses the Q1 key in [ADR-0019](../adr/0019-analytics-catalog.md).
 
 `benchmarks/runner.py` → `benchmarks/results/timings.csv` (committed).
 
 ## Spark analytics `batch/spark_jobs/`
 
-One job per file, `main()`, paths from `flowstate.config.Settings`. Files: `demand_hotspots.py`, `cancellation_analysis.py`, `cross_modal.py`, `ridership_trends.py`. Submit on Compose Spark only (ADR-0003).
+One job per file, `main()`, paths from `flowstate.config.Settings`. Files: `demand_hotspots.py`, `cancellation_analysis.py`, `cross_modal.py`, `ridership_trends.py`. The questions, grains, and `analytics_*` tables are [ADR-0019](../adr/0019-analytics-catalog.md). Submit on Compose Spark only (ADR-0003).
 
 ## Speed layer `streaming/`
 
