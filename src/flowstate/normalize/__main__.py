@@ -10,6 +10,8 @@ from __future__ import annotations
 import argparse
 import logging
 
+from pydantic import BaseModel, ConfigDict
+
 from flowstate.config import get_settings
 from flowstate.log import configure_logging
 from flowstate.normalize.cities import DEFAULT_CITY_ID
@@ -20,14 +22,39 @@ from flowstate.provenance import ProvenanceError
 log = logging.getLogger("normalize")
 
 
+class NormalizeRequest(BaseModel):
+    """One normalize run. Geocode stays on unless the flag turns it off."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    city: str = DEFAULT_CITY_ID
+    geocode: bool = True
+
+
+def parse_normalize(argv: list[str] | None = None) -> NormalizeRequest:
+    parser = argparse.ArgumentParser(prog="flowstate.normalize")
+    parser.add_argument(
+        "--city",
+        default=NormalizeRequest.model_fields["city"].default,
+    )
+    parser.add_argument(
+        "--geocode",
+        action=argparse.BooleanOptionalAction,
+        default=NormalizeRequest.model_fields["geocode"].default,
+        help="look up station and airport cache misses (default %(default)s)",
+    )
+    args = parser.parse_args(argv)
+    return NormalizeRequest(city=args.city, geocode=args.geocode)
+
+
 def main(argv: list[str] | None = None) -> None:
     configure_logging()
-    parser = argparse.ArgumentParser(prog="flowstate.normalize")
-    parser.add_argument("--city", default=DEFAULT_CITY_ID)
-    args = parser.parse_args(argv)
+    request = parse_normalize(argv)
     settings = get_settings()
     try:
-        result = run(settings, city_id=args.city, geocode=True)
+        result = run(
+            settings, city_id=request.city, geocode=request.geocode
+        )
     except ValueError as exc:
         log.error("%s", exc)
         raise SystemExit(1) from exc

@@ -15,7 +15,11 @@ import uuid
 from flowstate.config import get_settings
 from flowstate.log import configure_logging
 from flowstate.resample.scenario import ScenarioCommand
-from flowstate.streaming.control import ControlMessage, StartRequest
+from flowstate.streaming.control import (
+    ControlMessage,
+    StartRequest,
+    start_default,
+)
 from flowstate.streaming.topics import (
     COMMAND_TOPIC,
     CONTROL_TOPIC,
@@ -30,13 +34,40 @@ def build(argv: list[str] | None = None) -> tuple[str, str, dict]:
     parser = argparse.ArgumentParser(prog="flowstate.streaming.ctl")
     sub = parser.add_subparsers(dest="op", required=True)
     start = sub.add_parser("start")
-    start.add_argument("--mode", choices=("replay", "live"), default="replay")
-    start.add_argument("--rows", type=int, default=10_000)
-    start.add_argument("--seed", type=int, default=42)
+    start.add_argument(
+        "--mode",
+        choices=("replay", "live"),
+        default=start_default("mode"),
+        help="replay or live (default %(default)s)",
+    )
+    start.add_argument(
+        "--rows",
+        type=int,
+        default=start_default("rows"),
+        help="events in the plan (default %(default)s)",
+    )
+    start.add_argument(
+        "--seed",
+        type=int,
+        default=start_default("seed"),
+        help="generator seed (default %(default)s)",
+    )
     start.add_argument("--window-start")
     start.add_argument("--window-end")
-    start.add_argument("--acceleration", type=float, default=60.0)
-    start.add_argument("--max-eps", type=float, default=500.0)
+    start.add_argument(
+        "--acceleration",
+        type=float,
+        default=start_default("acceleration"),
+        help="event-time acceleration (default %(default)s)",
+    )
+    start.add_argument(
+        "--events-per-sec",
+        "--max-eps",
+        dest="max_eps",
+        type=float,
+        default=start_default("max_eps"),
+        help="event cap (default %(default)s)",
+    )
     start.add_argument("--seek")
     start.add_argument("--session-id")
     start.add_argument("--command", action="append", default=[])

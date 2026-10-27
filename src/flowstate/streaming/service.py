@@ -14,6 +14,7 @@ queue, so a control message cuts the wait short.
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import logging
@@ -46,7 +47,11 @@ from flowstate.resample.scenario import (
     ScenarioCommand,
     ScenarioPolicy,
 )
-from flowstate.streaming.control import ControlMessage, StartRequest
+from flowstate.streaming.control import (
+    ControlMessage,
+    StartRequest,
+    default_window,
+)
 from flowstate.streaming.producer import (
     BasePlan,
     ReplayRequest,
@@ -345,10 +350,11 @@ class Service:
             window_start = window_end = now.date().isoformat()
             from_time = now
         else:
-            window_start = (
-                start.window_start or bundle.spec.window_start.isoformat()
+            window_start, window_end = default_window(
+                bundle.spec.window_start.isoformat(),
+                start.window_start,
+                start.window_end,
             )
-            window_end = start.window_end or window_start
             from_time = (
                 datetime.fromisoformat(start.seek).astimezone(zone)
                 if start.seek
@@ -636,7 +642,15 @@ def _parse(topic: str, value: Any) -> tuple[str, Any]:
         return "invalid", f"{topic}: {exc.error_count()} errors: {first}"
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    argparse.ArgumentParser(prog="flowstate.streaming.service").parse_args(
+        argv
+    )
+    serve()
+
+
+def serve(start: StartRequest | None = None) -> None:
+    """Run the long-running producer. Pass ``start`` to open a session."""
     configure_logging()
     settings = get_settings()
     runtime = load_runtime(settings)
@@ -670,6 +684,13 @@ def main() -> None:
 
     signal.signal(signal.SIGTERM, _quit)
     signal.signal(signal.SIGINT, _quit)
+    if start is not None:
+        service.handle(
+            (
+                "control",
+                ControlMessage(op="start", request_id="cli", start=start),
+            )
+        )
     try:
         service.run()
     finally:

@@ -54,6 +54,21 @@ class ControlMessage(BaseModel):
     to: str | None = None
 
 
+def start_default(name: str) -> object:
+    """The one copy of a replay default. CLIs read it. They do not repeat it."""
+    return StartRequest.model_fields[name].default
+
+
+def default_window(
+    spec_start: str,
+    window_start: str | None,
+    window_end: str | None,
+) -> tuple[str, str]:
+    """One day at the spec start when the request leaves the window empty."""
+    start = window_start or spec_start
+    return start, window_end or start
+
+
 def control_json_schema() -> dict:
     schema = ControlMessage.model_json_schema()
     schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
