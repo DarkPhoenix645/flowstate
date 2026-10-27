@@ -5,9 +5,16 @@ Cancel rate and surge are other files. Layout: docs/agents/event-detector.md.
 
 from __future__ import annotations
 
+import logging
+
+from flowstate.log import configure_logging
+
+log = logging.getLogger(__name__)
+
 
 def main() -> None:
-    print(
+    configure_logging()
+    log.info(
         "TODO #22: active rides / zone only. "
         "Read flowstate.ridehail.activity.v1. "
         "Sink hdfs://namenode:9000/stream-sink/active_rides/. "

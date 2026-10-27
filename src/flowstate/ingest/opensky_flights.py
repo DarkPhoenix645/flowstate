@@ -714,11 +714,9 @@ def run(settings: object) -> None:
 
 
 def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-        datefmt="%H:%M:%S",
-    )
+    from flowstate.log import configure_logging
+
+    configure_logging()
     import sys
 
     from flowstate.config import get_settings

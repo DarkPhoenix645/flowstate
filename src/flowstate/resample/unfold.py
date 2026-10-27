@@ -273,6 +273,7 @@ def ridehail_day_events(
     *,
     parent_source: str = "observed",
     partial_rows: int | None = None,
+    widen: float = 0.0,
 ) -> Iterator[list[dict[str, Any]]]:
     """One ride-hail day as activity events, hour-mixed by the prior.
 
@@ -310,6 +311,8 @@ def ridehail_day_events(
                 continue
             wards, weights = bundle.ward_shares[hour]
             shares = weights / weights.sum()
+            if widen:
+                shares = (1.0 - widen) * shares + widen / len(shares)
             seconds = rng.integers(0, 3600, size=per_hour)
             pickups = rng.choice(wards, size=per_hour, p=shares)
             drops = rng.choice(wards, size=per_hour, p=shares)
@@ -576,8 +579,14 @@ def bus_events(
     feed_date: str,
     budget_rows: int,
     parents: ParentTotals,
+    id_prefix: str = "",
 ) -> tuple[Iterator[list[dict[str, Any]]], dict[str, Any]]:
     """Scheduled stop calls with synthetic ridership (plan §7.4).
+
+    ``feed_date`` is the service day the stop calls are stamped on.
+    Amplify passes the GTFS feed date. The producer passes the replay
+    day (ADR-0017). ``id_prefix`` keeps the event id and the parent
+    key unique when one trip is drawn on several days.
 
     Whole trips are sampled so per-trip conservation stays
     checkable. Boardings concentrate on early stops, alightings on
@@ -706,6 +715,7 @@ def bus_events(
             boardings=trip_boardings,
             capacity=capacity,
             parents=parents,
+            id_prefix=id_prefix,
         )
         displaced += cap_displaced
         if cap_displaced:
@@ -714,7 +724,8 @@ def bus_events(
     summary["capped_trips"] = capped_trips
     summary["boardings_displaced_by_cap"] = displaced
     summary["boardings_emitted"] = sum(
-        parents.bus.get((f"bmtc_gtfs:{t}", "boardings"), 0) for t in sampled
+        parents.bus.get((f"bmtc_gtfs:{id_prefix}{t}", "boardings"), 0)
+        for t in sampled
     )
     summary["prior"] = _bus_prior_audit(
         config, rows_by_trip, sampled
@@ -829,6 +840,7 @@ def _bus_trip_rows(
     boardings: int,
     capacity: float,
     parents: ParentTotals,
+    id_prefix: str = "",
 ) -> tuple[list[dict[str, Any]], int]:
     """Rows plus the count of boardings displaced by the cap.
 
@@ -862,9 +874,13 @@ def _bus_trip_rows(
         else:  # pragma: no cover - peak > 0 implies a spanning pair
             break
         boards, alights, onboard_values = _stop_counts(pairs, n)
-    parent_key = f"bmtc_gtfs:{trip_id}"
+    parent_key = f"bmtc_gtfs:{id_prefix}{trip_id}"
     parents.add_bus(parent_key, "boardings", sum(boards))
     parents.add_bus(parent_key, "alightings", sum(alights))
+    service_day = to_date(feed_date)
+    outside = not (
+        bundle.spec.window_start <= service_day <= bundle.spec.window_end
+    )
     rows = []
     for position, (_, stop) in enumerate(group.iterrows()):
         clock = str(stop["arrival_time"])
@@ -877,7 +893,10 @@ def _bus_trip_rows(
         )
         row = _base_row(
             bundle,
-            trip_id=f"bmtc-{trip_id}-{int(stop['stop_sequence']):05d}",
+            trip_id=(
+                f"bmtc-{id_prefix}{trip_id}-"
+                f"{int(stop['stop_sequence']):05d}"
+            ),
             mode="bus",
             event_type="scheduled_stop",
             hour=moment.hour,
@@ -892,7 +911,7 @@ def _bus_trip_rows(
             source_ids=["bmtc_gtfs"],
             parent_source="assumed",
             parent_id=parent_key,
-            outside=True,
+            outside=outside,
         )
         row["boardings"] = boards[position]
         row["alightings"] = alights[position]
@@ -938,6 +957,32 @@ def _gtfs_seconds_or_zero(clock: str) -> int:
     return seconds if seconds is not None else 0
 
 
+# Half the median healthy day is the coverage gate. The checked
+# 2024-10-26 departure window is about 11% of a healthy day, so it
+# fails. A day near the median passes. Failed and quota windows
+# fail even when they contain rows.
+SPARSE_FRACTION = 0.5
+FAILED_QUERY_STATUS = frozenset({"failed", "quota"})
+
+
+def _sparse_direction_keys(
+    observed: dict[tuple[str, str], list[tuple[int, str | None, str | None]]],
+    skip: set[tuple[str, str]],
+) -> set[tuple[str, str]]:
+    by_direction: dict[str, list[tuple[tuple[str, str], int]]] = {}
+    for key, events in observed.items():
+        if key in skip or not events:
+            continue
+        by_direction.setdefault(key[1], []).append((key, len(events)))
+    sparse: set[tuple[str, str]] = set()
+    for pairs in by_direction.values():
+        median = float(np.median([count for _, count in pairs]))
+        for key, count in pairs:
+            if median > 0 and count < SPARSE_FRACTION * median:
+                sparse.add(key)
+    return sparse
+
+
 def aviation_events(
     bundle: ModelBundle,
     rng: np.random.Generator,
@@ -947,37 +992,50 @@ def aviation_events(
     budget_rows: int,
     parents: ParentTotals,
 ) -> tuple[Iterator[list[dict[str, Any]]], dict[str, Any]]:
-    """Observed-proxy flights inside fetched windows, synthetic outside.
+    """Observed-proxy flights inside healthy fetched windows.
 
-    A day/direction with no observed events gets synthetic draws
-    from the NB2 daily fit and the hour profile. Observed events keep
-    their source timestamps, icao24, and callsign. A day/direction is
-    never emitted both ways: the double-count guard is a validator
-    check.
+    A missing day/direction is synthetic. A failed, quota, or sparse
+    window is synthetic too: its thin rows are not emitted as
+    ``observed_proxy``. A day/direction is never emitted both ways.
     """
-    frame = flight_events.select(
-        ["direction", "local_date", "event_time_unix", "icao24", "callsign"]
-    ).to_pydict()
+    columns = [
+        "direction",
+        "local_date",
+        "event_time_unix",
+        "icao24",
+        "callsign",
+    ]
+    has_status = "query_status" in flight_events.column_names
+    if has_status:
+        columns.append("query_status")
+    frame = flight_events.select(columns).to_pydict()
     observed: dict[
         tuple[str, str], list[tuple[int, str | None, str | None]]
     ] = {}
     day_counts: dict[str, int] = {}
-    for direction, day, unix, icao, callsign in zip(
+    failed: set[tuple[str, str]] = set()
+    statuses = (
+        frame["query_status"]
+        if has_status
+        else [None] * len(frame["direction"])
+    )
+    for direction, day, unix, icao, callsign, status in zip(
         frame["direction"],
         frame["local_date"],
         frame["event_time_unix"],
         frame["icao24"],
         frame["callsign"],
+        statuses,
         strict=True,
     ):
         if not day:
             continue
         key = (str(day)[:10], str(direction))
         observed.setdefault(key, [])
-        observed[key].append(
-            (int(unix or 0), icao, callsign)
-        )
+        observed[key].append((int(unix or 0), icao, callsign))
         day_counts[key[0]] = day_counts.get(key[0], 0) + 1
+        if status in FAILED_QUERY_STATUS:
+            failed.add(key)
     pool = [day for day in day_pool if day in day_counts]
     if not pool:
         raise ValueError("aviation day pool has no observed days")
@@ -986,6 +1044,8 @@ def aviation_events(
     span = bundle.span_days()
     rows: list[dict[str, Any]] = []
     synthetic_days: list[str] = []
+    gated = set(failed)
+    gated.update(_sparse_direction_keys(observed, failed))
     days = [day for day, _ in assigned]
     for day, need in assigned:
         arr = list(observed.get((day, "arrival"), []))
@@ -999,6 +1059,8 @@ def aviation_events(
         ):
             if take <= 0:
                 continue
+            if (day, direction) in gated:
+                events = []
             if events:
                 if len(events) > take:
                     picked = rng.choice(

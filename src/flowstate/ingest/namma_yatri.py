@@ -23,7 +23,6 @@ import base64
 import json
 import logging
 import subprocess
-import sys
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -35,13 +34,8 @@ import requests
 from flowstate.ingest.github import github_get as _github_get
 from flowstate.ingest.github import github_token
 from flowstate.ingest.github import too_large as _too_large
+from flowstate.log import configure_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%H:%M:%S",
-    stream=sys.stdout,
-)
 log = logging.getLogger("ny-stitch")
 
 REPO = "DigitalIndiaArchiver/NammaYatriStats"
@@ -515,6 +509,7 @@ NY_GZIP_URL = (
 
 def run(settings: object) -> None:
     """Download the city-day feed and stitch both hourly archives."""
+    configure_logging()
     from flowstate.config import Settings
 
     if not isinstance(settings, Settings):

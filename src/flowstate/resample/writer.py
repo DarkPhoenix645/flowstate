@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -55,11 +54,14 @@ from flowstate.resample.unfold import (
     ridehail_day_events,
     rng_for,
 )
+from flowstate.resample.window import MIN_ROWS
+from flowstate.resample.window import metro_days as _metro_days
+from flowstate.resample.window import metro_total as _metro_total
+from flowstate.resample.window import natural_shares as _natural_shares
 from flowstate.schema import RIDE_FIELDS
 
 TARGET_PART_BYTES = 128 * 1024 * 1024
 CORPUS_DATASET = "rides_amplified"
-MIN_ROWS = 1000
 COMMITTED_EVALUATION = Path(
     "src/flowstate/benchmarks/results/resampler-evaluation.json"
 )
@@ -161,60 +163,6 @@ class PartWriter:
 
     def close(self) -> None:
         self._close_part()
-
-
-def _natural_shares(
-    inputs: Any, bundle: ModelBundle
-) -> dict[str, float]:
-    """Measured natural volumes in the window. Budget priors only."""
-    start, end = bundle.spec.window_start, bundle.spec.window_end
-    ride_total = 0
-    frame = inputs.city_day.select(
-        ["date", "booking", "done_ride", "cancel_ride"]
-    ).to_pydict()
-    ride_days: list[str] = []
-    for day, booking, done, cancel in zip(
-        frame["date"],
-        frame["booking"],
-        frame["done_ride"],
-        frame["cancel_ride"],
-        strict=True,
-    ):
-        if not start <= to_date(str(day)[:10]) <= end:
-            continue
-        total = sum(
-            int(value or 0) for value in (booking, done, cancel)
-        )
-        if total <= 0:
-            continue
-        ride_total += total
-        ride_days.append(str(day)[:10])
-    metro_days = _metro_days(inputs, start, end)
-    metro_records = 0
-    for day in metro_days:
-        active = bundle.metro.active(to_date(day))
-        metro_records += 24 * len(active)
-    flights = inputs.flight_events.column("local_date").to_pylist()
-    aviation_rows = sum(
-        1
-        for day in flights
-        if day and start <= to_date(str(day)[:10]) <= end
-    )
-    return {
-        "ride_hail": float(ride_total),
-        "metro": float(metro_records),
-        "bus": float(inputs.stop_times.num_rows),
-        "aviation": float(aviation_rows),
-    }
-
-
-def _metro_days(inputs: Any, start: date, end: date) -> list[str]:
-    days = inputs.metro_daily.column("record_date").to_pylist()
-    return [
-        str(day)[:10]
-        for day in days
-        if start <= to_date(str(day)[:10]) <= end
-    ]
 
 
 def run_amplify(
@@ -549,18 +497,6 @@ def run_amplify(
     _write_json(directory / "bundle.json", bundle_json(bundle))
     _write_json(directory / "evaluation.json", bundle.clocks.evaluation)
     return manifest
-
-
-def _metro_total(inputs: Any, day: str) -> int:
-    frame = inputs.metro_daily.select(
-        ["record_date", "total"]
-    ).to_pydict()
-    for record_date, total in zip(
-        frame["record_date"], frame["total"], strict=True
-    ):
-        if str(record_date)[:10] == day:
-            return int(total or 0)
-    return 0
 
 
 def _ride_days(inputs: Any, bundle: ModelBundle) -> list[str]:

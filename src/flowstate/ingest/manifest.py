@@ -28,12 +28,8 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%H:%M:%S",
-    stream=sys.stdout,
-)
+from flowstate.log import configure_logging
+
 log = logging.getLogger("ingest.manifest")
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -668,6 +664,7 @@ def validate() -> int:
 
 
 def main() -> None:
+    configure_logging()
     parser = argparse.ArgumentParser(prog="flowstate.ingest.manifest")
     parser.add_argument("--validate", action="store_true")
     args = parser.parse_args()

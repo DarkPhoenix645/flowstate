@@ -11,6 +11,7 @@ stays null. The driver and rider cancel columns are not copied.
 
 from __future__ import annotations
 
+import logging
 import shutil
 import subprocess
 import sys
@@ -23,8 +24,11 @@ import pyarrow.parquet as pq
 
 from flowstate.config import Settings, get_settings
 from flowstate.lake.ridehail import HDFS_BIN, NAMENODE_LAKE_MOUNT
+from flowstate.log import configure_logging
 from flowstate.normalize.cities import DEFAULT_CITY_ID, load
 from flowstate.schema import resolve_vehicle_type
+
+log = logging.getLogger(__name__)
 
 LAKE_CITY_DAY = "/lake/namma_yatri/city_day.parquet"
 WAREHOUSE_RIDES = "/user/hive/warehouse/rides"
@@ -204,10 +208,14 @@ def _remove_copy_in(directory: Path) -> None:
 
 
 def main() -> None:
+    configure_logging()
     city, vehicle_type, rows = load_rides(get_settings())
-    print(
-        f"loaded {rows} city-day rows into "
-        f"{WAREHOUSE_RIDES}/city={city}/vehicle_type={vehicle_type}"
+    log.info(
+        "loaded %s city-day rows into %s/city=%s/vehicle_type=%s",
+        rows,
+        WAREHOUSE_RIDES,
+        city,
+        vehicle_type,
     )
 
 

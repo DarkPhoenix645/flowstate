@@ -1,7 +1,8 @@
 .PHONY: help setup ingest normalize stage lake amplify evaluate hotspots \
 	spark-hdfs up down down-v \
 	ensure-kafka-cluster-id \
-	stream-produce stream-consume hive-ddl mr-package yarn-probe test lint \
+	stream-produce kafka-topics stream-consume hive-ddl \
+	mr-package yarn-probe test lint \
 
 PYTHON ?= uv run python
 ROWS ?= 1000000
@@ -29,7 +30,8 @@ help:
 	@echo "  make down-v             stop stack, DELETE volumes, remint CLUSTER_ID"
 	@echo "  make hotspots           Spark demand job (in compose)"
 	@echo "  make spark-hdfs         Spark list+write HDFS probe (replication 1)"
-	@echo "  make stream-produce     Kafka publish (TOPIC, RATE)"
+	@echo "  make kafka-topics       create flowstate.*.v1 topics, 1 partition"
+	@echo "  make stream-produce     Kafka producer (RATE, SEED, PRODUCE_ROWS or REQUEST=file.json)"
 	@echo "  make stream-consume     Structured Streaming (in compose)"
 	@echo "  make hive-ddl           apply warehouse DDL via beeline"
 	@echo "  make mr-package         Maven package MapReduce jar (Docker)"
@@ -86,9 +88,19 @@ hotspots:
 spark-hdfs:
 	$(SPARK_SUBMIT) /opt/src/flowstate/batch/spark_jobs/hdfs_probe.py
 
+kafka-topics:
+	$(PYTHON) -m flowstate.streaming.topics
+
+# REQUEST is a replay request JSON (ADR-0017). Without it the flags apply.
+PRODUCE_ROWS ?= 10000
 stream-produce:
+ifdef REQUEST
+	$(PYTHON) -m flowstate.streaming.producer --request $(REQUEST)
+else
 	$(PYTHON) -m flowstate.streaming.producer \
-		--topic $(TOPIC) --events-per-sec $(RATE)
+		--mode replay --events-per-sec $(RATE) --seed $(SEED) \
+		--rows $(PRODUCE_ROWS)
+endif
 
 stream-consume:
 	$(SPARK_SUBMIT) /opt/src/flowstate/streaming/rolling_metrics.py

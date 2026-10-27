@@ -38,7 +38,8 @@ make down-v         # DESTRUCTIVE: compose down -v + remint CLUSTER_ID
 | `make down-v`             | Stop stack, **delete volumes** (`docker compose down -v`), remint CLUSTER_ID                                                                                           | WORKING |
 | `make hotspots`           | Spark demand job **inside** the `spark` service                                                                                                                        | TODO    |
 | `make spark-hdfs`         | Spark list + write probe against `hdfs://namenode:9000` (replication 1). Recreate Spark after a compose conf change.                                                   | WORKING |
-| `make stream-produce`     | `TOPIC=flowstate.ridehail.activity.v1 RATE=500` (host → Kafka `:9094`). Topic set: [ADR-0008](adr/0008-speed-layer-streaming-shape.md).                                | TODO    |
+| `make kafka-topics`       | Create the seven `flowstate.*.v1` topics with one partition each. Run it after `make up`. The producer exits on any other partition count.                           | WORKING |
+| `make stream-produce`     | `RATE=500 SEED=42 PRODUCE_ROWS=10000`, or `REQUEST=request.json` (host → Kafka `127.0.0.1:9094`). All modes go out in one `event_time` order. [ADR-0017](adr/0017-producer-as-a-realtime-twin-source.md). | WORKING |
 | `make stream-consume`     | rolling metrics **inside** Compose Spark                                                                                                                               | TODO    |
 | `make hive-ddl`           | Create partitioned `rides`, put the city-day clock from the lake, then `MSCK REPAIR`.                                                                                 | WORKING |
 | `make mr-package`         | Maven package in Docker (no host Java)                                                                                                                                 | WORKING |
@@ -51,7 +52,8 @@ Examples:
 gh auth login
 make ingest DATASET=ridehail
 make amplify ROWS=10000
-make stream-produce TOPIC=flowstate.ridehail.activity.v1 RATE=100
+make kafka-topics
+make stream-produce RATE=100 PRODUCE_ROWS=10000
 ```
 
 `make ingest DATASET=ridehail` reads commit lists and snapshot files from `DigitalIndiaArchiver/NammaYatriStats` with the `gh` token. Requests are one at a time. GitHub's primary limit is 5000 requests per hour; the stitch waits when remaining drops below 100, and on HTTP 403 or 429 it sleeps until `Retry-After` or the reset. City is 720 commits and ward is 459, so a clean run stays inside that budget. A failed snapshot exits before the CSV is written, and `DATASET=all` does not continue.

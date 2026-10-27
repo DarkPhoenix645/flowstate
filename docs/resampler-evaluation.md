@@ -120,8 +120,8 @@ Event-row mix is ~98.9% ride-hail because that is the source mix. It is not a fl
 | Ride-hail | 988,915        | 536 / 536      | synthetic                                              |
 | Bus       | 6,996          | 1              | derived (schedule) + synthetic passengers              |
 | Metro     | 3,172          | 373            | synthetic (packed station-hours)                       |
-| Aviation  | 917            | 488            | observed_proxy (all 917)                               |
-| **Total** | **1,000,000**  |                | synthetic 992,087 / derived 6,996 / observed_proxy 917 |
+| Aviation  | 917            | 488            | observed_proxy 895, synthetic 22 (sparse windows)      |
+| **Total** | **1,000,000**  |                | synthetic 992,109 / derived 6,996 / observed_proxy 895 |
 
 Ride-hail remainder absorbs bus undershoot so the part has exactly `N` rows.
 
@@ -170,7 +170,7 @@ The resampler does not copy source rows.
 1. Generated ride-hail ids are `fs-` synthetic keys, not Namma Yatri booking ids.
 2. Fares are `synthetic_fare_inr` from the earning proxy. They are not observed fares.
 3. Hour cells do not match sparse `city_hour` stitch cells. 2026-04-14 has an empty city-hour archive. Generated still has a commute shape.
-4. Aviation rows in this run are observed_proxy OpenSky events, subsampled. They keep source ids. They are not a full dump of 201,939 flights.
+4. Aviation rows in this run are observed_proxy OpenSky events, subsampled, except 22 synthetic rows. Those 22 sit on day-directions where the OpenSky window failed or was sparse (below half the median day). A thin window is not emitted as observed_proxy (ADR-0016, ADR-0017). Observed rows keep source ids. They are not a full dump of 201,939 flights.
 5. Bus passenger fields are assumption-driven (`ResampleConfig`: 4.6M weekday boardings, capacity 41.3, load 1.4). The timetable is derived.
 
 ![Fares](assets/resampler/11-fares.png)

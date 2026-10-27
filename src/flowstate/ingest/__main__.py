@@ -17,13 +17,9 @@ from flowstate.ingest import (
     opensky_flights,
     significant_dates,
 )
+from flowstate.log import configure_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%H:%M:%S",
-    stream=sys.stdout,
-)
+log = logging.getLogger(__name__)
 
 # One modality is one or more loaders. `all` is every modality.
 MODALITIES: dict[str, list] = {
@@ -37,6 +33,7 @@ MODALITIES: dict[str, list] = {
 
 
 def run_all(dataset: str) -> None:
+    configure_logging()
     settings = get_settings()
     settings.ensure_dirs()
     if dataset == "validate":
@@ -56,7 +53,7 @@ def run_all(dataset: str) -> None:
         )
     code = 0
     for name in names:
-        print(f"ingest:{name}", flush=True)
+        log.info("ingest:%s", name)
         for loader in MODALITIES[name]:
             try:
                 loader(settings)
@@ -65,7 +62,7 @@ def run_all(dataset: str) -> None:
                     code = exc.code
                 else:
                     if exc.code:
-                        print(exc.code, file=sys.stderr)
+                        log.error("%s", exc.code)
                     code = 1
                 break
         if code:

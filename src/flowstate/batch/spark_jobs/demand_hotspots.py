@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
+import logging
+
 from flowstate.config import get_settings
+from flowstate.log import configure_logging
+
+log = logging.getLogger(__name__)
 
 
 def main() -> None:
+    configure_logging()
     settings = get_settings()
-    print(
-        f"TODO: demand hotspots from {settings.staged_dir} "
-        f"(master={settings.spark_master})"
+    log.info(
+        "TODO: demand hotspots from %s (master=%s)",
+        settings.staged_dir,
+        settings.spark_master,
     )
 
 

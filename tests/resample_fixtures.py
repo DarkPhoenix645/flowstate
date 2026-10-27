@@ -42,6 +42,7 @@ def fixture_spec() -> CitySpec:
         airport_code="TEST",
         opensky_arrivals_id="test_arrivals",
         opensky_departures_id="test_departures",
+        ward_prefix="b",
     )
 
 

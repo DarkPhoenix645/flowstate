@@ -1,0 +1,111 @@
+{
+  "schema_version": "1",
+  "kia_catchment_wards": [
+    "b_6",
+    "b_1",
+    "b_2",
+    "b_7",
+    "b_8",
+    "b_5",
+    "b_3"
+  ],
+  "notes": "Catchment is every ward whose polygon centroid is within 17.85 km of the VOBL pin (13.198909, 77.706893), haversine, measured 2026-10-27 on the 243 pinned wards: b_6 Kogilu 13.76, b_1 Kempegowda Ward 14.93, b_2 Chowdeswari Ward 16.29, b_7 Thanisandra 17.28, b_8 Jakkuru 17.49, b_5 Yelahanka Satellite Town 17.60, b_3 Someshwara 17.83 km. The next ward, b_81 Horamavu, is 17.97 km. No centroid is within 7 km. The radius is an ADR-0017 decision, not a catchment study. rides_per_arrival stays 4, the ADR-0016 placeholder, not passengers per aircraft. Yields are observed scale times amplification_factor. The denominator is the mean city-day sum of booking + done_ride + cancel_ride.",
+  "scenarios": {
+    "flight_arrival": {
+      "scenario_type": "flight_arrival",
+      "enabled": true,
+      "affected_modes": [
+        "aviation",
+        "ride_hail"
+      ],
+      "time_lag_profile": {
+        "min_minutes": 0,
+        "max_minutes": 60
+      },
+      "intensity_multiplier": 1.0,
+      "shift_fraction": 0.0,
+      "maximum_multiplier": 3.0,
+      "evidence_grade": "assumption_driven",
+      "evidence_window": null,
+      "rides_per_arrival": 4,
+      "notes": "Inject or scale synthetic flights at the command airport. multiplier scales that flight rate and is capped by maximum_multiplier. Ride-hail lifecycles attach to injected flights only, lagged 0-60 minutes, spread across kia_catchment_wards."
+    },
+    "flight_departure": {
+      "scenario_type": "flight_departure",
+      "enabled": true,
+      "affected_modes": [
+        "aviation",
+        "ride_hail"
+      ],
+      "time_lag_profile": {
+        "min_minutes": 30,
+        "max_minutes": 90
+      },
+      "intensity_multiplier": 1.0,
+      "shift_fraction": 0.0,
+      "maximum_multiplier": 3.0,
+      "evidence_grade": "assumption_driven",
+      "evidence_window": null,
+      "rides_per_departure": 2,
+      "notes": "Same shape as arrival, with yield 2 and lag 30-90 minutes. Independent of arrival."
+    },
+    "metro_disruption": {
+      "scenario_type": "metro_disruption",
+      "enabled": true,
+      "affected_modes": [
+        "metro",
+        "ride_hail",
+        "bus"
+      ],
+      "time_lag_profile": {
+        "min_minutes": 0,
+        "max_minutes": 0
+      },
+      "intensity_multiplier": 1.0,
+      "shift_fraction": 0.45,
+      "maximum_multiplier": 3.0,
+      "evidence_grade": "assumption_driven",
+      "evidence_window": null,
+      "notes": "multiplier is a suppression factor in (0, 1]. The remaining station-hour fraction is max(multiplier, 0.2). Of the removed riders, shift_shares sends 0.15 to ride-hail and 0.30 to bus. The other 0.55 is not modelled (walk, own vehicle, adjacent station, wait, cancel). All three are assumption_driven. Evidence, checked 2026-10-27, none of it from a Bengaluru closure: Boston MBTA Orange Line 2022 closure, shuttle 40% and other buses 8% of riders, 42% unaccounted. NYC station closures, ride-hail use +2.8 to +3.3% (Pham, Ipeirotis, Sundararajan, ICIS 2019). SafeTrack Surge 1 pre-survey, Uber/Lyft or walk 3% (NTC@Maryland 2016). Toronto TTC stated preference for major disruptions, drive or taxi 16% (Lin 2017). Delhi Metro 2011 stated survey, bus almost half, auto-rickshaw 12% (Goel and Tiwari 2016). Plausible ranges are ride-hail 0.08 to 0.25, bus 0.20 to 0.45, unmodelled 0.40 to 0.65. A single-station closure sits at the high end of the unmodelled share. A whole-line peak outage sits at the low end. The bus leg adds boardings only on sampled stop calls within 1 km of the station.",
+      "shift_shares": {
+        "ride_hail": 0.15,
+        "bus": 0.3
+      }
+    },
+    "custom_shock": {
+      "scenario_type": "custom_shock",
+      "enabled": true,
+      "affected_modes": [
+        "ride_hail",
+        "metro",
+        "bus",
+        "aviation"
+      ],
+      "time_lag_profile": {
+        "min_minutes": 0,
+        "max_minutes": 0
+      },
+      "intensity_multiplier": 1.0,
+      "shift_fraction": 0.0,
+      "maximum_multiplier": 3.0,
+      "evidence_grade": "assumption_driven",
+      "evidence_window": null,
+      "notes": "Scale synthetic output of mode at location_ref for duration. A holiday is a custom_shock with a note."
+    },
+    "local_holiday_event": {
+      "scenario_type": "local_holiday_event",
+      "enabled": false,
+      "affected_modes": [],
+      "time_lag_profile": {
+        "min_minutes": 0,
+        "max_minutes": 0
+      },
+      "intensity_multiplier": 1.0,
+      "shift_fraction": 0.0,
+      "maximum_multiplier": 3.0,
+      "evidence_grade": "assumption_driven",
+      "evidence_window": null,
+      "notes": "Off in v1. Use custom_shock."
+    }
+  }
+}

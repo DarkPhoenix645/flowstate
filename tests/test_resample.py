@@ -324,7 +324,7 @@ def test_envelope_shape(bundle):
     envelope = to_envelope(row)
     assert envelope["city_id"] == "blr"
     assert envelope["event_type"] == "station_hour"
-    assert envelope["location_ref"]["station_id"] == row["pickup_zone"]
+    assert envelope["location_ref"]["at"]["station_id"] == row["pickup_zone"]
     assert envelope["provenance"]["status"] == "synthetic"
     assert envelope["provenance"]["source_ids"] == [
         "namma_metro_daily",

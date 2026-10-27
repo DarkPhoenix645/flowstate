@@ -212,12 +212,18 @@ def build_ridehail_hour_profile(
 
 
 def build_ward_shares(
-    ward_hour: pa.Table,
+    ward_hour: pa.Table, prefix: str | None = None
 ) -> dict[int, tuple[list[str], np.ndarray]]:
     """Ward activity share by hour from the stitched ward-hour archive.
 
-    A spatial allocation prior only. Ward ids are emitted; no
-    coordinates exist in v1.
+    A spatial allocation prior only. This table has ward ids, not
+    coordinates. The producer copies the geography pin onto the
+    envelope.
+
+    ``prefix`` is the city's ward prefix (``CitySpec.ward_prefix``).
+    Ids with another prefix are out of scope (ADR-0017) and carry no
+    pin. They are dropped here, so the shares renormalise over the
+    city wards and no emitted event lacks a place on the map.
     """
     frame = ward_hour.select(["ward_num", "hour", "done_ride"]).to_pydict()
     per_hour: dict[int, dict[str, float]] = {h: {} for h in range(24)}
@@ -226,6 +232,8 @@ def build_ward_shares(
         frame["ward_num"], frame["hour"], frame["done_ride"], strict=True
     ):
         if done is None:
+            continue
+        if prefix is not None and not str(ward).startswith(f"{prefix}_"):
             continue
         name = str(ward)
         bucket = per_hour[int(hour)]

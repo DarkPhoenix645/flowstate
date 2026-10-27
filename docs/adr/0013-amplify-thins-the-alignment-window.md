@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. 2026-10-22.
+Accepted. 2026-10-22. Point 5 is amended for the producer by [ADR-0017](0017-producer-as-a-realtime-twin-source.md).
 
 ## Context
 
@@ -22,7 +22,7 @@ The lake corpus must keep the calendar shape of the window at every `N` in `{1e6
 2. Split `N` across modes with `largest_remainder` on those volumes. Ride-hail stays ~99% of rows when that is the source mix.
 3. Split each mode budget across that mode's source days with `largest_remainder` on the day volumes. Every day with a positive clock gets a non-negative integer budget. Days with budget 0 emit nothing.
 4. Unfold each day with `partial_rows` (or the metro pack) equal to that day's budget. Parent totals conserve the **emitted** slice, not the full source day.
-5. Bus has one GTFS feed date, which can sit outside the window. Flag `outside_training_window`. Do not invent bus service dates.
+5. Bus has one GTFS feed date, which can sit outside the window. Flag `outside_training_window`. Do not invent bus service dates. `make amplify` still follows this point. The producer stamps bus on the replay day (ADR-0017).
 6. Whole bus trips can undershoot the bus budget. The ride-hail remainder absorbs leftover rows so the corpus has exactly `N` rows.
 
 Do not walk full days until the budget fills. Do not put the leftover on one last day.

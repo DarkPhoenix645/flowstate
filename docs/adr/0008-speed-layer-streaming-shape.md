@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Revised 2026-10-24. The 1-minute tumble stays. The 5-minute slide and the 10-minute watermark are withdrawn. Policy: [watermarks.md](../agents/watermarks.md). Bus boardings are fields on the scheduled-stop event. There is no separate boarding topic. Node files and HDFS sinks are in [event-detector.md](../agents/event-detector.md).
+Accepted. Revised 2026-10-24. `location_ref` is nested (`at`, `drop`) by [ADR-0017](0017-producer-as-a-realtime-twin-source.md). The 1-minute tumble stays. The 5-minute slide and the 10-minute watermark are withdrawn. Policy: [watermarks.md](../agents/watermarks.md). Bus boardings are fields on the scheduled-stop event. There is no separate boarding topic. Node files and HDFS sinks are in [event-detector.md](../agents/event-detector.md).
 
 ## Context
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. 2026-10-25. Issue #67.
+Accepted. 2026-10-25. Issue #67. Amended by [ADR-0017](0017-producer-as-a-realtime-twin-source.md): the catchment wards, the metro-disruption legs, the ward universe, and in-ward event points.
 
 This ADR supersedes the observed-only restrictions in the #67 body. Those restrictions treated provenance as a reason to hide a twin quantity. Inside the demo, resampler output is the state of the twin. Provenance stays on every event as metadata about how it was made (status, seed, model version, evidence grade). It does not decide what the surface may show. Coverage, scale, and code size decide that.
 

@@ -75,6 +75,9 @@ class CitySpec:
     airport_code: str
     opensky_arrivals_id: str
     opensky_departures_id: str
+    # Ward ids with this prefix are the city. Other ids in the
+    # ward-hour archive are out of scope and are never emitted.
+    ward_prefix: str
 
 
 def city_spec(profile: CityProfile) -> CitySpec:
@@ -97,6 +100,7 @@ def city_spec(profile: CityProfile) -> CitySpec:
         airport_code=airports[0].code,
         opensky_arrivals_id=profile.opensky_dataset_arrivals,
         opensky_departures_id=profile.opensky_dataset_departures,
+        ward_prefix=profile.ward.in_scope_prefix,
     )
 
 
@@ -278,7 +282,9 @@ def build_bundle(
         booking_type=spec.booking_type,
         vehicle_type=config.clock_vehicle_type,
     )
-    ward_shares = build_ward_shares(inputs.ward_hour)
+    ward_shares = build_ward_shares(
+        inputs.ward_hour, prefix=spec.ward_prefix
+    )
     metro = build_metro_profiles(
         inputs.station_hour, inputs.geography, spec.line_open
     )
@@ -319,8 +325,9 @@ def build_bundle(
         "veracity": [
             "The city-hour archive is a shape prior only "
             "(~0.37% of city-day volume on the checked files).",
-            "Ward shares allocate events to ward ids. No coordinates "
-            "are emitted in v1.",
+            "Ward shares allocate events to ward ids. The Kafka "
+            "envelope copies the geography pin. It does not geocode "
+            "the ward id.",
             "Pickup and drop wards are independent shape-prior "
             "draws. No auto origin-destination evidence exists in "
             "the accepted sources.",
@@ -412,6 +419,11 @@ def bundle_json(bundle: ModelBundle) -> dict[str, Any]:
 
 
 def bundle_hash(bundle: ModelBundle) -> str:
+    """Content hash. Includes the scenario policy file bytes."""
+    from flowstate.resample.scenario import scenario_policy_sha256
+
+    payload = bundle_json(bundle)
+    payload["scenario_policy_sha256"] = scenario_policy_sha256()
     return hashlib.sha256(
-        json.dumps(bundle_json(bundle), sort_keys=True).encode()
+        json.dumps(payload, sort_keys=True).encode()
     ).hexdigest()
