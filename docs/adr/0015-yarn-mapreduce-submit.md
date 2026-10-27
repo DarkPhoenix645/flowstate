@@ -8,7 +8,7 @@ Accepted. 2026-10-24.
 
 [ADR-0007](0007-mapreduce-spark-benchmark-pair.md) keeps a Maven MapReduce module and submits it on YARN in Compose. Compose had a namenode and a datanode only. `make mr-package` builds a jar. It does not start a YARN application.
 
-Spark stays on `spark://spark:7077`. DemandCount is #24. Issue #9 asks for a ResourceManager and a NodeManager from the bde2020 3.2.1 images, and for one MapReduce application whose YARN state is SUCCEEDED.
+Spark stays on `spark://spark:7077`. The MapReduce analytics jobs are #24. Issue #9 asks for a ResourceManager and a NodeManager from the bde2020 3.2.1 images, and for one MapReduce application whose YARN state is SUCCEEDED.
 
 [ADR-0014](0014-hadoop-client-conf-at-etc-hadoop.md) says a later Hadoop client uses `/etc/hadoop`. The namenode and the datanode already generate that directory from `infra/hadoop/hadoop.env`. An overlay of the Hive client files would replace the live server conf.
 
@@ -26,7 +26,7 @@ YARN container sizes fit one Compose host. NodeManager memory is 2048 MB. The sc
 
 `mapreduce.framework.name` is `yarn`. The shuffle aux service is `mapreduce_shuffle`. Its class is `org.apache.hadoop.mapred.ShuffleHandler`.
 
-`make yarn-probe` submits the Hadoop MapReduce examples `pi` job (1 map, 1 sample) with `/opt/hadoop-3.2.1/bin/yarn jar` inside the `resourcemanager` container. The application name is `QuasiMonteCarlo`. The probe passes when the final state is SUCCEEDED. This job is not DemandCount. #24 still reads `hdfs://namenode:9000/lake/rides_amplified/` at bench time.
+`make yarn-probe` submits the Hadoop MapReduce examples `pi` job (1 map, 1 sample) with `/opt/hadoop-3.2.1/bin/yarn jar` inside the `resourcemanager` container. The application name is `QuasiMonteCarlo`. The probe passes when the final state is SUCCEEDED. This job is not the #24 analytics jar. #24 still reads `hdfs://namenode:9000/lake/rides_amplified/` at bench time.
 
 Spark master stays `spark://spark:7077`. Do not set the Spark master to `yarn`.
 
@@ -34,7 +34,7 @@ Spark master stays `spark://spark:7077`. Do not set the Spark master to `yarn`.
 
 - Recreate the namenode, the datanode, the ResourceManager, and the NodeManager after a change to `hadoop.env`. `make up` does that. `make down-v` is not required. Volumes stay.
 - A host JDK stays out of scope. `make mr-package` still uses the Maven image.
-- #24 submits DemandCount to this ResourceManager.
+- #24 submits the Q1–Q5 MapReduce jobs to this ResourceManager.
 
 ## Sources
 

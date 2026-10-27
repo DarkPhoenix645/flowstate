@@ -28,7 +28,7 @@ Related decisions (already accepted — spikes prove or refine them):
    Proof, 2026-10-16: Beeline `INSERT` then `SELECT` on `default.hdfs_probe`. The namenode stored `hdfs://namenode:9000/user/hive/warehouse/hdfs_probe/000000_0`. HiveServer2 and the metastore listed that path. `DROP TABLE` removed it.
 
 4. **YARN + Maven jars** (batch baseline)  
-   ResourceManager and NodeManager are in Compose (bde2020 3.2.1). `make mr-package` builds the jar in Docker. `make yarn-probe` submits the Hadoop examples `pi` job. Spark stays `spark://spark:7077`. DemandCount is #24. Decision: [ADR-0015](../adr/0015-yarn-mapreduce-submit.md).
+   ResourceManager and NodeManager are in Compose (bde2020 3.2.1). `make mr-package` builds the jar in Docker. `make yarn-probe` submits the Hadoop examples `pi` job. Spark stays `spark://spark:7077`. The MapReduce analytics jobs are #24. Decision: [ADR-0015](../adr/0015-yarn-mapreduce-submit.md).
    Proof, 2026-10-24: `make yarn-probe` after `make up`. NodeManager registered at 2048 MB / 4 vcores. `application_1792786538759_0001` (`QuasiMonteCarlo`, MAPREDUCE) final state SUCCEEDED. Jar `demand-count-0.1.0.jar` built by `make mr-package`. Human sign-off still owns close on #9.
 
 5. **Watermarks & late data** (speed layer)  

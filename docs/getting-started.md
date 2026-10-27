@@ -43,7 +43,7 @@ make down-v         # DESTRUCTIVE: compose down -v + remint CLUSTER_ID
 | `make stream-consume`     | rolling metrics **inside** Compose Spark                                                                                                                               | TODO    |
 | `make hive-ddl`           | Create partitioned `rides`, put the city-day clock from the lake, then `MSCK REPAIR`.                                                                                 | WORKING |
 | `make mr-package`         | Maven package in Docker (no host Java)                                                                                                                                 | WORKING |
-| `make yarn-probe`         | Hadoop examples `pi` on YARN inside `resourcemanager`. Final state SUCCEEDED. Not DemandCount (#24).                                                                   | WORKING |
+| `make yarn-probe`         | Hadoop examples `pi` on YARN inside `resourcemanager`. Final state SUCCEEDED. Not the #24 analytics jobs.                                                               | WORKING |
 | `make test` / `make lint` | pytest, ruff                                                                                                                                                           | WORKING |
 
 Examples:
