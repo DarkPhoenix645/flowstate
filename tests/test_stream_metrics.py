@@ -7,6 +7,12 @@ from datetime import date
 import pytest
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+from pyspark.sql.types import (
+    IntegerType,
+    StringType,
+    StructField,
+    StructType,
+)
 
 from flowstate.api.server import dispatch
 from flowstate.config.postgres import ConfigStore
@@ -97,7 +103,16 @@ def test_hour_demand_sums_the_minute_counts(spark):
                 3,
             ),
         ],
-        ["start", "end", "ward_id", "scenario_id", "evidence_grade", "n"],
+        StructType(
+            [
+                StructField("start", StringType(), False),
+                StructField("end", StringType(), False),
+                StructField("ward_id", StringType(), True),
+                StructField("scenario_id", StringType(), True),
+                StructField("evidence_grade", StringType(), True),
+                StructField("n", IntegerType(), False),
+            ]
+        ),
     )
     minute = minute.select(
         F.struct(
@@ -146,15 +161,19 @@ def _row(when: str, event_type: str) -> tuple:
 
 
 def _events(spark, rows):
-    frame = spark.createDataFrame(
-        rows,
-        [
-            "event_time",
-            "ward_id",
-            "provenance_status",
-            "scenario_id",
-            "event_type",
-            "evidence_grade",
-        ],
+    frame = spark.createDataFrame(rows, _EVENT_SCHEMA)
+    return frame.withColumn(
+        "event_time", F.to_timestamp("event_time", "yyyy-MM-dd'T'HH:mm:ssX")
     )
-    return frame.withColumn("event_time", F.to_timestamp("event_time"))
+
+
+_EVENT_SCHEMA = StructType(
+    [
+        StructField("event_time", StringType(), False),
+        StructField("ward_id", StringType(), True),
+        StructField("provenance_status", StringType(), True),
+        StructField("scenario_id", StringType(), True),
+        StructField("event_type", StringType(), True),
+        StructField("evidence_grade", StringType(), True),
+    ]
+)
