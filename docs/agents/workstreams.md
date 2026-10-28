@@ -32,7 +32,9 @@ One job per file, `main()`, paths from `flowstate.config.Settings`. Files: `dema
 
 Decision: [ADR-0008](../adr/0008-speed-layer-streaming-shape.md) (topic contract, scenario engine), [ADR-0010](../adr/0010-bengaluru-calibrated-resampler.md).
 
-The producer runs on the host. `service.py` is the long-running one. The API starts it for a replay. `producer.py` is the one-shot CLI (`make stream-produce`). Both are conditionally stimulable and emit the `flowstate.*.v1` topics with the provenance envelope ([ADR-0017](../adr/0017-producer-as-a-realtime-twin-source.md)). Event time, `mode`, and mix come from the same resampler as amplify. One Structured Streaming file per metric. `rolling_metrics.py` is active rides / zone only (`make stream-consume`). Cancel rate and surge are later files. Layout: [event-detector.md](event-detector.md). Windows and late rows: [watermarks.md](watermarks.md). Surge framing is scenario-based: a flight-injection demo changes a configured synthetic airport-access response marked `assumption_driven` unless a held-out test validates it.
+The producer runs on the host. `service.py` is the long-running one, and the API starts it for a replay. `producer.py` is the one-shot CLI (`make stream-produce`). Both emit the `flowstate.*.v1` topics with the provenance envelope ([ADR-0017](../adr/0017-producer-as-a-realtime-twin-source.md)). Event time, `mode`, and mix come from the same resampler as amplify.
+
+One Structured Streaming file per metric. `rolling_metrics.py`, `cancel_rate.py`, and `surge.py` each start through `POST /api/runs`. Layout: [event-detector.md](event-detector.md). Windows and late rows: [watermarks.md](watermarks.md). A flight-injection response is `assumption_driven` unless a held-out test validates it.
 
 ## Warehouse & UI
 

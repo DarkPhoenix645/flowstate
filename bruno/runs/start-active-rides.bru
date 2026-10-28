@@ -1,0 +1,42 @@
+meta {
+  name: Start active rides
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/runs
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "kind": "stream",
+    "job": "active_rides",
+    "params": {
+      "trigger": "replay",
+      "reset": false,
+      "max_offsets": 20000
+    }
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 202 && body.run_id) {
+    bru.setVar("runId", String(body.run_id));
+  }
+}
+
+docs {
+  Q stream active rides. job cancel_rate uses the same body.
+  job surge also needs params.baseline_run_id.
+  trigger live runs until cancel. trigger replay uses availableNow.
+  reset true clears that job's sink, checkpoint, and the ride-hail topic.
+  The script stores runId for Get run.
+}

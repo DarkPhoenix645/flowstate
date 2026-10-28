@@ -26,7 +26,7 @@ Areas to staff. Paths are fixed; do not fork layouts.
 ## Speed layer — `src/flowstate/streaming/`
 
 - `producer.py`: emit the same resampler on the [ADR-0008](adr/0008-speed-layer-streaming-shape.md) topics, `--events-per-sec`.
-- `rolling_metrics.py`: active rides / zone only. `make stream-consume`. Cancel rate and surge are later files. Layout: [agents/event-detector.md](agents/event-detector.md). Policy: [agents/watermarks.md](agents/watermarks.md).
+- `rolling_metrics.py`: active rides / zone only. `cancel_rate.py` and `surge.py` are their own jobs. All three start through `POST /api/runs`. Layout: [agents/event-detector.md](agents/event-detector.md). Policy: [agents/watermarks.md](agents/watermarks.md).
 - `ride_event_schema.py`: one JSON schema for producer and consumer.
 - Watermark policy is written (#11). Human sign-off still owns close.
 

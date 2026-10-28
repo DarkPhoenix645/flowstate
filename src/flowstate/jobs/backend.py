@@ -109,6 +109,11 @@ class ComposeBackend:
             if spec.name == "amplify":
                 location, log = _amplify(self._url, params)
                 state = "succeeded"
+            elif spec.kind == "stream":
+                location, log = _stream_job(
+                    self._url, spec, params, external_id
+                )
+                state = "succeeded"
             elif str(params.get("engine") or spec.engine) == "mapreduce":
                 location, log = _mr_job(
                     self._url, spec, params, external_id
@@ -157,6 +162,12 @@ class ComposeBackend:
                 job["application_id"] = app
         except Exception as exc:
             job["log"] = str(exc)
+        try:
+            _post_payload(
+                self._url, {"op": "spark_kill", "track": external_id}
+            )
+        except Exception:
+            pass
         job["status"] = "cancelled"
         return job
 
@@ -303,6 +314,83 @@ def _mr_job(
     else:
         location = str(body["args"][2]).removeprefix("--output=")
     return location, "\n".join(logs)
+
+
+_STREAM_SINK = {
+    "active_rides": "active_rides",
+    "cancel_rate": "cancel_rate",
+    "surge": "surge",
+}
+_KAFKA_PACKAGES = "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6"
+_RIDEHAIL_TOPIC = "flowstate.ridehail.activity.v1"
+
+
+def _stream_job(
+    runner_url: str,
+    spec: JobSpec,
+    params: dict[str, Any],
+    track: str,
+) -> tuple[str, str]:
+    name = _STREAM_SINK[spec.name]
+    sink = f"/stream-sink/{name}"
+    checkpoint = f"/checkpoints/{name}"
+    if params.get("reset"):
+        _post(runner_url, {"op": "hdfs_rm", "dest": sink})
+        _post(runner_url, {"op": "hdfs_rm", "dest": checkpoint})
+        _reset_topic(_RIDEHAIL_TOPIC)
+    script = "/opt/src/" + spec.entrypoint.replace(".", "/") + ".py"
+    args = [
+        f"--trigger={params.get('trigger') or 'replay'}",
+        f"--max-offsets={int(params.get('max_offsets') or 20000)}",
+        "--kafka=kafka:9092",
+        f"--sink=hdfs://namenode:9000{sink}",
+        f"--checkpoint=hdfs://namenode:9000{checkpoint}",
+    ]
+    conf = ["spark.sql.shuffle.partitions=4"]
+    if spec.name == "surge":
+        baseline = params.get("baseline_run_id")
+        if not baseline:
+            raise RuntimeError("surge needs baseline_run_id")
+        args.append(f"--baseline-run-id={baseline}")
+        conf.extend(["spark.cores.max=1", "spark.executor.cores=1"])
+    log = _post(
+        runner_url,
+        {
+            "op": "spark_submit",
+            "script": script,
+            "args": args,
+            "conf": conf,
+            "packages": _KAFKA_PACKAGES,
+            "track": track,
+        },
+    )
+    return f"hdfs://namenode:9000{sink}", log
+
+
+def _reset_topic(name: str) -> None:
+    from kafka.admin import KafkaAdminClient, NewTopic
+    from kafka.errors import TopicAlreadyExistsError
+
+    from flowstate.config import get_settings
+    from flowstate.streaming.topics import ipv4_bootstrap
+
+    admin = KafkaAdminClient(
+        bootstrap_servers=ipv4_bootstrap(
+            get_settings().kafka_bootstrap_servers
+        )
+    )
+    try:
+        admin.delete_topics([name])
+    except Exception:
+        pass
+    try:
+        admin.create_topics(
+            [NewTopic(name=name, num_partitions=1, replication_factor=1)]
+        )
+    except TopicAlreadyExistsError:
+        pass
+    finally:
+        admin.close()
 
 
 def _analytics_args(params: dict[str, Any]) -> list[str]:

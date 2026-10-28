@@ -18,9 +18,9 @@ There is no enrichment topic. There is no mixed-mode topic.
 
 | Node                | File                                         | Submit                                    | Reads                                                                                                | Writes                                           |
 | ------------------- | -------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| Active rides / zone | `src/flowstate/streaming/rolling_metrics.py` | `make stream-consume`                     | `flowstate.ridehail.activity.v1`                                                                     | `hdfs://namenode:9000/stream-sink/active_rides/` |
-| Cancel rate         | `src/flowstate/streaming/cancel_rate.py`     | a later Make target, not `stream-consume` | `flowstate.ridehail.activity.v1`                                                                     | `hdfs://namenode:9000/stream-sink/cancel_rate/`  |
-| Surge               | `src/flowstate/streaming/surge.py`           | a later Make target, not `stream-consume` | `flowstate.ridehail.activity.v1`, `flowstate.aviation.arrival.v1`, `flowstate.aviation.departure.v1` | `hdfs://namenode:9000/stream-sink/surge/`        |
+| Active rides / zone | `src/flowstate/streaming/rolling_metrics.py` | `POST /api/runs` job `active_rides` | `flowstate.ridehail.activity.v1` | `hdfs://namenode:9000/stream-sink/active_rides/` |
+| Cancel rate         | `src/flowstate/streaming/cancel_rate.py`     | `POST /api/runs` job `cancel_rate`  | `flowstate.ridehail.activity.v1` | `hdfs://namenode:9000/stream-sink/cancel_rate/`  |
+| Surge               | `src/flowstate/streaming/surge.py`           | `POST /api/runs` job `surge`        | `flowstate.ridehail.activity.v1` | `hdfs://namenode:9000/stream-sink/surge/`        |
 
 Checkpoint for a job is `hdfs://namenode:9000/checkpoints/<job>/`. The `<job>` names are `active_rides`, `cancel_rate`, and `surge`.
 
@@ -34,7 +34,9 @@ Active rides / zone (#22). Count synthetic activity events in the window. Group 
 
 Cancel rate (#29). Cancelled activity divided by total activity, per zone and window, from the same ride-hail topic. Do not fold it into `rolling_metrics.py`. Do not split driver versus rider. Those source fields are zero-filled.
 
-Surge (#30). Its own job. It may use the #18 zone × hour baseline. Group sink rows by `scenario_id` so baseline and intervention stay separable. A flight response is `assumption_driven` unless a held-out test validated that coefficient. Do not claim an airport metro station.
+Surge (#30) is its own job. It uses the #18 ward × hour-of-day × day-type baseline and reads the ride-hail topic only.
+
+Group sink rows by `scenario_id` so baseline and intervention stay separable. A flight response is `assumption_driven` unless a held-out test validated that coefficient. Do not claim an airport metro station.
 
 ## Topics a node does not read
 
@@ -43,8 +45,8 @@ Subscribe only to the topics in the table. That is the filter. Do not read a com
 | Topic                             | v1 node                                                                                  |
 | --------------------------------- | ---------------------------------------------------------------------------------------- |
 | `flowstate.ridehail.activity.v1`  | Active rides, cancel rate, and surge                                                     |
-| `flowstate.aviation.arrival.v1`   | Surge only                                                                               |
-| `flowstate.aviation.departure.v1` | Surge only                                                                               |
+| `flowstate.aviation.arrival.v1`   | None. The ride-hail response is already on the ride-hail topic.                          |
+| `flowstate.aviation.departure.v1` | None. The ride-hail response is already on the ride-hail topic.                          |
 | `flowstate.metro.station_hour.v1` | None                                                                                     |
 | `flowstate.bus.scheduled_stop.v1` | None                                                                                     |
 | `flowstate.scenario.command.v1`   | None. The producer (#39) applies the command and sets `scenario_id` on synthetic output. |
@@ -58,7 +60,7 @@ Aviation events are not ride-hail counts. Surge reads them as the flight context
 ## Rule for a new node
 
 1. Add one file under `src/flowstate/streaming/`.
-2. Give it one Make target. Do not add it to `make stream-consume`.
+2. Start it with `POST /api/runs`. Do not add a Make target.
 3. List its topics in the table above.
 4. Watermark on `event_time`. Use [watermarks.md](watermarks.md).
 5. Write parquet under `hdfs://namenode:9000/stream-sink/<job>/`. Checkpoint under `hdfs://namenode:9000/checkpoints/<job>/`.

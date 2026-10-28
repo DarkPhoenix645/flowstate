@@ -4,6 +4,7 @@ FROM apache/spark:3.5.6
 USER root
 COPY --from=hadoop /opt/hadoop-3.2.1 /opt/hadoop-3.2.1
 COPY server.py /opt/runner/server.py
+RUN pip install --no-cache-dir pydantic eval_type_backport
 
 ENV HADOOP_HOME=/opt/hadoop-3.2.1
 ENV HADOOP_CONF_DIR=/etc/hadoop

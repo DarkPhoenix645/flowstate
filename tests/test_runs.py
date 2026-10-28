@@ -350,4 +350,7 @@ def test_jobs_lists_the_registry_without_a_database():
         "cancellation_analysis",
         "ridership_trends",
         "cross_modal",
+        "active_rides",
+        "cancel_rate",
+        "surge",
     }
