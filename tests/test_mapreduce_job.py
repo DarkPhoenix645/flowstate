@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
+
+import pytest
 
 from flowstate.api.server import dispatch
 from flowstate.config.postgres import ConfigStore
@@ -34,6 +37,10 @@ def test_the_jar_does_not_name_the_compose_cluster():
     assert "resourcemanager" not in text
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="the runner checks Linux container paths",
+)
 def test_yarn_jar_forwards_args_without_a_memory_flag():
     runner = _runner()
     jar = (
