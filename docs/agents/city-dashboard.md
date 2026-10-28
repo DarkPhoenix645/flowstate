@@ -6,7 +6,7 @@ The product is Grafana `grafana/grafana:13.2.0` on host port 3000. Login is `adm
 
 The map is the demo UI (#41-#51). It reads the Kafka envelope. It is not a Grafana panel.
 
-Compose mounts `./dashboards/grafana` at `/var/lib/grafana/dashboards`. Grafana does not load that directory until a provisioning file points at it. #27 adds that file.
+Compose mounts `./dashboards/grafana` at `/var/lib/grafana/dashboards`. `infra/grafana/provisioning` loads that directory. Grafana 13.2 has no Hive plugin. The runner answers an allowlisted table name over HiveServer2 JDBC. A panel names a rollup or a result table. It does not send SQL.
 
 ## Two dashboards
 
@@ -14,8 +14,8 @@ Use two dashboards. Do not mix the sources in one dashboard.
 
 | Dashboard | File | Reads | Does not read | Ticket |
 | --- | --- | --- | --- | --- |
-| Historical | `dashboards/grafana/historical.json` | Hive warehouse | Stream-sink | #27 |
-| Live | `dashboards/grafana/live.json` | `hdfs://namenode:9000/stream-sink/active_rides/` | Hive `rides` | #28 |
+| Historical | `dashboards/grafana/City/historical.json` | Hive warehouse | Stream-sink | #27 |
+| Live | `dashboards/grafana/City/live.json` | `hdfs://namenode:9000/stream-sink/active_rides/` | Hive `rides` | #28 |
 
 ## Historical
 

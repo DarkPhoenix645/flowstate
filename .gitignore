@@ -49,6 +49,7 @@ report/*
 !report/results/
 report/results/*
 !report/results/timings.csv
+!report/results/scale-100m.md
 
 # Spark / Hadoop local scratch
 metastore_db/
