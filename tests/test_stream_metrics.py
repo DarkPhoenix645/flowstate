@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from datetime import date
 
 import pytest
@@ -29,6 +30,8 @@ _SECRET = "runner-secret"
 
 @pytest.fixture(scope="module")
 def spark():
+    if sys.platform == "win32":
+        pytest.skip("local Spark resets its Python worker on Windows")
     try:
         session = (
             SparkSession.builder.master("local[1]")
