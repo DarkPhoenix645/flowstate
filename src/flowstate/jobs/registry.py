@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from flowstate.config.resolve import ConfigValidationError
 from flowstate.ingest.amplify import AmplifyRequest
@@ -23,6 +23,27 @@ class HdfsProbeRequest(BaseModel):
     """No parameters. The probe writes a fixed HDFS path."""
 
     model_config = ConfigDict(extra="forbid")
+
+
+class StreamRequest(BaseModel):
+    """One streaming node. replay finishes. live runs until cancel."""
+
+    model_config = ConfigDict(extra="forbid")
+    trigger: Literal["live", "replay"] = "replay"
+    reset: bool = False
+    max_offsets: int = 20_000
+
+    @model_validator(mode="after")
+    def _offsets(self) -> StreamRequest:
+        if self.max_offsets < 10_000 or self.max_offsets > 30_000:
+            raise ValueError("max_offsets is 10000 to 30000")
+        return self
+
+
+class SurgeRequest(StreamRequest):
+    """Surge needs the #18 baseline run."""
+
+    baseline_run_id: str
 
 
 class JobSpec:
@@ -89,6 +110,27 @@ JOBS: dict[str, JobSpec] = {
         engine="spark",
         entrypoint="flowstate.batch.spark_jobs.hdfs_probe",
         params_model=HdfsProbeRequest,
+    ),
+    "active_rides": JobSpec(
+        name="active_rides",
+        kind="stream",
+        engine="spark",
+        entrypoint="flowstate.streaming.rolling_metrics",
+        params_model=StreamRequest,
+    ),
+    "cancel_rate": JobSpec(
+        name="cancel_rate",
+        kind="stream",
+        engine="spark",
+        entrypoint="flowstate.streaming.cancel_rate",
+        params_model=StreamRequest,
+    ),
+    "surge": JobSpec(
+        name="surge",
+        kind="stream",
+        engine="spark",
+        entrypoint="flowstate.streaming.surge",
+        params_model=SurgeRequest,
     ),
     "replay": JobSpec(
         name="replay",

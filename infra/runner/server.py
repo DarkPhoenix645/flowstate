@@ -24,12 +24,21 @@ SRC = Path("/opt/src/flowstate")
 LAKE = Path("/opt/data/lake")
 DDL = SRC / "warehouse" / "ddl"
 JARS = Path("/opt/src/flowstate/batch/mapreduce/target")
-RM_ALLOWED = {"/lake/rides_amplified"}
+RM_ALLOWED = {
+    "/lake/rides_amplified",
+    "/stream-sink/active_rides",
+    "/stream-sink/cancel_rate",
+    "/stream-sink/surge",
+    "/checkpoints/active_rides",
+    "/checkpoints/cancel_rate",
+    "/checkpoints/surge",
+}
 HIVE_URL = "jdbc:hive2://hiveserver2:10000"
 _APP_ID = re.compile(r"application_\d+_\d+")
 _TRACK = re.compile(r"[A-Za-z0-9_-]{1,80}")
 _LOCK = threading.Lock()
 _YARN: dict[str, dict[str, object]] = {}
+_SPARK: dict[str, dict[str, object]] = {}
 
 
 def main() -> None:
@@ -50,11 +59,18 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("body must be an object")
             op = body.get("op")
             if op == "yarn_jar":
-                code, payload = _yarn_jar(body)
+                code, payload = _follow(body, _YARN)
                 self._send(code, payload)
                 return
             if op == "yarn_kill":
                 self._send(200, _yarn_kill(body))
+                return
+            if op == "spark_submit" and body.get("track"):
+                code, payload = _follow(body, _SPARK)
+                self._send(code, payload)
+                return
+            if op == "spark_kill":
+                self._send(200, _spark_kill(body))
                 return
             argv = _argv(body)
         except (json.JSONDecodeError, ValueError) as exc:
@@ -93,7 +109,9 @@ def _runner_env() -> dict[str, str]:
     return env
 
 
-def _yarn_jar(body: dict[str, object]) -> tuple[int, dict[str, object]]:
+def _follow(
+    body: dict[str, object], table: dict[str, dict[str, object]]
+) -> tuple[int, dict[str, object]]:
     argv = _argv(body)
     track = str(body.get("track") or "")
     if track and _TRACK.fullmatch(track) is None:
@@ -107,7 +125,7 @@ def _yarn_jar(body: dict[str, object]) -> tuple[int, dict[str, object]]:
     )
     if track:
         with _LOCK:
-            _YARN[track] = {"proc": proc, "app_id": None}
+            table[track] = {"proc": proc, "app_id": None}
     app_id = None
     chunks: list[str] = []
     try:
@@ -121,14 +139,14 @@ def _yarn_jar(body: dict[str, object]) -> tuple[int, dict[str, object]]:
             if not track:
                 continue
             with _LOCK:
-                row = _YARN.get(track)
+                row = table.get(track)
                 if row is not None:
                     row["app_id"] = app_id
         code = proc.wait()
     finally:
         if track:
             with _LOCK:
-                _YARN.pop(track, None)
+                table.pop(track, None)
     log = "".join(chunks)[-3800:]
     if app_id:
         log = f"{log}\n{app_id}"
@@ -170,6 +188,23 @@ def _yarn_kill(body: dict[str, object]) -> dict[str, object]:
     return {"ok": True, "log": log, "application_id": application or None}
 
 
+def _spark_kill(body: dict[str, object]) -> dict[str, object]:
+    track = str(body.get("track") or "")
+    if track and _TRACK.fullmatch(track) is None:
+        raise ValueError("track is not a name")
+    proc = None
+    with _LOCK:
+        row = _SPARK.get(track)
+        if row is not None:
+            proc = row.get("proc")
+    if isinstance(proc, subprocess.Popen):
+        proc.terminate()
+        log = "terminated the spark client"
+    else:
+        log = "no spark application for this run"
+    return {"ok": True, "log": log, "application_id": None}
+
+
 def _argv(body: object) -> list[str]:
     if not isinstance(body, dict):
         raise ValueError("body must be an object")
@@ -177,13 +212,15 @@ def _argv(body: object) -> list[str]:
     if op == "spark_submit":
         script = _under(str(body.get("script")), SRC, ".py")
         extra = [_checked_arg(item) for item in body.get("args") or []]
-        return [
-            SPARK_SUBMIT,
-            "--master",
-            "spark://spark:7077",
-            str(script),
-            *extra,
-        ]
+        argv = [SPARK_SUBMIT, "--master", "spark://spark:7077"]
+        for item in body.get("conf") or []:
+            argv.extend(["--conf", _checked_arg(item)])
+        packages = str(body.get("packages") or "")
+        if packages:
+            argv.extend(["--packages", _checked_arg(packages)])
+        argv.append(str(script))
+        argv.extend(extra)
+        return argv
     if op == "hdfs_put":
         src = _under(str(body.get("src")), LAKE, "")
         dest = _hdfs_dest(str(body.get("dest")))
@@ -237,7 +274,7 @@ def _checked_arg(item: object) -> str:
 
 
 _ARG_CHARS = set(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:/-"
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:/=-"
 )
 
 

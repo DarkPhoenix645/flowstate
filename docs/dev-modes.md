@@ -6,7 +6,7 @@ Spark, Hadoop, Hive, Kafka, Grafana, and Postgres run **only** in Docker Compose
 | ---------------------------------- | -------------------------------------- | ----------------------------------------------------------------- |
 | Ingest, amplify, tests, lint       | Host `uv`                              | `make setup`, `make ingest`, `make test`                          |
 | Kafka producer                     | Host `uv`                              | `POST /api/runs` kind `replay`, or `make stream-produce` (one shot) → `127.0.0.1:9094` |
-| Spark batch + Structured Streaming | Compose `spark` + `spark-worker`       | API analytics runs, `make stream-consume`                         |
+| Spark batch + Structured Streaming | Compose `spark` + `spark-worker`       | API analytics runs and `POST /api/runs` stream jobs               |
 | MapReduce compile                  | `maven:3.9-eclipse-temurin-8` one-shot | `make mr-package`                                                 |
 | MapReduce submit                   | `resourcemanager` container            | `make yarn-probe` ([ADR-0015](adr/0015-yarn-mapreduce-submit.md)) |
 | Hive DDL                           | `hiveserver2`                          | `make hive-ddl`                                                   |

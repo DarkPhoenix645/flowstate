@@ -1,7 +1,7 @@
 .PHONY: help setup ingest normalize stage lake amplify evaluate \
 	spark-hdfs up down down-v \
 	ensure-kafka-cluster-id \
-	stream-produce kafka-topics stream-consume \
+	stream-produce kafka-topics \
 	config-seed api hive-ddl \
 	mr-package yarn-probe test lint \
 
@@ -30,7 +30,6 @@ help:
 	@echo "  make config-seed        load the first model-config versions into Postgres"
 	@echo "  make api                demo and run API on 127.0.0.1:8090"
 	@echo "  make stream-produce     Kafka producer (RATE, SEED, PRODUCE_ROWS or REQUEST=file.json)"
-	@echo "  make stream-consume     Structured Streaming (in compose)"
 	@echo "  make hive-ddl           apply warehouse DDL via beeline"
 	@echo "  make mr-package         Maven package MapReduce jar (Docker)"
 	@echo "  make yarn-probe         Hadoop examples pi on YARN (SUCCEEDED)"
@@ -101,9 +100,6 @@ ifdef REQUEST
 else
 	$(PYTHON) -m flowstate.streaming.producer --mode replay $(if $(RATE),--events-per-sec $(RATE)) $(if $(SEED),--seed $(SEED)) $(if $(PRODUCE_ROWS),--rows $(PRODUCE_ROWS))
 endif
-
-stream-consume:
-	$(SPARK_SUBMIT) /opt/src/flowstate/streaming/rolling_metrics.py
 
 hive-ddl:
 	$(COMPOSE) exec -T hiveserver2 beeline \
