@@ -41,6 +41,10 @@ data/*
 # Local exploration
 .scratch/
 
+# Demo UI and the report draft. Stay ignored until feat/034.
+frontend/
+report/
+
 # Spark / Hadoop local scratch
 metastore_db/
 derby.log

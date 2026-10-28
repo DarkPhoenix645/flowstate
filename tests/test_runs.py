@@ -68,6 +68,23 @@ def test_an_unknown_job_is_422_and_does_not_need_the_database():
     assert _SECRET not in json.dumps(body)
 
 
+@pytest.mark.integration
+def test_a_mapreduce_run_records_the_engine(database_url):
+    seed(database_url)
+    status, body = dispatch(
+        ConfigStore(database_url),
+        "POST",
+        "/api/runs",
+        (
+            b'{"kind":"analytics","job":"demand_hotspots",'
+            b'"engine":"mapreduce","params":{}}'
+        ),
+        backends={"compose": FakeBackend()},
+    )
+    assert status == 202
+    assert body["params"]["engine"] == "mapreduce"
+
+
 def test_an_unconfigured_backend_is_422():
     store = ConfigStore(
         f"postgresql://flowstate:{_SECRET}@127.0.0.1:1/flowstate"

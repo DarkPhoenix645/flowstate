@@ -119,7 +119,7 @@ mr-package:
 		-v "$(CURDIR)/src/flowstate/batch/mapreduce:/src" \
 		-w /src \
 		maven:3.9-eclipse-temurin-8 \
-		mvn -q -DskipTests package
+		mvn -q package
 
 # Spike proof for #9. Not DemandCount (#24).
 yarn-probe:

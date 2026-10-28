@@ -20,7 +20,7 @@ Schema contract: [schema.md](schema.md).
 
 Decision: [ADR-0007](../adr/0007-mapreduce-spark-benchmark-pair.md).
 
-Maven module `src/flowstate/batch/mapreduce/` (`pom.xml`, Hadoop 3.2.1 `provided`, matches bde2020 3.2.1). Package: `make mr-package`. `make yarn-probe` is the `pi` probe ([ADR-0015](../adr/0015-yarn-mapreduce-submit.md)). The analytics jobs are #24. They mirror Q1–Q5 in [ADR-0019](../adr/0019-analytics-catalog.md). Q6 is not in that jar.
+Maven module `src/flowstate/batch/mapreduce/` (`pom.xml`, Hadoop 3.2.1 `provided`, matches bde2020 3.2.1). Package: `make mr-package`. `make yarn-probe` is the `pi` probe ([ADR-0015](../adr/0015-yarn-mapreduce-submit.md)). The analytics jobs are #24. They mirror Q1–Q5 in [ADR-0019](../adr/0019-analytics-catalog.md). Q6 is not in that jar. The driver takes input and output URIs and does not set container memory. Compose passes `hdfs://`. #72 passes `gs://` for the 100M bench.
 
 `benchmarks/runner.py` → `benchmarks/results/timings.csv` (committed).
 

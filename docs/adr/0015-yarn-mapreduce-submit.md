@@ -34,7 +34,7 @@ Spark master stays `spark://spark:7077`. Do not set the Spark master to `yarn`.
 
 - Recreate the namenode, the datanode, the ResourceManager, and the NodeManager after a change to `hadoop.env`. `make up` does that. `make down-v` is not required. Volumes stay.
 - A host JDK stays out of scope. `make mr-package` still uses the Maven image.
-- #24 submits the Q1–Q5 MapReduce jobs to this ResourceManager.
+- #24 submits the Q1–Q5 MapReduce jobs to this ResourceManager. The jar takes `--input` and `--output`. It does not set container memory. Compose memory stays in the runner client config. #72 submits this same jar at 100M.
 
 ## Sources
 

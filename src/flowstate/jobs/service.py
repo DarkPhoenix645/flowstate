@@ -13,7 +13,11 @@ from flowstate.config.resolve import (
     ConfigNotActiveError,
     ConfigValidationError,
 )
-from flowstate.jobs.backend import JobBackend, require_backend
+from flowstate.jobs.backend import (
+    JobBackend,
+    require_backend,
+    yarn_application_id,
+)
 from flowstate.jobs.grafana import grafana_link
 from flowstate.jobs.registry import JobSpec, validate_job
 from flowstate.jobs.store import RunStore
@@ -35,9 +39,16 @@ def start_run(
     if not isinstance(kind, str) or not isinstance(job, str):
         raise ConfigValidationError("kind and job are required")
     spec = validate_job(kind, job, params)
+    engine = body.get("engine") or spec.engine
+    if not isinstance(engine, str) or engine not in spec.engines:
+        raise ConfigValidationError(
+            f"engine {engine} is not available for {spec.name}"
+        )
     backend = require_backend(backends, str(backend_name))
     if spec.kind == "analytics":
         params = _corpus_identity(params)
+    params = dict(params)
+    params["engine"] = engine
     active = configs.active()
     resample = active.get("resample_config")
     if resample is None:
@@ -197,9 +208,14 @@ def cancel_run(
         )
     backend = backends.get(str(row["backend"]))
     external_id = row.get("external_id")
+    application_id = None
     if backend is not None and external_id:
-        backend.cancel(str(external_id))
-    runs.finish(run_id, "cancelled")
+        cancelled = backend.cancel(str(external_id))
+        if isinstance(cancelled, dict):
+            application_id = cancelled.get("application_id")
+            if not isinstance(application_id, str):
+                application_id = None
+    runs.finish(run_id, "cancelled", external_id=application_id)
     saved = runs.get(run_id)
     assert saved is not None
     return saved
@@ -234,12 +250,14 @@ def _apply(
 ) -> None:
     state = backend.status(external_id)
     log = backend.log_tail(external_id)
+    application_id = yarn_application_id(log)
     if state is None:
         runs.finish(
             run_id,
             "failed",
             error="backend has no record of this job",
             log=log,
+            external_id=application_id,
         )
         return
     status = str(state["status"])
@@ -247,12 +265,17 @@ def _apply(
         error = None
         if status == "failed":
             error = log or "job failed"
+        if application_id is None:
+            application_id = state.get("application_id")
+            if not isinstance(application_id, str):
+                application_id = None
         runs.finish(
             run_id,
             status,
             error=error,
             result_location=state.get("result_location"),
             log=log,
+            external_id=application_id,
         )
         return
     if log:
