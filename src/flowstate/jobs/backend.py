@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import threading
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -105,6 +106,7 @@ class ComposeBackend:
     def _finish(
         self, external_id: str, spec: JobSpec, params: dict[str, Any]
     ) -> None:
+        started = time.perf_counter()
         try:
             if spec.name == "amplify":
                 location, log = _amplify(self._url, params)
@@ -124,6 +126,14 @@ class ComposeBackend:
                 state = "succeeded"
             else:
                 raise RuntimeError(f"compose has no handler for {spec.name}")
+            if params.get("benchmark") and state == "succeeded":
+                from flowstate.benchmarks.runner import record_timing
+
+                record_timing(
+                    spec.name,
+                    params,
+                    time.perf_counter() - started,
+                )
         except Exception as exc:
             self._store(external_id, "failed", str(exc), None)
             return

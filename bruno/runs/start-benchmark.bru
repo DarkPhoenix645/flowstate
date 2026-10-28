@@ -1,0 +1,38 @@
+meta {
+  name: Start 1M benchmark
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/runs
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "kind": "benchmark",
+    "job": "demand_hotspots",
+    "engine": "spark",
+    "params": {}
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 202 && body.run_id) {
+    bru.setVar("runId", String(body.run_id));
+  }
+}
+
+docs {
+  One Spark or MapReduce timing at the corpus on the lake.
+  job is demand_hotspots, cancellation_analysis, ridership_trends,
+  or cross_modal. engine is spark or mapreduce.
+  The script stores runId for Get run.
+}

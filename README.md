@@ -26,7 +26,7 @@ Every command is a **Make target** — [docs/getting-started.md](docs/getting-st
 |---|---|
 | `src/flowstate/ingest/` | Dataset loaders + amplify |
 | `src/flowstate/batch/mapreduce/` | Hadoop MR baseline + Maven |
-| `src/flowstate/benchmarks/` | Spark vs MR timings CSV |
+| `src/flowstate/benchmarks/` | Spark vs MR timing runner. The CSV is `report/results/timings.csv` |
 | `src/flowstate/batch/spark_jobs/` | Descriptive + diagnostic Spark jobs |
 | `src/flowstate/streaming/` | Kafka producer + rolling metrics |
 | `src/flowstate/warehouse/` | Hive DDL + load |
