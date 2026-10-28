@@ -53,6 +53,17 @@ def main() -> None:
 
 
 class Handler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:
+        try:
+            payload = _table_get(self.path)
+        except ValueError as exc:
+            self._send(422, {"ok": False, "error": str(exc)})
+            return
+        except Exception as exc:
+            self._send(500, {"ok": False, "error": str(exc)})
+            return
+        self._send(200, payload)
+
     def do_POST(self) -> None:
         if self.path.rstrip("/") != "/ops":
             self._send(404, {"ok": False, "log": "not found"})
@@ -210,6 +221,94 @@ def _spark_kill(body: dict[str, object]) -> dict[str, object]:
     else:
         log = "no spark application for this run"
     return {"ok": True, "log": log, "application_id": None}
+
+
+def _table_get(path: str) -> list[dict[str, object]]:
+    """Allowlisted Hive read. Grafana cannot send SQL."""
+    import csv
+    from urllib.parse import parse_qs, urlparse
+
+    from flowstate.warehouse.grafana_tables import (
+        chart_rows,
+        stream_sql,
+        warehouse_sql,
+    )
+
+    parsed = urlparse(path)
+    parts = [item for item in parsed.path.split("/") if item]
+    query = parse_qs(parsed.query)
+    if len(parts) == 3 and parts[0] == "warehouse" and parts[2] == "runs":
+        return _run_ids(parts[1])
+    if len(parts) != 2 or parts[0] not in ("warehouse", "stream"):
+        raise ValueError("path is not a table")
+    kind, table = parts
+    if kind == "warehouse":
+        run_id = (query.get("run_id") or [None])[0]
+        sql = warehouse_sql(table, run_id)
+    else:
+        ward = (query.get("ward") or ["kia"])[0]
+        sql = stream_sql(table, ward)
+    completed = subprocess.run(
+        [
+            BEELINE,
+            "-u",
+            HIVE_URL,
+            "--silent=true",
+            "--outputformat=csv2",
+            "--showHeader=true",
+            "-e",
+            sql,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout)[-500:]
+        raise RuntimeError(detail)
+    prompt = re.compile(r"^\d+: jdbc:hive2://[^>]+> ")
+    lines = []
+    for line in completed.stdout.splitlines():
+        line = prompt.sub("", line).replace("\x00", "").strip()
+        if not line or line.startswith(("SLF4J", "INFO", "WARNING")):
+            continue
+        lines.append(line)
+    rows = []
+    for row in csv.DictReader(lines):
+        item = {}
+        for key, value in row.items():
+            if not key:
+                continue
+            item[key.split(".")[-1]] = value
+        rows.append(item)
+    view = (query.get("view") or [None])[0]
+    if view:
+        return chart_rows(table, view, rows)
+    return rows
+
+
+def _run_ids(table: str) -> list[dict[str, object]]:
+    from flowstate.warehouse.grafana_tables import WAREHOUSE
+
+    if table not in WAREHOUSE or not table.startswith("analytics_"):
+        raise ValueError("table has no run_id")
+    location = f"/user/hive/warehouse/{table}"
+    completed = subprocess.run(
+        [HDFS, "dfs", "-ls", location],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    found: list[tuple[str, str]] = []
+    for line in completed.stdout.splitlines():
+        bits = line.split()
+        if len(bits) < 8 or "run_id=" not in bits[-1]:
+            continue
+        stamp = f"{bits[-3]} {bits[-2]}"
+        run_id = bits[-1].rstrip("/").rsplit("run_id=", 1)[-1]
+        found.append((stamp, run_id))
+    found.sort(reverse=True)
+    return [{"run_id": run_id} for _, run_id in found]
 
 
 def _argv(body: object) -> list[str]:

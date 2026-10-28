@@ -1,0 +1,287 @@
+{
+  "uid": "live",
+  "title": "Live",
+  "tags": [
+    "flowstate"
+  ],
+  "timezone": "Asia/Kolkata",
+  "schemaVersion": 39,
+  "version": 2,
+  "refresh": "",
+  "time": {
+    "from": "2024-10-01T00:00:00+05:30",
+    "to": "2024-11-01T00:00:00+05:30"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Live",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "City total plus one ward series. One bar per hour in the sink. Pick `kia` or one catchment ward in the Ward menu. Time is event time in Asia/Kolkata."
+      }
+    },
+    {
+      "id": 2,
+      "type": "barchart",
+      "title": "Active rides",
+      "description": "stream-sink/active_rides",
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "flowstate-stream"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        },
+        "xField": "hour",
+        "orientation": "horizontal"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "parser": "backend",
+          "root_selector": "",
+          "url": "http://runner:8091/stream/sink_active_rides?ward=${ward}",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "columns": [
+            {
+              "selector": "hour_start",
+              "text": "hour",
+              "type": "string"
+            },
+            {
+              "selector": "city",
+              "text": "city",
+              "type": "number"
+            },
+            {
+              "selector": "ward",
+              "text": "ward",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "barchart",
+      "title": "Cancel events",
+      "description": "Events in the hour. The rate stays blank when the hour has fewer than 5 events.",
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "flowstate-stream"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        },
+        "xField": "hour",
+        "orientation": "horizontal"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "parser": "backend",
+          "root_selector": "",
+          "url": "http://runner:8091/stream/sink_cancel_rate?ward=${ward}",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "columns": [
+            {
+              "selector": "hour_start",
+              "text": "hour",
+              "type": "string"
+            },
+            {
+              "selector": "city_events",
+              "text": "city events",
+              "type": "number"
+            },
+            {
+              "selector": "ward_events",
+              "text": "ward events",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "barchart",
+      "title": "Surge",
+      "description": "stream-sink/surge. Hour z.",
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "flowstate-stream"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        },
+        "xField": "hour",
+        "orientation": "horizontal"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "parser": "backend",
+          "root_selector": "",
+          "url": "http://runner:8091/stream/sink_surge?ward=${ward}",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "columns": [
+            {
+              "selector": "hour_start",
+              "text": "hour",
+              "type": "string"
+            },
+            {
+              "selector": "city",
+              "text": "city",
+              "type": "number"
+            },
+            {
+              "selector": "ward",
+              "text": "ward",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "ward",
+        "label": "Ward",
+        "type": "custom",
+        "query": "kia,b_6,b_1,b_2,b_7,b_8,b_5,b_3",
+        "current": {
+          "text": "kia",
+          "value": "kia",
+          "selected": true
+        },
+        "options": [
+          {
+            "text": "kia",
+            "value": "kia",
+            "selected": true
+          },
+          {
+            "text": "b_6",
+            "value": "b_6",
+            "selected": false
+          },
+          {
+            "text": "b_1",
+            "value": "b_1",
+            "selected": false
+          },
+          {
+            "text": "b_2",
+            "value": "b_2",
+            "selected": false
+          },
+          {
+            "text": "b_7",
+            "value": "b_7",
+            "selected": false
+          },
+          {
+            "text": "b_8",
+            "value": "b_8",
+            "selected": false
+          },
+          {
+            "text": "b_5",
+            "value": "b_5",
+            "selected": false
+          },
+          {
+            "text": "b_3",
+            "value": "b_3",
+            "selected": false
+          }
+        ]
+      }
+    ]
+  }
+}

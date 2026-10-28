@@ -1,0 +1,22 @@
+apiVersion: 1
+
+datasources:
+  - name: Hive warehouse
+    uid: flowstate-warehouse
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    isDefault: true
+    editable: false
+    jsonData:
+      tlsSkipVerify: true
+      allowedHosts:
+        - http://runner:8091
+  - name: Stream sink
+    uid: flowstate-stream
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    editable: false
+    jsonData:
+      tlsSkipVerify: true
+      allowedHosts:
+        - http://runner:8091

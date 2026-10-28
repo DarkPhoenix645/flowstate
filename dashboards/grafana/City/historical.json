@@ -1,0 +1,584 @@
+{
+  "uid": "historical",
+  "title": "Historical",
+  "tags": [
+    "flowstate"
+  ],
+  "timezone": "Asia/Kolkata",
+  "schemaVersion": 39,
+  "version": 2,
+  "refresh": "",
+  "time": {
+    "from": "now-5y",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "How to read this",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "These rows are the twin. A conditioned date matches the observed total by construction. Each chart is one axis. Tracker and RTI stay separate series."
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Ride-hail lifecycle by day",
+      "description": "rollup_ridehail_day",
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 12,
+        "h": 9
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "flowstate-warehouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "parser": "backend",
+          "root_selector": "",
+          "url": "http://runner:8091/warehouse/rollup_ridehail_day",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "columns": [
+            {
+              "selector": "service_date",
+              "text": "time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "bookings",
+              "text": "bookings",
+              "type": "number"
+            },
+            {
+              "selector": "completions",
+              "text": "completions",
+              "type": "number"
+            },
+            {
+              "selector": "cancels",
+              "text": "cancels",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "barchart",
+      "title": "Ride-hail hour shape",
+      "description": "rollup_ridehail_hour. Shape only.",
+      "gridPos": {
+        "x": 12,
+        "y": 3,
+        "w": 12,
+        "h": 9
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "flowstate-warehouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        },
+        "orientation": "auto",
+        "xTickLabelRotation": 0,
+        "barWidth": 0.8,
+        "groupWidth": 0.7,
+        "stacking": "none",
+        "showValue": "never",
+        "xField": "hour"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "parser": "backend",
+          "root_selector": "",
+          "url": "http://runner:8091/warehouse/rollup_ridehail_hour?view=hour",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "columns": [
+            {
+              "selector": "hour",
+              "text": "hour",
+              "type": "string"
+            },
+            {
+              "selector": "bookings",
+              "text": "bookings",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Metro daily total",
+      "description": "rollup_metro_day. One series per provenance. They are not summed.",
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 9
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "flowstate-warehouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "parser": "backend",
+          "root_selector": "",
+          "url": "http://runner:8091/warehouse/rollup_metro_day?view=series",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "columns": [
+            {
+              "selector": "time",
+              "text": "time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "synthetic",
+              "text": "synthetic",
+              "type": "number"
+            },
+            {
+              "selector": "observed_proxy",
+              "text": "observed_proxy",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "barchart",
+      "title": "Metro stations",
+      "description": "Top stations from rollup_metro_station_hour. Provenance stays in the label when it differs.",
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 9
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "flowstate-warehouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        },
+        "orientation": "auto",
+        "xTickLabelRotation": 0,
+        "barWidth": 0.8,
+        "groupWidth": 0.7,
+        "stacking": "none",
+        "showValue": "never",
+        "xField": "station"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "parser": "backend",
+          "root_selector": "",
+          "url": "http://runner:8091/warehouse/rollup_metro_station_hour?view=station",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "columns": [
+            {
+              "selector": "station",
+              "text": "station",
+              "type": "string"
+            },
+            {
+              "selector": "entries_count",
+              "text": "entries",
+              "type": "number"
+            },
+            {
+              "selector": "exits_count",
+              "text": "exits",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "barchart",
+      "title": "Bus boardings and alightings",
+      "description": "rollup_bus_hour has no rows. This corpus has no bus. Boardings were not invented.",
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "flowstate-warehouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        },
+        "orientation": "auto",
+        "xTickLabelRotation": 0,
+        "barWidth": 0.8,
+        "groupWidth": 0.7,
+        "stacking": "none",
+        "showValue": "never",
+        "xField": "hour"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "parser": "backend",
+          "root_selector": "",
+          "url": "http://runner:8091/warehouse/rollup_bus_hour?view=hour",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "columns": [
+            {
+              "selector": "hour",
+              "text": "hour",
+              "type": "string"
+            },
+            {
+              "selector": "boardings",
+              "text": "boardings",
+              "type": "number"
+            },
+            {
+              "selector": "alightings",
+              "text": "alightings",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "Bus mean onboard",
+      "description": "rollup_bus_hour has no rows. This corpus has no bus.",
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "flowstate-warehouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        },
+        "orientation": "auto",
+        "xTickLabelRotation": 0,
+        "barWidth": 0.8,
+        "groupWidth": 0.7,
+        "stacking": "none",
+        "showValue": "never",
+        "xField": "hour"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "parser": "backend",
+          "root_selector": "",
+          "url": "http://runner:8091/warehouse/rollup_bus_hour?view=onboard",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "columns": [
+            {
+              "selector": "hour",
+              "text": "hour",
+              "type": "string"
+            },
+            {
+              "selector": "mean_onboard_leaving",
+              "text": "mean onboard",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Aviation by day",
+      "description": "rollup_aviation_day. Direction and provenance stay separate series.",
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 16,
+        "h": 8
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "flowstate-warehouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "parser": "backend",
+          "root_selector": "",
+          "url": "http://runner:8091/warehouse/rollup_aviation_day?view=series",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "columns": [
+            {
+              "selector": "time",
+              "text": "time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "arrival synthetic",
+              "text": "arrival synthetic",
+              "type": "number"
+            },
+            {
+              "selector": "arrival observed_proxy",
+              "text": "arrival observed_proxy",
+              "type": "number"
+            },
+            {
+              "selector": "departure synthetic",
+              "text": "departure synthetic",
+              "type": "number"
+            },
+            {
+              "selector": "departure observed_proxy",
+              "text": "departure observed_proxy",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Conservation",
+      "description": "rollup_conservation. Children match parents.",
+      "gridPos": {
+        "x": 16,
+        "y": 29,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "flowstate-warehouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "parser": "backend",
+          "root_selector": "",
+          "url": "http://runner:8091/warehouse/rollup_conservation",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "columns": [
+            {
+              "selector": "rows",
+              "text": "rows",
+              "type": "number"
+            },
+            {
+              "selector": "seed",
+              "text": "seed",
+              "type": "number"
+            },
+            {
+              "selector": "failures",
+              "text": "failures",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": []
+  }
+}

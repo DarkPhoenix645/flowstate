@@ -4,8 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
-# #91 fills this. The uid contract is ADR-0019: analytics-<question>.
-DASHBOARD_UID: dict[str, str] = {}
+# ADR-0019 uid is analytics-<question>. cross_modal opens the first
+# of its two questions. flights_ridehail is the other dashboard.
+DASHBOARD_UID: dict[str, str] = {
+    "demand_hotspots": "analytics-demand_hotspots",
+    "cancellation_analysis": "analytics-cancellation_analysis",
+    "ridership_trends": "analytics-ridership_trends",
+    "cross_modal": "analytics-ridehail_metro",
+    "scenario_effect": "analytics-scenario_effect",
+}
 
 
 def grafana_link(settings: Any, job: str, run_id: str) -> str | None:
