@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
 import urllib.error
 import urllib.request
@@ -108,6 +109,11 @@ class ComposeBackend:
             if spec.name == "amplify":
                 location, log = _amplify(self._url, params)
                 state = "succeeded"
+            elif str(params.get("engine") or spec.engine) == "mapreduce":
+                location, log = _mr_job(
+                    self._url, spec, params, external_id
+                )
+                state = "succeeded"
             elif spec.engine == "spark":
                 location, log = _spark_job(self._url, spec, params)
                 state = "succeeded"
@@ -141,6 +147,16 @@ class ComposeBackend:
         job = self._jobs.get(external_id)
         if job is None or job["status"] != "running":
             return job
+        try:
+            payload = _post_payload(
+                self._url, {"op": "yarn_kill", "track": external_id}
+            )
+            job["log"] = str(payload.get("log") or job.get("log") or "")
+            app = payload.get("application_id")
+            if isinstance(app, str):
+                job["application_id"] = app
+        except Exception as exc:
+            job["log"] = str(exc)
         job["status"] = "cancelled"
         return job
 
@@ -218,6 +234,77 @@ def _spark_job(
     return location, "\n".join(logs)
 
 
+# Compose URIs. The jar does not contain them. #72 passes gs:// at 100M.
+_MR_INPUT = "hdfs://namenode:9000/lake/rides_amplified"
+_MR_WAREHOUSE = "hdfs://namenode:9000/user/hive/warehouse"
+_MR_JAR = (
+    "/opt/src/flowstate/batch/mapreduce/target/"
+    "flowstate-mapreduce-0.1.0.jar"
+)
+_MR_MAIN = "com.flowstate.mapreduce.AnalyticsDriver"
+
+
+_YARN_APP = re.compile(r"application_\d+_\d+")
+
+
+def yarn_application_id(log: str) -> str | None:
+    found = _YARN_APP.findall(log)
+    return found[-1] if found else None
+
+
+def mr_submit(
+    spec: JobSpec, params: dict[str, Any], track: str = ""
+) -> dict[str, Any]:
+    """Runner body for one MapReduce analytics job."""
+    if spec.name == "cross_modal":
+        output = _MR_WAREHOUSE
+    else:
+        table = _ANALYTICS_DDL[spec.name][0].removesuffix(".sql")
+        output = f"{_MR_WAREHOUSE}/{table}"
+    args = [
+        f"--job={spec.name}",
+        f"--input={_MR_INPUT}",
+        f"--output={output}",
+        *_analytics_args(params),
+    ]
+    if spec.name == "ridership_trends":
+        args.append(f"--metro-daily={_MR_WAREHOUSE}/metro_daily")
+    body = {
+        "op": "yarn_jar",
+        "jar": _MR_JAR,
+        "main": _MR_MAIN,
+        "args": args,
+    }
+    if track:
+        body["track"] = track
+    return body
+
+
+def _mr_job(
+    runner_url: str,
+    spec: JobSpec,
+    params: dict[str, Any],
+    track: str,
+) -> tuple[str, str]:
+    body = mr_submit(spec, params, track)
+    logs = [_post(runner_url, body)]
+    for name in _ANALYTICS_DDL.get(spec.name, ()):
+        logs.append(
+            _post(
+                runner_url,
+                {
+                    "op": "beeline",
+                    "file": f"/opt/src/flowstate/warehouse/ddl/{name}",
+                },
+            )
+        )
+    if spec.name == "cross_modal":
+        location = f"{_MR_WAREHOUSE}/analytics_ridehail_metro"
+    else:
+        location = str(body["args"][2]).removeprefix("--output=")
+    return location, "\n".join(logs)
+
+
 def _analytics_args(params: dict[str, Any]) -> list[str]:
     run_id = str(params.get("run_id") or "")
     if not run_id:
@@ -239,7 +326,11 @@ def _amplify(runner_url: str, params: dict[str, Any]) -> tuple[str, str]:
     from flowstate.resample import run_amplify
 
     request = AmplifyRequest.model_validate(
-        {key: value for key, value in params.items() if key != "run_id"}
+        {
+            key: value
+            for key, value in params.items()
+            if key not in ("run_id", "engine")
+        }
     )
     settings = get_settings()
     require_station_reviews(settings.data_dir, DEFAULT_CITY_ID)
@@ -321,6 +412,12 @@ def _amplify(runner_url: str, params: dict[str, Any]) -> tuple[str, str]:
 
 
 def _post(runner_url: str, body: dict[str, Any]) -> str:
+    return str(_post_payload(runner_url, body).get("log") or "")
+
+
+def _post_payload(
+    runner_url: str, body: dict[str, Any]
+) -> dict[str, Any]:
     raw = json.dumps(body).encode()
     request = urllib.request.Request(
         runner_url + "/ops",
@@ -338,4 +435,4 @@ def _post(runner_url: str, body: dict[str, Any]) -> str:
         raise RuntimeError(f"runner is unreachable: {exc.reason}") from None
     if not payload.get("ok"):
         raise RuntimeError(str(payload.get("log") or "runner failed"))
-    return str(payload.get("log") or "")
+    return payload

@@ -150,6 +150,7 @@ class RunStore:
         error: str | None = None,
         result_location: str | None = None,
         log: str | None = None,
+        external_id: str | None = None,
     ) -> None:
         with _connect(self._url) as conn:
             with conn.transaction():
@@ -160,11 +161,19 @@ class RunStore:
                         error = %s,
                         log = COALESCE(%s, log),
                         result_location = COALESCE(%s, result_location),
+                        external_id = COALESCE(%s, external_id),
                         finished_at = now()
                     WHERE run_id = %s
                       AND status IN ('queued', 'running')
                     """,
-                    (status, error, log, result_location, run_id),
+                    (
+                        status,
+                        error,
+                        log,
+                        result_location,
+                        external_id,
+                        run_id,
+                    ),
                 )
 
     def set_log(self, run_id: str, log: str) -> None:

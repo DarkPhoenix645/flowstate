@@ -33,12 +33,14 @@ class JobSpec:
         engine: str,
         entrypoint: str,
         params_model: type[BaseModel],
+        engines: tuple[str, ...] | None = None,
     ) -> None:
         self.name = name
         self.kind = kind
         self.engine = engine
         self.entrypoint = entrypoint
         self.params_model = params_model
+        self.engines = engines or (engine,)
 
 
 JOBS: dict[str, JobSpec] = {
@@ -55,6 +57,7 @@ JOBS: dict[str, JobSpec] = {
         engine="spark",
         entrypoint="flowstate.batch.spark_jobs.demand_hotspots",
         params_model=AnalyticsRequest,
+        engines=("spark", "mapreduce"),
     ),
     "cancellation_analysis": JobSpec(
         name="cancellation_analysis",
@@ -62,6 +65,7 @@ JOBS: dict[str, JobSpec] = {
         engine="spark",
         entrypoint="flowstate.batch.spark_jobs.cancellation_analysis",
         params_model=AnalyticsRequest,
+        engines=("spark", "mapreduce"),
     ),
     "ridership_trends": JobSpec(
         name="ridership_trends",
@@ -69,6 +73,7 @@ JOBS: dict[str, JobSpec] = {
         engine="spark",
         entrypoint="flowstate.batch.spark_jobs.ridership_trends",
         params_model=AnalyticsRequest,
+        engines=("spark", "mapreduce"),
     ),
     "cross_modal": JobSpec(
         name="cross_modal",
@@ -76,6 +81,7 @@ JOBS: dict[str, JobSpec] = {
         engine="spark",
         entrypoint="flowstate.batch.spark_jobs.cross_modal",
         params_model=AnalyticsRequest,
+        engines=("spark", "mapreduce"),
     ),
     "hdfs_probe": JobSpec(
         name="hdfs_probe",
@@ -128,6 +134,7 @@ def job_catalog() -> list[dict[str, Any]]:
                 "name": spec.name,
                 "kind": spec.kind,
                 "engine": spec.engine,
+                "engines": list(spec.engines),
                 "entrypoint": spec.entrypoint,
                 "parameters": spec.params_model.model_json_schema(),
             }

@@ -188,6 +188,8 @@ services:
       - ./infra/runner/server.py:/opt/runner/server.py:ro
       - ./infra/hive/core-site.xml:/etc/hadoop/core-site.xml:ro
       - ./infra/hive/hdfs-site.xml:/etc/hadoop/hdfs-site.xml:ro
+      - ./infra/runner/yarn-site.xml:/etc/hadoop/yarn-site.xml:ro
+      - ./infra/runner/mapred-site.xml:/etc/hadoop/mapred-site.xml:ro
     depends_on:
       - spark
       - namenode
