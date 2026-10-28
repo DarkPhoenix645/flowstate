@@ -21,8 +21,11 @@ There is no enrichment topic. There is no mixed-mode topic.
 | Active rides / zone | `src/flowstate/streaming/rolling_metrics.py` | `POST /api/runs` job `active_rides` | `flowstate.ridehail.activity.v1` | `hdfs://namenode:9000/stream-sink/active_rides/` |
 | Cancel rate         | `src/flowstate/streaming/cancel_rate.py`     | `POST /api/runs` job `cancel_rate`  | `flowstate.ridehail.activity.v1` | `hdfs://namenode:9000/stream-sink/cancel_rate/`  |
 | Surge               | `src/flowstate/streaming/surge.py`           | `POST /api/runs` job `surge`        | `flowstate.ridehail.activity.v1` | `hdfs://namenode:9000/stream-sink/surge/`        |
+| Metro activity      | `src/flowstate/streaming/metro_activity.py`  | `POST /api/runs` job `metro_activity` | `flowstate.metro.station_hour.v1` | `hdfs://namenode:9000/stream-sink/metro_activity/` |
+| Bus activity        | `src/flowstate/streaming/bus_activity.py`    | `POST /api/runs` job `bus_activity` | `flowstate.bus.scheduled_stop.v1` | `hdfs://namenode:9000/stream-sink/bus_activity/` |
+| Aviation activity   | `src/flowstate/streaming/aviation_activity.py` | `POST /api/runs` job `aviation_activity` | `flowstate.aviation.arrival.v1`, `flowstate.aviation.departure.v1` | `hdfs://namenode:9000/stream-sink/aviation_activity/` |
 
-Checkpoint for a job is `hdfs://namenode:9000/checkpoints/<job>/`. The `<job>` names are `active_rides`, `cancel_rate`, and `surge`.
+Checkpoint for a job is `hdfs://namenode:9000/checkpoints/<job>/`. The `<job>` names are `active_rides`, `cancel_rate`, `surge`, `metro_activity`, `bus_activity`, and `aviation_activity`.
 
 `/opt/data` is not the live sink. `Settings.stream_sink_dir` (`data/stream-sink` on the host) is not the live sink. #22 writes the HDFS paths above.
 
@@ -45,17 +48,17 @@ Subscribe only to the topics in the table. That is the filter. Do not read a com
 | Topic                             | v1 node                                                                                  |
 | --------------------------------- | ---------------------------------------------------------------------------------------- |
 | `flowstate.ridehail.activity.v1`  | Active rides, cancel rate, and surge                                                     |
-| `flowstate.aviation.arrival.v1`   | None. The ride-hail response is already on the ride-hail topic.                          |
-| `flowstate.aviation.departure.v1` | None. The ride-hail response is already on the ride-hail topic.                          |
-| `flowstate.metro.station_hour.v1` | None                                                                                     |
-| `flowstate.bus.scheduled_stop.v1` | None                                                                                     |
+| `flowstate.aviation.arrival.v1`   | Aviation activity. Surge does not read this topic.                                       |
+| `flowstate.aviation.departure.v1` | Aviation activity. Surge does not read this topic.                                       |
+| `flowstate.metro.station_hour.v1` | Metro activity                                                                           |
+| `flowstate.bus.scheduled_stop.v1` | Bus activity                                                                             |
 | `flowstate.scenario.command.v1`   | None. The producer (#39) applies the command and sets `scenario_id` on synthetic output. |
 | `flowstate.simulation.audit.v1`   | None. Audit only.                                                                        |
 | `flowstate.simulation.control.v1` | None. The producer reads it.                                                             |
 
 Every event carries `run_id`. A backwards seek in the producer starts a new one, and the topics then hold earlier `event_time` values after later ones. A job reads the newest `run_id` and resets its checkpoint when the `run_id` changes. ([ADR-0017](../adr/0017-producer-as-a-realtime-twin-source.md))
 
-Aviation events are not ride-hail counts. Surge reads them as the flight context. The ride-hail response stays on the ride-hail topic.
+Aviation events are not ride-hail counts. Aviation activity reads them. Surge does not. The ride-hail response stays on the ride-hail topic.
 
 ## Rule for a new node
 

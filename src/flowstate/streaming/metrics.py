@@ -20,6 +20,12 @@ def _prepared(frame: DataFrame) -> DataFrame:
     return frame
 
 
+def _replay_key(frame: DataFrame) -> list[str]:
+    if "source_run_id" in frame.columns:
+        return ["source_run_id"]
+    return []
+
+
 def active_counts(frame: DataFrame) -> DataFrame:
     """Count events. event_type stays a dimension. Not a rate."""
     grouped = _prepared(frame).groupBy(
@@ -28,6 +34,7 @@ def active_counts(frame: DataFrame) -> DataFrame:
         "provenance_status",
         "scenario_id",
         "event_type",
+        *_replay_key(frame),
     ).agg(F.count("*").alias("activity_count"))
     return grouped.select(
         F.col("window.start").alias("window_start"),
@@ -36,6 +43,7 @@ def active_counts(frame: DataFrame) -> DataFrame:
         "provenance_status",
         "scenario_id",
         "event_type",
+        *_replay_key(frame),
         "activity_count",
     )
 
@@ -47,6 +55,7 @@ def cancel_rates(frame: DataFrame) -> DataFrame:
         "ward_id",
         "provenance_status",
         "scenario_id",
+        *_replay_key(frame),
     ).agg(
         F.count("*").alias("activity_count"),
         F.sum(
@@ -65,6 +74,7 @@ def cancel_rates(frame: DataFrame) -> DataFrame:
         "ward_id",
         "provenance_status",
         "scenario_id",
+        *_replay_key(frame),
         "activity_count",
         "cancels",
         "cancel_rate",
@@ -101,3 +111,87 @@ def hour_demand(minute_rows: DataFrame) -> DataFrame:
     return stamped.groupBy(
         "hour_start", "ward_id", "scenario_id", "evidence_grade"
     ).agg(F.sum("n").alias("demand"))
+
+
+def _window_cols():
+    return (
+        F.col("window.start").alias("window_start"),
+        F.col("window.end").alias("window_end"),
+    )
+
+
+def metro_counts(frame: DataFrame) -> DataFrame:
+    """Entries and exits per station-minute. Not ride-hail."""
+    grouped = _prepared(frame).groupBy(
+        F.window("event_time", WIDTH),
+        "station_id",
+        "provenance_status",
+        "scenario_id",
+        "evidence_grade",
+        "source_run_id",
+    ).agg(
+        F.sum(F.coalesce(F.col("entries_count"), F.lit(0))).alias(
+            "entries_count"
+        ),
+        F.sum(F.coalesce(F.col("exits_count"), F.lit(0))).alias(
+            "exits_count"
+        ),
+    )
+    return grouped.select(
+        *_window_cols(),
+        "station_id",
+        "provenance_status",
+        "scenario_id",
+        "evidence_grade",
+        "source_run_id",
+        "entries_count",
+        "exits_count",
+    )
+
+
+def bus_counts(frame: DataFrame) -> DataFrame:
+    """Boardings and alightings per stop-minute."""
+    grouped = _prepared(frame).groupBy(
+        F.window("event_time", WIDTH),
+        "stop_id",
+        "provenance_status",
+        "scenario_id",
+        "evidence_grade",
+        "source_run_id",
+    ).agg(
+        F.sum(F.coalesce(F.col("boardings"), F.lit(0))).alias("boardings"),
+        F.sum(F.coalesce(F.col("alightings"), F.lit(0))).alias("alightings"),
+    )
+    return grouped.select(
+        *_window_cols(),
+        "stop_id",
+        "provenance_status",
+        "scenario_id",
+        "evidence_grade",
+        "source_run_id",
+        "boardings",
+        "alightings",
+    )
+
+
+def aviation_counts(frame: DataFrame) -> DataFrame:
+    """Event count per airport, direction, and minute."""
+    grouped = _prepared(frame).groupBy(
+        F.window("event_time", WIDTH),
+        "airport",
+        "direction",
+        "provenance_status",
+        "scenario_id",
+        "evidence_grade",
+        "source_run_id",
+    ).agg(F.count("*").alias("event_count"))
+    return grouped.select(
+        *_window_cols(),
+        "airport",
+        "direction",
+        "provenance_status",
+        "scenario_id",
+        "evidence_grade",
+        "source_run_id",
+        "event_count",
+    )

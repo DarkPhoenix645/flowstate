@@ -46,6 +46,13 @@ class SurgeRequest(StreamRequest):
     baseline_run_id: str
 
 
+class ScenarioEffectRequest(BaseModel):
+    """Q6 reads one replay that already has a fork."""
+
+    model_config = ConfigDict(extra="forbid")
+    replay_run_id: str
+
+
 class JobSpec:
     def __init__(
         self,
@@ -131,6 +138,34 @@ JOBS: dict[str, JobSpec] = {
         engine="spark",
         entrypoint="flowstate.streaming.surge",
         params_model=SurgeRequest,
+    ),
+    "metro_activity": JobSpec(
+        name="metro_activity",
+        kind="stream",
+        engine="spark",
+        entrypoint="flowstate.streaming.metro_activity",
+        params_model=StreamRequest,
+    ),
+    "bus_activity": JobSpec(
+        name="bus_activity",
+        kind="stream",
+        engine="spark",
+        entrypoint="flowstate.streaming.bus_activity",
+        params_model=StreamRequest,
+    ),
+    "aviation_activity": JobSpec(
+        name="aviation_activity",
+        kind="stream",
+        engine="spark",
+        entrypoint="flowstate.streaming.aviation_activity",
+        params_model=StreamRequest,
+    ),
+    "scenario_effect": JobSpec(
+        name="scenario_effect",
+        kind="analytics",
+        engine="spark",
+        entrypoint="flowstate.batch.spark_jobs.scenario_effect",
+        params_model=ScenarioEffectRequest,
     ),
     "replay": JobSpec(
         name="replay",

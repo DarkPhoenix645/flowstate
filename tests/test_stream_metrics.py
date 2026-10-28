@@ -47,6 +47,18 @@ def spark():
     session.stop()
 
 
+def test_newest_replay_id_keeps_the_latest_epoch():
+    from flowstate.batch.effect import newest_replay_id
+
+    replay = "sess"
+    assert newest_replay_id(["other.3", "sess.0", "sess.2"], replay) == (
+        "sess.2"
+    )
+    assert newest_replay_id(["sess", "sess.0"], replay) == "sess.0"
+    assert newest_replay_id(["replay-live"], "replay-live") == "replay-live"
+    assert newest_replay_id(["other.1"], replay) is None
+
+
 def test_a_weekday_span_counts_only_weekdays():
     days = day_type_days(date(2024, 10, 28), date(2024, 11, 3), "weekday")
     assert days == 5
@@ -130,6 +142,70 @@ def test_hour_demand_sums_the_minute_counts(spark):
     row = hour_demand(minute).collect()[0]
     assert row.demand == 5
     assert row.hour_start.hour == 10
+
+
+def test_scenario_effect_needs_a_replay_run():
+    store = ConfigStore(
+        f"postgresql://flowstate:{_SECRET}@127.0.0.1:1/flowstate"
+    )
+    status, body = dispatch(
+        store,
+        "POST",
+        "/api/runs",
+        b'{"kind":"analytics","job":"scenario_effect","params":{}}',
+        backends={"compose": FakeBackend()},
+    )
+    assert status == 422
+    assert _SECRET not in str(body)
+
+
+def test_metro_counts_sum_entries_and_keep_scenario(spark):
+    frame = spark.createDataFrame(
+        [
+            (
+                "2024-10-28T10:00:10Z",
+                "s1",
+                "synthetic",
+                None,
+                "aggregate_calibrated",
+                "replay-1",
+                3,
+                1,
+            ),
+            (
+                "2024-10-28T10:00:40Z",
+                "s1",
+                "synthetic",
+                "fork-1",
+                "assumption_driven",
+                "replay-1",
+                2,
+                0,
+            ),
+        ],
+        StructType(
+            [
+                StructField("event_time", StringType(), False),
+                StructField("station_id", StringType(), True),
+                StructField("provenance_status", StringType(), True),
+                StructField("scenario_id", StringType(), True),
+                StructField("evidence_grade", StringType(), True),
+                StructField("source_run_id", StringType(), True),
+                StructField("entries_count", IntegerType(), True),
+                StructField("exits_count", IntegerType(), True),
+            ]
+        ),
+    ).withColumn(
+        "event_time",
+        F.to_timestamp("event_time", "yyyy-MM-dd'T'HH:mm:ssX"),
+    )
+    from flowstate.streaming.metrics import metro_counts
+
+    rows = metro_counts(frame).collect()
+    assert {row.scenario_id for row in rows} == {None, "fork-1"}
+    baseline = [row for row in rows if row.scenario_id is None][0]
+    assert baseline.entries_count == 3
+    assert baseline.exits_count == 1
 
 
 def test_surge_without_a_baseline_is_422():

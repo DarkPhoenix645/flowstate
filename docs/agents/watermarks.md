@@ -29,7 +29,7 @@ Broker auto-create is on (`KAFKA_AUTO_CREATE_TOPICS_ENABLE=true`). The image def
 
 4. Late rows. Drop them. Do not write a side output. Do not set allowed lateness. An append sink cannot revise a written row, and nothing reads a side output. Log `numRowsDroppedByWatermark` from query progress, on the state operator as above.
 
-5. Sink. Append parquet at `hdfs://namenode:9000/stream-sink/<job>/`. Checkpoint at `hdfs://namenode:9000/checkpoints/<job>/`.
+5. Sink. Append parquet at `hdfs://namenode:9000/stream-sink/<job>/`. Checkpoint at `hdfs://namenode:9000/checkpoints/<job>/`. Metro, bus, and aviation use this same rule.
    - Group by `location_ref.at.ward_id`, `provenance.status`, `scenario_id` (null stays null), and `event_type`. The count column is `activity_count`. `event_type` is a dimension. It is not cancel-rate logic. #29 can derive its ratio later.
    - Flatten the window struct to `window_start` and `window_end`.
    - Set `spark.sql.shuffle.partitions` to 4. Use a 30-second processing-time trigger for live runs. Use `availableNow` for replay and tests. Set `maxOffsetsPerTrigger` in the range 10,000 to 30,000.
