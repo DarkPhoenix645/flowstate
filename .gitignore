@@ -41,9 +41,14 @@ data/*
 # Local exploration
 .scratch/
 
-# Demo UI and the report draft. Stay ignored until feat/034.
+# Demo UI stays ignored until feat/034.
 frontend/
-report/
+# Report draft stays ignored until feat/038.
+# #26 commits the 1M timing CSV only.
+report/*
+!report/results/
+report/results/*
+!report/results/timings.csv
 
 # Spark / Hadoop local scratch
 metastore_db/
