@@ -234,6 +234,27 @@ class ConfigStore:
             )
         return out
 
+    def insert_benchmark(
+        self,
+        *,
+        run_id: str,
+        engine: str,
+        corpus_rows: int,
+        seed: int,
+        elapsed_seconds: float,
+    ) -> None:
+        with self._session() as conn:
+            with conn.transaction():
+                conn.execute(
+                    """
+                    INSERT INTO benchmark (
+                        run_id, engine, corpus_rows, seed, elapsed_seconds
+                    )
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (run_id, engine, corpus_rows, seed, elapsed_seconds),
+                )
+
     @contextmanager
     def _session(self):
         conn = _connect(self._url)

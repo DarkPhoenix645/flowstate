@@ -186,7 +186,8 @@ def get_job(name: str) -> JobSpec:
 
 def validate_job(kind: str, name: str, params: Any) -> JobSpec:
     spec = get_job(name)
-    if spec.kind != kind:
+    timed = kind == "benchmark" and "mapreduce" in spec.engines
+    if spec.kind != kind and not timed:
         raise ConfigValidationError(
             f"{name} is a {spec.kind} job, not {kind}"
         )

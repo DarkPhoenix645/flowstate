@@ -1,0 +1,9 @@
+run_id,job,engine,corpus_rows,seed,backend,elapsed_seconds,grain
+64bf93c8-6954-419a-ad14-94c648e61d30,demand_hotspots,spark,1000000,42,compose,12.127,"ward_id,hour_of_day,day_type"
+e617d8db-4126-49e8-bcc6-435f0957e2a3,cancellation_analysis,spark,1000000,42,compose,11.547,"ward_id,hour_of_day,day_type,vehicle_type"
+adf32e68-4437-4c0e-8ddb-a971fbc4d0ed,ridership_trends,spark,1000000,42,compose,13.106,day|month|station_peak
+aab3d581-57cf-4663-9155-07e806916f04,cross_modal,spark,1000000,42,compose,17.094,ridehail_metro:day|month;flights_ridehail:covered_day
+9b97b783-09f5-4f88-8dde-0905150b0c7e,demand_hotspots,mapreduce,1000000,42,compose,18.666,"ward_id,hour_of_day,day_type"
+3100d9a6-2138-4c9b-8132-15733cc592b2,cancellation_analysis,mapreduce,1000000,42,compose,20.451,"ward_id,hour_of_day,day_type,vehicle_type"
+ac7e6d88-5d26-40c5-9d74-bc90e0005b9f,ridership_trends,mapreduce,1000000,42,compose,19.673,day|month|station_peak
+2f97c529-a65e-49e0-9591-15932465f916,cross_modal,mapreduce,1000000,42,compose,20.941,ridehail_metro:day|month;flights_ridehail:covered_day

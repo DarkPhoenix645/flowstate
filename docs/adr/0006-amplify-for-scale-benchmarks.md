@@ -14,7 +14,7 @@ Scale the lake with `make amplify`. For **Bengaluru events**, `amplify.py` calls
 
 Keep calibrated hour-of-day mix, cancellation rates, and the calendar shape of the alignment window (ADR-0013). Take those from the real aggregate clocks (Namma Yatri daily metrics and the stitched hourly archive — ADR-0011), never from the rejected booking CSVs. Never overwrite source files. `N` is a thin copy of the window, not a handful of full source days.
 
-`benchmarks/runner.py` records timings in `benchmarks/results/timings.csv` (committed) for the report.
+`benchmarks/runner.py` records timings in `report/results/timings.csv` (committed) for the report.
 
 ## Consequences
 

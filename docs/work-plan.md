@@ -99,7 +99,7 @@ Measured size for a canonical ride-event parquet (Snappy, 1M synthetic rows): ab
 
 The map does not need 100M events. Draw a live or replayed envelope at human time.
 
-Done when: `/lake/rides_amplified/` exists at 1M and Hive `rollup_conservation` has that seed. The 10M / 100M rows are either on disk or recorded as a GCP run in `benchmarks/results/timings.csv`.
+Done when: `/lake/rides_amplified/` exists at 1M and Hive `rollup_conservation` has that seed. The 10M / 100M rows are either on disk or recorded as a GCP run in `report/results/timings.csv`.
 
 ### 6. Producer and speed layer — #39, then #22 / #29 / #30
 

@@ -45,10 +45,12 @@ def start_run(
             f"engine {engine} is not available for {spec.name}"
         )
     backend = require_backend(backends, str(backend_name))
-    if spec.kind == "analytics":
+    if spec.kind == "analytics" or kind == "benchmark":
         params = _corpus_identity(params)
     params = dict(params)
     params["engine"] = engine
+    if kind == "benchmark":
+        params["benchmark"] = True
     active = configs.active()
     resample = active.get("resample_config")
     if resample is None:
@@ -65,7 +67,7 @@ def start_run(
     _insert(
         runs,
         run_id=run_id,
-        kind=spec.kind,
+        kind="benchmark" if kind == "benchmark" else spec.kind,
         job=spec.name,
         params=params,
         snapshot=snapshot,
