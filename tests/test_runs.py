@@ -353,4 +353,8 @@ def test_jobs_lists_the_registry_without_a_database():
         "active_rides",
         "cancel_rate",
         "surge",
+        "metro_activity",
+        "bus_activity",
+        "aviation_activity",
+        "scenario_effect",
     }

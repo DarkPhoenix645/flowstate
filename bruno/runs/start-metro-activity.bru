@@ -1,0 +1,32 @@
+meta {
+  name: Start metro activity
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/runs
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "kind": "stream",
+    "job": "metro_activity",
+    "params": {
+      "trigger": "replay",
+      "reset": false,
+      "max_offsets": 20000
+    }
+  }
+}
+
+docs {
+  Metro archive. bus_activity and aviation_activity use the same body
+  with that job name. trigger replay uses availableNow.
+}

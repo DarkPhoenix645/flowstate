@@ -211,6 +211,7 @@ _ANALYTICS_DDL = {
         "analytics_ridehail_metro.sql",
         "analytics_flights_ridehail.sql",
     ),
+    "scenario_effect": ("analytics_scenario_effect.sql",),
 }
 
 
@@ -219,7 +220,15 @@ def _spark_job(
 ) -> tuple[str, str]:
     script = "/opt/src/" + spec.entrypoint.replace(".", "/") + ".py"
     body: dict[str, Any] = {"op": "spark_submit", "script": script}
-    if spec.name != "hdfs_probe":
+    if spec.name == "scenario_effect":
+        replay = params.get("replay_run_id")
+        if not replay:
+            raise RuntimeError("scenario_effect needs replay_run_id")
+        body["args"] = [
+            *_analytics_args(params),
+            f"--replay-run-id={replay}",
+        ]
+    elif spec.name != "hdfs_probe":
         body["args"] = _analytics_args(params)
     logs = [_post(runner_url, body)]
     for name in _ANALYTICS_DDL.get(spec.name, ()):
@@ -320,9 +329,22 @@ _STREAM_SINK = {
     "active_rides": "active_rides",
     "cancel_rate": "cancel_rate",
     "surge": "surge",
+    "metro_activity": "metro_activity",
+    "bus_activity": "bus_activity",
+    "aviation_activity": "aviation_activity",
+}
+_STREAM_TOPICS = {
+    "active_rides": ("flowstate.ridehail.activity.v1",),
+    "cancel_rate": ("flowstate.ridehail.activity.v1",),
+    "surge": ("flowstate.ridehail.activity.v1",),
+    "metro_activity": ("flowstate.metro.station_hour.v1",),
+    "bus_activity": ("flowstate.bus.scheduled_stop.v1",),
+    "aviation_activity": (
+        "flowstate.aviation.arrival.v1",
+        "flowstate.aviation.departure.v1",
+    ),
 }
 _KAFKA_PACKAGES = "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6"
-_RIDEHAIL_TOPIC = "flowstate.ridehail.activity.v1"
 
 
 def _stream_job(
@@ -337,12 +359,15 @@ def _stream_job(
     if params.get("reset"):
         _post(runner_url, {"op": "hdfs_rm", "dest": sink})
         _post(runner_url, {"op": "hdfs_rm", "dest": checkpoint})
-        _reset_topic(_RIDEHAIL_TOPIC)
+        for topic in _STREAM_TOPICS[spec.name]:
+            _reset_topic(topic)
+    topics = ",".join(_STREAM_TOPICS[spec.name])
     script = "/opt/src/" + spec.entrypoint.replace(".", "/") + ".py"
     args = [
         f"--trigger={params.get('trigger') or 'replay'}",
         f"--max-offsets={int(params.get('max_offsets') or 20000)}",
         "--kafka=kafka:9092",
+        f"--topics={topics}",
         f"--sink=hdfs://namenode:9000{sink}",
         f"--checkpoint=hdfs://namenode:9000{checkpoint}",
     ]

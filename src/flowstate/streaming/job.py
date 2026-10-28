@@ -55,7 +55,7 @@ def events(spark: SparkSession, args: dict[str, str]) -> DataFrame:
     raw = (
         spark.readStream.format("kafka")
         .option("kafka.bootstrap.servers", args["kafka"])
-        .option("subscribe", RIDEHAIL)
+        .option("subscribe", args.get("topics") or RIDEHAIL)
         .option("startingOffsets", "earliest")
         .option("maxOffsetsPerTrigger", int(args["max-offsets"]))
         .option("failOnDataLoss", "false")
@@ -66,11 +66,20 @@ def events(spark: SparkSession, args: dict[str, str]) -> DataFrame:
     )
     return parsed.select(
         F.to_timestamp(F.col("e.event_time")).alias("event_time"),
+        F.col("e.run_id").alias("source_run_id"),
         F.col("e.location_ref.at.ward_id").alias("ward_id"),
+        F.col("e.location_ref.at.station_id").alias("station_id"),
+        F.col("e.location_ref.at.stop_id").alias("stop_id"),
+        F.col("e.location_ref.at.airport").alias("airport"),
+        F.col("e.direction").alias("direction"),
         F.col("e.provenance.status").alias("provenance_status"),
         F.col("e.scenario_id").alias("scenario_id"),
         F.col("e.event_type").alias("event_type"),
         F.col("e.provenance.evidence_grade").alias("evidence_grade"),
+        F.col("e.entries_count").alias("entries_count"),
+        F.col("e.exits_count").alias("exits_count"),
+        F.col("e.ridership.boardings").alias("boardings"),
+        F.col("e.ridership.alightings").alias("alightings"),
     )
 
 

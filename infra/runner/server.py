@@ -32,6 +32,12 @@ RM_ALLOWED = {
     "/checkpoints/active_rides",
     "/checkpoints/cancel_rate",
     "/checkpoints/surge",
+    "/stream-sink/metro_activity",
+    "/stream-sink/bus_activity",
+    "/stream-sink/aviation_activity",
+    "/checkpoints/metro_activity",
+    "/checkpoints/bus_activity",
+    "/checkpoints/aviation_activity",
 }
 HIVE_URL = "jdbc:hive2://hiveserver2:10000"
 _APP_ID = re.compile(r"application_\d+_\d+")
@@ -86,7 +92,8 @@ class Handler(BaseHTTPRequestHandler):
             env=env,
             check=False,
         )
-        log = (completed.stdout + completed.stderr)[-4000:]
+        # Stdout last, so a one-line failure stays when stderr is long.
+        log = (completed.stderr + completed.stdout)[-4000:]
         code = 200 if completed.returncode == 0 else 500
         self._send(code, {"ok": completed.returncode == 0, "log": log})
 
@@ -274,7 +281,7 @@ def _checked_arg(item: object) -> str:
 
 
 _ARG_CHARS = set(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:/=-"
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:/=-,"
 )
 
 

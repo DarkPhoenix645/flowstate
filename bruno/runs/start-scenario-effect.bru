@@ -1,0 +1,30 @@
+meta {
+  name: Start scenario effect
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/runs
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "kind": "analytics",
+    "job": "scenario_effect",
+    "params": {
+      "replay_run_id": "replace-with-replay-run-id"
+    }
+  }
+}
+
+docs {
+  Q6. The replay run must already have one fork in the stream archive.
+  A replay with no fork fails and writes no result table.
+}
