@@ -176,7 +176,7 @@ def _argv(body: object) -> list[str]:
     op = body.get("op")
     if op == "spark_submit":
         script = _under(str(body.get("script")), SRC, ".py")
-        extra = [_spark_arg(item) for item in body.get("args") or []]
+        extra = [_checked_arg(item) for item in body.get("args") or []]
         return [
             SPARK_SUBMIT,
             "--master",
@@ -204,7 +204,7 @@ def _argv(body: object) -> list[str]:
         main = str(body.get("main") or "")
         if not main.replace(".", "").replace("_", "").isalnum():
             raise ValueError("main class is not a name")
-        extra = [_spark_arg(item) for item in body.get("args") or []]
+        extra = [_checked_arg(item) for item in body.get("args") or []]
         return [YARN, "jar", str(jar), main, *extra]
     raise ValueError("op is not allowed")
 
@@ -221,7 +221,7 @@ def _under(raw: str, root: Path, suffix: str) -> Path:
     return resolved
 
 
-def _spark_arg(item: object) -> str:
+def _checked_arg(item: object) -> str:
     if not isinstance(item, str):
         raise ValueError("arg must be a string")
     if item.startswith("--"):
